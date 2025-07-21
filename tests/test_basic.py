@@ -34,8 +34,8 @@ def test_integration_marker() -> None:
     assert True
 
 
-def test_sample_fixtures(sample_user_id: str, sample_image_data: bytes) -> None:
+def test_sample_fixtures(mock_user_id: str, sample_image_data: bytes) -> None:
     """Test that fixtures are working."""
-    assert sample_user_id == "test-user@example.com"
+    assert mock_user_id == "test-user-123"
     assert isinstance(sample_image_data, bytes)
     assert len(sample_image_data) > 0
