@@ -3,7 +3,8 @@ Basic tests to verify test environment setup.
 """
 
 import pytest
-from src.imgstream import __version__, __description__
+
+from src.imgstream import __description__, __version__
 
 
 def test_version() -> None:
