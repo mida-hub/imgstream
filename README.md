@@ -45,18 +45,21 @@ imgstream is a web application for managing personal photo collections with feat
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd imgstream
 ```
 
 2. Set up development environment:
+
 ```bash
 make dev-setup
 # This will install dependencies, create .env file, and set up pre-commit hooks
 ```
 
 3. Edit environment variables (optional):
+
 ```bash
 # Edit .env file with your specific configuration
 vim .env
@@ -160,6 +163,7 @@ uv run pytest -m e2e
 ### Infrastructure Setup
 
 1. Configure Terraform:
+
 ```bash
 cd terraform
 terraform init
@@ -168,6 +172,7 @@ terraform apply
 ```
 
 2. Deploy application:
+
 ```bash
 # Build and push Docker image
 make docker-build
