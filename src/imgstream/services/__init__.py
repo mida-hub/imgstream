@@ -7,3 +7,11 @@ This module contains all service classes that handle business logic:
 - ImageProcessor: Image processing and thumbnail generation
 - MetadataService: DuckDB metadata management
 """
+
+from .auth import CloudIAPAuthService, UserInfo, get_auth_service
+
+__all__ = [
+    "CloudIAPAuthService",
+    "UserInfo", 
+    "get_auth_service"
+]
