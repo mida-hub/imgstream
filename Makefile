@@ -10,6 +10,15 @@ install: ## Install production dependencies
 install-dev: ## Install all dependencies including development tools
 	uv sync
 
+setup-env: ## Set up environment file from example
+	@if [ ! -f .env ]; then \
+		cp .env.example .env; \
+		echo "Created .env file from .env.example"; \
+		echo "Please edit .env file with your configuration"; \
+	else \
+		echo ".env file already exists"; \
+	fi
+
 test: ## Run tests
 	uv run pytest
 
@@ -52,8 +61,31 @@ pre-commit-install: ## Install pre-commit hooks
 pre-commit: ## Run pre-commit on all files
 	uv run pre-commit run --all-files
 
-docker-build: ## Build Docker image
+dev-setup: install-dev setup-env pre-commit-install ## Complete development environment setup
+	@echo "Development environment setup complete!"
+	@echo "You can now run 'make run' to start the application"
+
+docker-build: ## Build production Docker image
 	docker build -t imgstream:latest .
+
+docker-build-dev: ## Build development Docker image
+	docker build -f Dockerfile.dev -t imgstream:dev .
 
 docker-run: ## Run Docker container
 	docker run -p 8080:8080 imgstream:latest
+
+docker-run-dev: ## Run development Docker container with hot reload
+	docker run -p 8501:8501 -v $(PWD)/src:/app/src imgstream:dev
+
+docker-compose-up: ## Start services with docker compose
+	docker compose up --build
+
+docker-compose-dev: ## Start development services with docker compose
+	docker compose --profile dev up --build
+
+docker-compose-down: ## Stop docker compose services
+	docker compose down
+
+docker-clean: ## Clean up Docker images and containers
+	docker system prune -f
+	docker image prune -f

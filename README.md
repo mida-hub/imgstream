@@ -50,14 +50,16 @@ git clone <repository-url>
 cd imgstream
 ```
 
-2. Install dependencies:
+2. Set up development environment:
 ```bash
-make install-dev
+make dev-setup
+# This will install dependencies, create .env file, and set up pre-commit hooks
 ```
 
-3. Install pre-commit hooks:
+3. Edit environment variables (optional):
 ```bash
-make pre-commit-install
+# Edit .env file with your specific configuration
+vim .env
 ```
 
 ### Development Commands
@@ -86,6 +88,15 @@ make type-check
 
 # Clean temporary files
 make clean
+
+# Docker commands
+make docker-build          # Build production image
+make docker-build-dev      # Build development image
+make docker-run            # Run production container
+make docker-run-dev        # Run development container
+make docker-compose-up     # Start with docker compose
+make docker-compose-dev    # Start development environment
+make docker-compose-down   # Stop docker compose services
 ```
 
 ### Running the Application

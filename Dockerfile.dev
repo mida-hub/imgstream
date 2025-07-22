@@ -1,0 +1,36 @@
+# Development Dockerfile with hot reload support
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    libheif1 \
+    libheif-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files
+COPY pyproject.toml uv.lock ./
+
+# Install all dependencies including dev dependencies
+RUN uv sync --frozen
+
+# Set environment variables
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app/src"
+ENV PYTHONUNBUFFERED=1
+ENV STREAMLIT_SERVER_PORT=8501
+ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
+ENV STREAMLIT_SERVER_RUN_ON_SAVE=true
+
+# Expose port
+EXPOSE 8501
+
+# Run the application with hot reload
+CMD ["streamlit", "run", "src/imgstream/main.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.runOnSave=true"]
