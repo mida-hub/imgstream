@@ -10,7 +10,7 @@ This module contains all service classes that handle business logic:
 
 from .auth import CloudIAPAuthService, UserInfo, get_auth_service
 from .image_processor import ImageProcessingError, ImageProcessor, UnsupportedFormatError, get_image_processor
-from .storage import StorageError, StorageService, get_storage_service
+from .storage import StorageError, StorageService, UploadProgress, get_storage_service
 
 __all__ = [
     "CloudIAPAuthService",
@@ -22,5 +22,6 @@ __all__ = [
     "UnsupportedFormatError",
     "StorageError",
     "StorageService",
+    "UploadProgress",
     "get_storage_service",
 ]

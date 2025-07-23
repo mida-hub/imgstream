@@ -107,6 +107,11 @@ class TestStorageService:
         
         mock_client.bucket.return_value = mock_bucket
         mock_bucket.blob.return_value = mock_blob
+        # First call returns False (file doesn't exist), second call returns True (after upload)
+        mock_blob.exists.side_effect = [False, True]
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
         mock_client_class.return_value = mock_client
         
         service = StorageService()
@@ -114,7 +119,11 @@ class TestStorageService:
         file_data = b'fake image data'
         result = service.upload_original_photo('user123', file_data, 'photo.jpg')
         
-        assert result == 'photos/user123/original/photo.jpg'
+        assert result['gcs_path'] == 'photos/user123/original/photo.jpg'
+        assert result['file_size'] == len(file_data)
+        assert result['content_type'] == 'image/jpeg'
+        assert result['was_overwrite'] is False
+        
         mock_bucket.blob.assert_called_once_with('photos/user123/original/photo.jpg')
         mock_blob.upload_from_string.assert_called_once_with(
             file_data,
@@ -346,6 +355,164 @@ class TestStorageService:
 class TestStorageServiceGlobal:
     """Test cases for global storage service functions."""
 
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_original_photo_with_progress(self, mock_client_class):
+        """Test original photo upload with progress callback."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+        
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        # First call returns False (file doesn't exist), second call returns True (after upload)
+        mock_blob.exists.side_effect = [False, True]
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_client_class.return_value = mock_client
+        
+        service = StorageService()
+        
+        # Track progress calls
+        progress_calls = []
+        def progress_callback(current, total, message):
+            progress_calls.append((current, total, message))
+        
+        file_data = b'fake image data'
+        result = service.upload_original_photo('user123', file_data, 'photo.jpg', progress_callback)
+        
+        assert result['gcs_path'] == 'photos/user123/original/photo.jpg'
+        assert len(progress_calls) == 2  # Start and completion
+        assert progress_calls[0] == (0, len(file_data), "Starting upload...")
+        assert progress_calls[1] == (len(file_data), len(file_data), "Upload completed")
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_original_photo_overwrite(self, mock_client_class):
+        """Test original photo upload with file overwrite."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+        
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.return_value = True  # File already exists
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_client_class.return_value = mock_client
+        
+        service = StorageService()
+        
+        file_data = b'fake image data'
+        result = service.upload_original_photo('user123', file_data, 'photo.jpg')
+        
+        assert result['was_overwrite'] is True
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_multiple_photos_success(self, mock_client_class):
+        """Test successful batch photo upload."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+        
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        # Each photo: first call returns False (file doesn't exist), second call returns True (after upload)
+        mock_blob.exists.side_effect = [False, True, False, True]
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_client_class.return_value = mock_client
+        
+        service = StorageService()
+        
+        photos = [
+            (b'image data 1', 'photo1.jpg'),
+            (b'image data 2', 'photo2.jpg'),
+        ]
+        
+        # Track progress calls
+        progress_calls = []
+        def progress_callback(current, total, message):
+            progress_calls.append((current, total, message))
+        
+        results = service.upload_multiple_photos('user123', photos, progress_callback)
+        
+        assert len(results) == 2
+        assert all(r['success'] for r in results)
+        assert results[0]['filename'] == 'photo1.jpg'
+        assert results[1]['filename'] == 'photo2.jpg'
+        
+        # Check progress tracking
+        assert len(progress_calls) == 3  # 2 individual + 1 completion
+        assert progress_calls[-1][0] == 2  # Final progress
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_multiple_photos_partial_failure(self, mock_client_class):
+        """Test batch photo upload with partial failures."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+        
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        # First photo: exists check returns False, then True after upload
+        # Second photo: exists check returns False, then True (but upload will fail)
+        mock_blob.exists.side_effect = [False, True, False, True]
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        
+        # Make second upload fail by checking the blob path
+        def upload_side_effect(data, content_type=None):
+            # Get the current blob path from the mock
+            current_path = mock_bucket.blob.call_args[0][0] if mock_bucket.blob.call_args else ""
+            if 'photo2.jpg' in current_path:
+                raise GoogleCloudError("Upload failed")
+        mock_blob.upload_from_string.side_effect = upload_side_effect
+        mock_client_class.return_value = mock_client
+        
+        service = StorageService()
+        
+        photos = [
+            (b'image data 1', 'photo1.jpg'),
+            (b'image data 2', 'photo2.jpg'),
+        ]
+        
+        results = service.upload_multiple_photos('user123', photos)
+        
+        assert len(results) == 2
+        assert results[0]['success'] is True
+        assert results[1]['success'] is False
+        assert 'error' in results[1]
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_get_upload_url_success(self, mock_client_class):
+        """Test successful upload URL generation."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+        
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.generate_signed_url.return_value = 'https://upload-url.example.com'
+        mock_client_class.return_value = mock_client
+        
+        service = StorageService()
+        
+        result = service.get_upload_url('user123', 'photo.jpg', expiration=1800)
+        
+        assert result == 'https://upload-url.example.com'
+        mock_blob.generate_signed_url.assert_called_once()
+        args, kwargs = mock_blob.generate_signed_url.call_args
+        assert kwargs['method'] == 'PUT'
+        assert kwargs['content_type'] == 'image/jpeg'
+
     @patch('src.imgstream.services.storage._storage_service', None)
     @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
     @patch('src.imgstream.services.storage.storage.Client')
@@ -361,3 +528,59 @@ class TestStorageServiceGlobal:
         # Should return the same instance
         service2 = get_storage_service()
         assert service is service2
+
+
+class TestUploadProgress:
+    """Test cases for UploadProgress class."""
+
+    def test_upload_progress_initialization(self):
+        """Test UploadProgress initialization."""
+        from src.imgstream.services.storage import UploadProgress
+        
+        progress = UploadProgress(1000, "test.jpg")
+        
+        assert progress.total_bytes == 1000
+        assert progress.uploaded_bytes == 0
+        assert progress.filename == "test.jpg"
+        assert progress.status == "pending"
+        assert progress.progress_percentage == 0.0
+
+    def test_upload_progress_update(self):
+        """Test UploadProgress update functionality."""
+        from src.imgstream.services.storage import UploadProgress
+        
+        progress = UploadProgress(1000, "test.jpg")
+        progress.update(500, "uploading")
+        
+        assert progress.uploaded_bytes == 500
+        assert progress.status == "uploading"
+        assert progress.progress_percentage == 50.0
+
+    def test_upload_progress_to_dict(self):
+        """Test UploadProgress dictionary conversion."""
+        from src.imgstream.services.storage import UploadProgress
+        
+        progress = UploadProgress(1000, "test.jpg")
+        progress.update(750, "uploading")
+        
+        result = progress.to_dict()
+        
+        assert result['filename'] == "test.jpg"
+        assert result['total_bytes'] == 1000
+        assert result['uploaded_bytes'] == 750
+        assert result['progress_percentage'] == 75.0
+        assert result['status'] == "uploading"
+        assert 'elapsed_time' in result
+        assert 'upload_speed' in result
+
+    def test_upload_progress_speed_calculation(self):
+        """Test upload speed calculation."""
+        from src.imgstream.services.storage import UploadProgress
+        import time
+        
+        progress = UploadProgress(1000, "test.jpg")
+        time.sleep(0.1)  # Small delay to ensure elapsed time > 0
+        progress.update(500, "uploading")
+        
+        speed = progress.upload_speed
+        assert speed > 0  # Should have some upload speed

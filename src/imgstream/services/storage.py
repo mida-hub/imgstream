@@ -4,6 +4,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Callable, Optional
 
 from google.cloud import storage  # type: ignore[attr-defined]
 from google.cloud.exceptions import GoogleCloudError, NotFound
@@ -14,6 +15,54 @@ logger = logging.getLogger(__name__)
 class StorageError(Exception):
     """Raised when storage operations fail."""
     pass
+
+
+class UploadProgress:
+    """Helper class for tracking upload progress."""
+
+    def __init__(self, total_bytes: int, filename: str = ""):
+        self.total_bytes = total_bytes
+        self.uploaded_bytes = 0
+        self.filename = filename
+        self.start_time = datetime.now()
+        self.status = "pending"
+
+    def update(self, uploaded_bytes: int, status: str = "uploading") -> None:
+        """Update progress information."""
+        self.uploaded_bytes = uploaded_bytes
+        self.status = status
+
+    @property
+    def progress_percentage(self) -> float:
+        """Get progress as percentage."""
+        if self.total_bytes == 0:
+            return 0.0
+        return (self.uploaded_bytes / self.total_bytes) * 100
+
+    @property
+    def elapsed_time(self) -> timedelta:
+        """Get elapsed time since start."""
+        return datetime.now() - self.start_time
+
+    @property
+    def upload_speed(self) -> float:
+        """Get upload speed in bytes per second."""
+        elapsed_seconds = self.elapsed_time.total_seconds()
+        if elapsed_seconds == 0:
+            return 0.0
+        return self.uploaded_bytes / elapsed_seconds
+
+    def to_dict(self) -> dict:
+        """Convert progress to dictionary."""
+        return {
+            'filename': self.filename,
+            'total_bytes': self.total_bytes,
+            'uploaded_bytes': self.uploaded_bytes,
+            'progress_percentage': self.progress_percentage,
+            'status': self.status,
+            'elapsed_time': self.elapsed_time.total_seconds(),
+            'upload_speed': self.upload_speed
+        }
 
 
 class StorageService:
@@ -80,17 +129,24 @@ class StorageService:
         thumbnail_filename = f"{original_path.stem}_thumb.jpg"
         return f"photos/{user_id}/thumbs/{thumbnail_filename}"
 
-    def upload_original_photo(self, user_id: str, file_data: bytes, filename: str) -> str:
+    def upload_original_photo(
+        self,
+        user_id: str,
+        file_data: bytes,
+        filename: str,
+        progress_callback: Optional[Callable[[int, int, str], None]] = None
+    ) -> dict:
         """
-        Upload original photo to GCS.
+        Upload original photo to GCS with progress tracking.
 
         Args:
             user_id: User identifier
             file_data: Raw image data
             filename: Original filename
+            progress_callback: Optional callback function for progress updates
 
         Returns:
-            str: GCS object path
+            dict: Upload result with metadata
 
         Raises:
             StorageError: If upload fails
@@ -99,13 +155,30 @@ class StorageService:
             gcs_path = self._get_user_original_path(user_id, filename)
             blob = self.bucket.blob(gcs_path)
 
-            # Set metadata
+            # Check if file already exists
+            file_exists = blob.exists()
+            if file_exists:
+                logger.warning(f"File already exists, will overwrite: {gcs_path}")
+
+            # Set comprehensive metadata
+            upload_timestamp = datetime.now().isoformat()
             blob.metadata = {
                 'user_id': user_id,
                 'original_filename': filename,
-                'uploaded_at': datetime.now().isoformat(),
-                'content_type': self._get_content_type(filename)
+                'uploaded_at': upload_timestamp,
+                'content_type': self._get_content_type(filename),
+                'file_size': str(len(file_data)),
+                'storage_class': self.storage_class,
+                'region': self.region,
+                'upload_type': 'original_photo'
             }
+
+            # Set storage class explicitly
+            blob.storage_class = self.storage_class
+
+            # Progress tracking
+            if progress_callback:
+                progress_callback(0, len(file_data), "Starting upload...")
 
             # Upload with Standard storage class
             blob.upload_from_string(
@@ -113,12 +186,41 @@ class StorageService:
                 content_type=self._get_content_type(filename)
             )
 
-            logger.info(f"Uploaded original photo: {gcs_path} ({len(file_data)} bytes)")
-            return gcs_path
+            if progress_callback:
+                progress_callback(len(file_data), len(file_data), "Upload completed")
+
+            # Verify upload
+            if not blob.exists():
+                raise StorageError(f"Upload verification failed for '{filename}'")
+
+            # Get final blob info
+            blob.reload()
+
+            upload_result = {
+                'gcs_path': gcs_path,
+                'file_size': len(file_data),
+                'content_type': self._get_content_type(filename),
+                'storage_class': blob.storage_class,
+                'uploaded_at': upload_timestamp,
+                'etag': blob.etag,
+                'generation': blob.generation,
+                'was_overwrite': file_exists
+            }
+
+            logger.info(
+                f"Uploaded original photo: {gcs_path} "
+                f"({len(file_data)} bytes, {blob.storage_class} class)"
+            )
+
+            return upload_result
 
         except GoogleCloudError as e:
+            if progress_callback:
+                progress_callback(0, len(file_data), f"Upload failed: {e}")
             raise StorageError(f"Failed to upload original photo '{filename}': {e}") from e
         except Exception as e:
+            if progress_callback:
+                progress_callback(0, len(file_data), f"Unexpected error: {e}")
             raise StorageError(f"Unexpected error uploading '{filename}': {e}") from e
 
     def upload_thumbnail(self, user_id: str, thumbnail_data: bytes, original_filename: str) -> str:
@@ -301,6 +403,98 @@ class StorageService:
             '.heif': 'image/heif',
         }
         return content_types.get(extension, 'application/octet-stream')
+
+    def upload_multiple_photos(
+        self,
+        user_id: str,
+        photos: list[tuple[bytes, str]],
+        progress_callback: Optional[Callable[[int, int, str], None]] = None
+    ) -> list[dict]:
+        """
+        Upload multiple photos in batch.
+
+        Args:
+            user_id: User identifier
+            photos: List of (file_data, filename) tuples
+            progress_callback: Optional callback for overall progress
+
+        Returns:
+            list[dict]: List of upload results
+
+        Raises:
+            StorageError: If batch upload fails
+        """
+        results = []
+        total_files = len(photos)
+
+        try:
+            for i, (file_data, filename) in enumerate(photos):
+                if progress_callback:
+                    progress_callback(i, total_files, f"Uploading {filename}...")
+
+                try:
+                    result = self.upload_original_photo(user_id, file_data, filename)
+                    results.append({
+                        'success': True,
+                        'filename': filename,
+                        'result': result
+                    })
+                except StorageError as e:
+                    logger.error(f"Failed to upload {filename}: {e}")
+                    results.append({
+                        'success': False,
+                        'filename': filename,
+                        'error': str(e)
+                    })
+
+            if progress_callback:
+                successful = sum(1 for r in results if r['success'])
+                progress_callback(
+                    total_files,
+                    total_files,
+                    f"Batch upload completed: {successful}/{total_files} successful"
+                )
+
+            logger.info(f"Batch upload completed for user {user_id}: {len(results)} files processed")
+            return results
+
+        except Exception as e:
+            raise StorageError(f"Batch upload failed: {e}") from e
+
+    def get_upload_url(self, user_id: str, filename: str, expiration: int = 3600) -> str:
+        """
+        Generate a signed URL for direct upload to GCS.
+
+        Args:
+            user_id: User identifier
+            filename: Target filename
+            expiration: URL expiration time in seconds
+
+        Returns:
+            str: Signed upload URL
+
+        Raises:
+            StorageError: If URL generation fails
+        """
+        try:
+            gcs_path = self._get_user_original_path(user_id, filename)
+            blob = self.bucket.blob(gcs_path)
+
+            # Generate signed URL for PUT operation
+            expiration_time = datetime.now() + timedelta(seconds=expiration)
+            upload_url: str = blob.generate_signed_url(
+                expiration=expiration_time,
+                method='PUT',
+                content_type=self._get_content_type(filename)
+            )
+
+            logger.debug(f"Generated upload URL for: {gcs_path} (expires in {expiration}s)")
+            return upload_url
+
+        except GoogleCloudError as e:
+            raise StorageError(f"Failed to generate upload URL for '{filename}': {e}") from e
+        except Exception as e:
+            raise StorageError(f"Unexpected error generating upload URL: {e}") from e
 
     def check_bucket_exists(self) -> bool:
         """
