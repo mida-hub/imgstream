@@ -972,3 +972,367 @@ class TestSignedUrlGeneration:
         
         with pytest.raises(StorageError, match="Access denied"):
             service.get_secure_photo_url("user123", gcs_path, 3600)
+
+class TestStorageServiceErrorHandling:
+    """Test cases for comprehensive error handling in storage service."""
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_original_photo_gcs_error(self, mock_client_class):
+        """Test original photo upload with GCS error."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.return_value = False
+        mock_blob.upload_from_string.side_effect = GoogleCloudError("GCS service unavailable")
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        with pytest.raises(StorageError, match="Failed to upload original photo"):
+            service.upload_original_photo('user123', b'test data', 'photo.jpg')
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_thumbnail_gcs_error(self, mock_client_class):
+        """Test thumbnail upload with GCS error."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.return_value = False
+        mock_blob.upload_from_string.side_effect = GoogleCloudError("Upload failed")
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        with pytest.raises(StorageError, match="Failed to upload thumbnail"):
+            service.upload_thumbnail('user123', b'thumbnail data', 'photo.jpg')
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_download_file_gcs_error(self, mock_client_class):
+        """Test file download with GCS error."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.download_as_bytes.side_effect = GoogleCloudError("Download failed")
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        with pytest.raises(StorageError, match="Failed to download file"):
+            service.download_file('photos/user123/original/photo.jpg')
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_get_signed_url_gcs_error(self, mock_client_class):
+        """Test signed URL generation with GCS error."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.generate_signed_url.side_effect = GoogleCloudError("URL generation failed")
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        with pytest.raises(StorageError, match="Failed to generate signed URL"):
+            service.get_signed_url('photos/user123/original/photo.jpg')
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_delete_file_gcs_error(self, mock_client_class):
+        """Test file deletion with GCS error."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.return_value = True
+        mock_blob.delete.side_effect = GoogleCloudError("Delete failed")
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        with pytest.raises(StorageError, match="Failed to delete file"):
+            service.delete_file('photos/user123/original/photo.jpg')
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_list_user_files_gcs_error(self, mock_client_class):
+        """Test file listing with GCS error."""
+        mock_client = MagicMock()
+        mock_client.list_blobs.side_effect = GoogleCloudError("List failed")
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        with pytest.raises(StorageError, match="Failed to list files"):
+            service.list_user_files('user123')
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_check_bucket_exists_gcs_error(self, mock_client_class):
+        """Test bucket existence check with GCS error."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.reload.side_effect = GoogleCloudError("Bucket check failed")
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        # check_bucket_exists catches exceptions and returns False
+        result = service.check_bucket_exists()
+        assert result is False
+
+
+class TestStorageServiceEdgeCases:
+    """Test cases for edge cases and boundary conditions."""
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_empty_file(self, mock_client_class):
+        """Test uploading empty file."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.side_effect = [False, True]
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        # Empty file should still work
+        result = service.upload_original_photo('user123', b'', 'empty.jpg')
+        assert result['file_size'] == 0
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_large_filename(self, mock_client_class):
+        """Test uploading file with very long filename."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.side_effect = [False, True]
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        # Very long filename
+        long_filename = 'a' * 200 + '.jpg'
+        result = service.upload_original_photo('user123', b'test data', long_filename)
+        assert long_filename in result['gcs_path']
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_special_characters_filename(self, mock_client_class):
+        """Test uploading file with special characters in filename."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.side_effect = [False, True]
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        # Filename with special characters
+        special_filename = 'test-file_with@special#chars$.jpg'
+        result = service.upload_original_photo('user123', b'test data', special_filename)
+        assert special_filename in result['gcs_path']
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_get_content_type_edge_cases(self, mock_client_class):
+        """Test content type detection for edge cases."""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        # Test various file extensions
+        assert service._get_content_type('photo.jpg') == 'image/jpeg'
+        assert service._get_content_type('photo.jpeg') == 'image/jpeg'
+        assert service._get_content_type('photo.JPEG') == 'image/jpeg'
+        assert service._get_content_type('photo.heic') == 'image/heic'
+        assert service._get_content_type('photo.HEIC') == 'image/heic'
+        assert service._get_content_type('photo.png') == 'image/png'
+        assert service._get_content_type('photo.gif') == 'image/gif'
+        assert service._get_content_type('photo.webp') == 'image/webp'
+        assert service._get_content_type('photo.unknown') == 'application/octet-stream'
+        assert service._get_content_type('photo') == 'application/octet-stream'
+
+    def test_upload_progress_edge_cases(self):
+        """Test UploadProgress with edge cases."""
+        from src.imgstream.services.storage import UploadProgress
+
+        # Zero total bytes
+        progress = UploadProgress(0, "empty.jpg")
+        assert progress.progress_percentage == 0.0
+        progress.update(0, "completed")
+        assert progress.progress_percentage == 0.0
+
+        # Negative values (should be handled gracefully)
+        progress = UploadProgress(1000, "test.jpg")
+        progress.update(-100, "error")  # Negative uploaded bytes
+        assert progress.uploaded_bytes == -100
+        # Progress percentage should handle this gracefully
+        assert progress.progress_percentage >= 0.0
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_batch_operations_empty_list(self, mock_client_class):
+        """Test batch operations with empty lists."""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        # Empty photo list for batch upload
+        results = service.upload_multiple_photos('user123', [])
+        assert results == []
+
+        # Empty thumbnail list for batch upload
+        results = service.upload_multiple_thumbnails('user123', [])
+        assert results == []
+
+        # Empty photo requests for batch URLs
+        results = service.get_batch_photo_urls('user123', [])
+        assert results == []
+
+
+class TestStorageServiceIntegration:
+    """Integration tests for storage service functionality."""
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_complete_photo_workflow(self, mock_client_class):
+        """Test complete photo upload and access workflow."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        # Multiple exists calls for upload verification and URL generation
+        # Original upload: False, True; Thumbnail upload: False, True; URL generation: True, True
+        mock_blob.exists.side_effect = [False, True, False, True, True, True]
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_blob.size = 1024
+        mock_blob.content_type = 'image/jpeg'
+        mock_blob.generate_signed_url.return_value = 'https://signed-url.example.com'
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        # 1. Upload original photo
+        original_result = service.upload_original_photo('user123', b'original data', 'photo.jpg')
+        assert original_result['gcs_path'] == 'photos/user123/original/photo.jpg'
+
+        # 2. Upload thumbnail
+        thumbnail_result = service.upload_thumbnail('user123', b'thumb data', 'photo.jpg')
+        assert thumbnail_result['gcs_path'] == 'photos/user123/thumbs/photo_thumb.jpg'
+
+        # 3. Generate display URLs
+        original_url = service.get_photo_display_url('user123', 'photo.jpg', 'original')
+        thumbnail_url = service.get_photo_display_url('user123', 'photo.jpg', 'thumbnail')
+
+        assert original_url['signed_url'] == 'https://signed-url.example.com'
+        assert thumbnail_url['signed_url'] == 'https://signed-url.example.com'
+
+        # Verify all operations used correct paths
+        actual_calls = [call[0][0] for call in mock_bucket.blob.call_args_list]
+        
+        # Should contain calls for original and thumbnail paths
+        assert 'photos/user123/original/photo.jpg' in actual_calls
+        assert 'photos/user123/thumbs/photo_thumb.jpg' in actual_calls
+        
+        # Should have multiple calls (upload + URL generation)
+        assert len(actual_calls) >= 4
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_user_isolation_verification(self, mock_client_class):
+        """Test that user data isolation is properly enforced."""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        # Test path generation for different users
+        user1_original = service._get_user_original_path('user1', 'photo.jpg')
+        user2_original = service._get_user_original_path('user2', 'photo.jpg')
+        user1_thumbnail = service._get_user_thumbnail_path('user1', 'photo.jpg')
+        user2_thumbnail = service._get_user_thumbnail_path('user2', 'photo.jpg')
+
+        # Verify paths are user-specific
+        assert 'user1' in user1_original and 'user2' not in user1_original
+        assert 'user2' in user2_original and 'user1' not in user2_original
+        assert 'user1' in user1_thumbnail and 'user2' not in user1_thumbnail
+        assert 'user2' in user2_thumbnail and 'user1' not in user2_thumbnail
+
+        # Test access validation
+        assert service.validate_user_access('user1', user1_original) is True
+        assert service.validate_user_access('user1', user2_original) is False
+        assert service.validate_user_access('user2', user2_original) is True
+        assert service.validate_user_access('user2', user1_original) is False
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_concurrent_operations_simulation(self, mock_client_class):
+        """Test handling of concurrent-like operations."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.side_effect = [False, True] * 10  # Multiple operations
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        # Simulate multiple uploads for same user
+        results = []
+        for i in range(5):
+            result = service.upload_original_photo('user123', f'data{i}'.encode(), f'photo{i}.jpg')
+            results.append(result)
+
+        # All uploads should succeed
+        assert len(results) == 5
+        assert all('gcs_path' in result for result in results)
+        assert all('user123' in result['gcs_path'] for result in results)

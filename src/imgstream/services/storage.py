@@ -37,7 +37,9 @@ class UploadProgress:
         """Get progress as percentage."""
         if self.total_bytes == 0:
             return 0.0
-        return (self.uploaded_bytes / self.total_bytes) * 100
+        percentage = (self.uploaded_bytes / self.total_bytes) * 100
+        # Clamp to 0-100 range
+        return max(0.0, min(100.0, percentage))
 
     @property
     def elapsed_time(self) -> timedelta:
@@ -790,6 +792,12 @@ class StorageService:
             '.jpeg': 'image/jpeg',
             '.heic': 'image/heic',
             '.heif': 'image/heif',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.bmp': 'image/bmp',
+            '.tiff': 'image/tiff',
+            '.tif': 'image/tiff',
         }
         return content_types.get(extension, 'application/octet-stream')
 
