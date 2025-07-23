@@ -11,12 +11,12 @@
 ```mermaid
 graph TB
     User[ユーザー] --> IAP[Cloud IAP]
-    IAP --> CloudRun[Cloud Run<br/>Streamlitアプリ]
-    CloudRun --> GCS[Google Cloud Storage]
+    IAP --> CloudRun[Cloud Run<br/>Streamlitアプリ<br/>asia-northeast1]
+    CloudRun --> GCS[Google Cloud Storage<br/>asia-northeast1]
     CloudRun --> LocalDB[ローカルDuckDB<br/>/tmp/metadata.db]
     LocalDB --> GCSBackup[GCS DuckDBバックアップ<br/>dbs/user123/metadata.db]
     
-    subgraph "GCS構成"
+    subgraph "GCS構成 (asia-northeast1)"
         GCS --> Original[photos/user123/original/<br/>Standard → Coldline]
         GCS --> Thumbnails[photos/user123/thumbs/<br/>Standard]
         GCS --> DBFiles[dbs/user123/<br/>Standard]
@@ -26,14 +26,14 @@ graph TB
 ### 技術スタック
 
 - **フロントエンド**: Streamlit (Python)
-- **バックエンド**: Python (Cloud Run)
+- **バックエンド**: Python (Cloud Run, asia-northeast1)
 - **認証**: Google Cloud IAP
-- **ストレージ**: Google Cloud Storage
+- **ストレージ**: Google Cloud Storage (asia-northeast1)
 - **メタデータDB**: DuckDB
 - **画像処理**: Pillow, pillow-heif
 - **パッケージ管理**: uv
 - **インフラ管理**: Terraform
-- **デプロイ**: Cloud Run
+- **デプロイ**: Cloud Run (asia-northeast1)
 
 ## コンポーネントとインターフェース
 
@@ -358,10 +358,12 @@ logger.info("photo_uploaded",
    - 平均処理時間
    - アクティブユーザー数
 
-2. **インフラメトリクス**
+2. **インフラメトリクス (asia-northeast1)**
    - Cloud Runのメモリ/CPU使用率
    - GCSストレージ使用量
    - 無料枠使用状況
+   - リージョン間データ転送コスト
+   - レイテンシ（日本国内からのアクセス最適化）
 
 ### アラート設定
 
@@ -480,12 +482,43 @@ CMD ["streamlit", "run", "src/imgstream/main.py", "--server.port=8080", "--serve
 ### Terraform構成
 
 ```hcl
-# 主要リソース
-- Cloud Run サービス
-- GCS バケット（ライフサイクルポリシー付き）
-- Cloud IAP 設定
-- サービスアカウント
-- Container Registry / Artifact Registry
+# 主要リソース (asia-northeast1 リージョン)
+resource "google_cloud_run_service" "imgstream" {
+  name     = "imgstream"
+  location = "asia-northeast1"
+  
+  template {
+    spec {
+      containers {
+        image = "gcr.io/${var.project_id}/imgstream:latest"
+        env {
+          name  = "GCS_REGION"
+          value = "asia-northeast1"
+        }
+      }
+    }
+  }
+}
+
+resource "google_storage_bucket" "imgstream_photos" {
+  name     = "${var.project_id}-imgstream-photos"
+  location = "asia-northeast1"
+  
+  lifecycle_rule {
+    condition {
+      age = 30
+    }
+    action {
+      type          = "SetStorageClass"
+      storage_class = "COLDLINE"
+    }
+  }
+}
+
+# その他のリソース:
+# - Cloud IAP 設定
+# - サービスアカウント
+# - Container Registry / Artifact Registry
 ```
 
 ### CI/CD パイプライン (.github/workflows/deploy.yml)
