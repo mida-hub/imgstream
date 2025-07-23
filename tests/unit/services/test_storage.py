@@ -770,3 +770,205 @@ class TestThumbnailUpload:
         assert result['skipped'] is False
         assert result['was_duplicate'] is True
         mock_blob.upload_from_string.assert_called_once()
+
+class TestSignedUrlGeneration:
+    """Test cases for enhanced signed URL generation functionality."""
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_get_photo_display_url_original(self, mock_client_class):
+        """Test generating display URL for original photo."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.return_value = True
+        mock_blob.size = 2048
+        mock_blob.content_type = 'image/jpeg'
+        mock_blob.generate_signed_url.return_value = 'https://signed-url.example.com'
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        result = service.get_photo_display_url('user123', 'photo.jpg', 'original', 3600)
+
+        assert result['signed_url'] == 'https://signed-url.example.com'
+        assert result['photo_type'] == 'original'
+        assert result['filename'] == 'photo.jpg'
+        assert result['user_id'] == 'user123'
+        assert result['file_size'] == 2048
+        assert result['content_type'] == 'image/jpeg'
+        assert result['expiration_seconds'] == 3600
+        assert 'expires_at' in result
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_get_photo_display_url_thumbnail(self, mock_client_class):
+        """Test generating display URL for thumbnail."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.return_value = True
+        mock_blob.size = 512
+        mock_blob.content_type = 'image/jpeg'
+        mock_blob.generate_signed_url.return_value = 'https://signed-url-thumb.example.com'
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        result = service.get_photo_display_url('user123', 'photo.jpg', 'thumbnail')
+
+        assert result['signed_url'] == 'https://signed-url-thumb.example.com'
+        assert result['photo_type'] == 'thumbnail'
+        assert result['gcs_path'] == 'photos/user123/thumbs/photo_thumb.jpg'
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_get_photo_display_url_not_found(self, mock_client_class):
+        """Test generating display URL for non-existent photo."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.return_value = False
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        with pytest.raises(StorageError, match="Photo not found"):
+            service.get_photo_display_url('user123', 'nonexistent.jpg', 'original')
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_get_photo_display_url_invalid_type(self, mock_client_class):
+        """Test generating display URL with invalid photo type."""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        with pytest.raises(StorageError, match="Invalid photo_type"):
+            service.get_photo_display_url('user123', 'photo.jpg', 'invalid_type')
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_get_batch_photo_urls_success(self, mock_client_class):
+        """Test batch photo URL generation."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.return_value = True
+        mock_blob.size = 1024
+        mock_blob.content_type = 'image/jpeg'
+        mock_blob.generate_signed_url.return_value = 'https://signed-url.example.com'
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        photo_requests = [
+            {'filename': 'photo1.jpg', 'photo_type': 'thumbnail'},
+            {'filename': 'photo2.jpg', 'photo_type': 'original'},
+        ]
+
+        results = service.get_batch_photo_urls('user123', photo_requests, 1800)
+
+        assert len(results) == 2
+        assert all(r['success'] for r in results)
+        assert results[0]['filename'] == 'photo1.jpg'
+        assert results[1]['filename'] == 'photo2.jpg'
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_get_batch_photo_urls_partial_failure(self, mock_client_class):
+        """Test batch photo URL generation with partial failures."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        # First photo exists, second doesn't
+        mock_blob.exists.side_effect = [True, False]
+        mock_blob.size = 1024
+        mock_blob.content_type = 'image/jpeg'
+        mock_blob.generate_signed_url.return_value = 'https://signed-url.example.com'
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        photo_requests = [
+            {'filename': 'photo1.jpg'},
+            {'filename': 'nonexistent.jpg'},
+        ]
+
+        results = service.get_batch_photo_urls('user123', photo_requests)
+
+        assert len(results) == 2
+        assert results[0]['success'] is True
+        assert results[1]['success'] is False
+        assert 'error' in results[1]
+
+    def test_validate_user_access_valid(self):
+        """Test user access validation for valid path."""
+        service = StorageService()
+
+        # Valid user path
+        valid_path = "photos/user123/original/photo.jpg"
+        assert service.validate_user_access("user123", valid_path) is True
+
+    def test_validate_user_access_invalid(self):
+        """Test user access validation for invalid path."""
+        service = StorageService()
+
+        # Invalid user path (different user)
+        invalid_path = "photos/user456/original/photo.jpg"
+        assert service.validate_user_access("user123", invalid_path) is False
+
+        # Invalid path format
+        invalid_format = "invalid/path/photo.jpg"
+        assert service.validate_user_access("user123", invalid_format) is False
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_get_secure_photo_url_success(self, mock_client_class):
+        """Test secure photo URL generation with valid access."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.generate_signed_url.return_value = 'https://secure-url.example.com'
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        gcs_path = "photos/user123/original/photo.jpg"
+        result = service.get_secure_photo_url("user123", gcs_path, 3600)
+
+        assert result == 'https://secure-url.example.com'
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_get_secure_photo_url_access_denied(self, mock_client_class):
+        """Test secure photo URL generation with access denied."""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        # Try to access another user's photo
+        gcs_path = "photos/user456/original/photo.jpg"
+        
+        with pytest.raises(StorageError, match="Access denied"):
+            service.get_secure_photo_url("user123", gcs_path, 3600)

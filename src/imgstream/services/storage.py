@@ -534,6 +534,191 @@ class StorageService:
         except Exception as e:
             raise StorageError(f"Unexpected error generating signed URL: {e}") from e
 
+    def get_photo_display_url(
+        self,
+        user_id: str,
+        filename: str,
+        photo_type: str = "original",
+        expiration: int | None = None
+    ) -> dict:
+        """
+        Generate signed URL for photo display with user permission validation.
+
+        Args:
+            user_id: User identifier
+            filename: Original filename
+            photo_type: Type of photo ('original' or 'thumbnail')
+            expiration: URL expiration time in seconds
+
+        Returns:
+            dict: URL info with metadata
+
+        Raises:
+            StorageError: If URL generation fails
+        """
+        try:
+            # Validate photo type
+            if photo_type not in ["original", "thumbnail"]:
+                raise ValueError(f"Invalid photo_type: {photo_type}. Must be 'original' or 'thumbnail'")
+
+            # Get appropriate GCS path
+            if photo_type == "original":
+                gcs_path = self._get_user_original_path(user_id, filename)
+            else:
+                gcs_path = self._get_user_thumbnail_path(user_id, filename)
+
+            # Check if file exists
+            blob = self.bucket.blob(gcs_path)
+            if not blob.exists():
+                raise StorageError(f"Photo not found: {filename} ({photo_type})")
+
+            # Get file metadata
+            blob.reload()
+
+            # Generate signed URL
+            signed_url = self.get_signed_url(gcs_path, expiration)
+
+            # Calculate actual expiration time
+            exp_seconds = expiration or self.default_signed_url_expiration
+            expires_at = datetime.now() + timedelta(seconds=exp_seconds)
+
+            result = {
+                'signed_url': signed_url,
+                'gcs_path': gcs_path,
+                'photo_type': photo_type,
+                'filename': filename,
+                'user_id': user_id,
+                'file_size': blob.size,
+                'content_type': blob.content_type,
+                'expires_at': expires_at.isoformat(),
+                'expiration_seconds': exp_seconds
+            }
+
+            logger.info(f"Generated {photo_type} display URL for user {user_id}: {filename}")
+            return result
+
+        except ValueError as e:
+            raise StorageError(f"Invalid parameters: {e}") from e
+        except Exception as e:
+            raise StorageError(f"Failed to generate photo display URL: {e}") from e
+
+    def get_batch_photo_urls(
+        self,
+        user_id: str,
+        photo_requests: list[dict],
+        default_expiration: int | None = None
+    ) -> list[dict]:
+        """
+        Generate multiple signed URLs for batch photo access.
+
+        Args:
+            user_id: User identifier
+            photo_requests: List of photo request dicts with 'filename' and optional 'photo_type', 'expiration'
+            default_expiration: Default expiration for URLs without specific expiration
+
+        Returns:
+            list[dict]: List of URL results
+
+        Raises:
+            StorageError: If batch URL generation fails
+        """
+        results = []
+
+        try:
+            for request in photo_requests:
+                filename = request.get('filename')
+                if not filename:
+                    results.append({
+                        'success': False,
+                        'error': 'Missing filename',
+                        'filename': None
+                    })
+                    continue
+
+                photo_type = request.get('photo_type', 'thumbnail')
+                expiration = request.get('expiration', default_expiration)
+
+                try:
+                    url_info = self.get_photo_display_url(user_id, filename, photo_type, expiration)
+                    results.append({
+                        'success': True,
+                        'filename': filename,
+                        'url_info': url_info
+                    })
+                except StorageError as e:
+                    logger.warning(f"Failed to generate URL for {filename}: {e}")
+                    results.append({
+                        'success': False,
+                        'filename': filename,
+                        'error': str(e)
+                    })
+
+            successful = sum(1 for r in results if r['success'])
+            logger.info(f"Generated batch URLs for user {user_id}: {successful}/{len(results)} successful")
+
+            return results
+
+        except Exception as e:
+            raise StorageError(f"Batch URL generation failed: {e}") from e
+
+    def validate_user_access(self, user_id: str, gcs_path: str) -> bool:
+        """
+        Validate that a user has access to a specific GCS path.
+
+        Args:
+            user_id: User identifier
+            gcs_path: GCS object path to validate
+
+        Returns:
+            bool: True if user has access, False otherwise
+        """
+        try:
+            # Check if the path belongs to the user
+            expected_prefix = f"photos/{user_id}/"
+            if not gcs_path.startswith(expected_prefix):
+                logger.warning(f"Access denied: {gcs_path} does not belong to user {user_id}")
+                return False
+
+            # Additional validation could be added here
+            # (e.g., checking user permissions, file ownership, etc.)
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error validating user access: {e}")
+            return False
+
+    def get_secure_photo_url(
+        self,
+        user_id: str,
+        gcs_path: str,
+        expiration: int | None = None
+    ) -> str:
+        """
+        Generate signed URL with user access validation.
+
+        Args:
+            user_id: User identifier
+            gcs_path: GCS object path
+            expiration: URL expiration time in seconds
+
+        Returns:
+            str: Signed URL
+
+        Raises:
+            StorageError: If access is denied or URL generation fails
+        """
+        try:
+            # Validate user access
+            if not self.validate_user_access(user_id, gcs_path):
+                raise StorageError(f"Access denied to {gcs_path} for user {user_id}")
+
+            # Generate signed URL
+            return self.get_signed_url(gcs_path, expiration)
+
+        except Exception as e:
+            raise StorageError(f"Failed to generate secure URL: {e}") from e
+
     def delete_file(self, gcs_path: str) -> None:
         """
         Delete file from GCS.
