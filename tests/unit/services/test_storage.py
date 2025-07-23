@@ -163,6 +163,11 @@ class TestStorageService:
         
         mock_client.bucket.return_value = mock_bucket
         mock_bucket.blob.return_value = mock_blob
+        # First call returns False (doesn't exist), second call returns True (after upload)
+        mock_blob.exists.side_effect = [False, True]
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
         mock_client_class.return_value = mock_client
         
         service = StorageService()
@@ -170,7 +175,10 @@ class TestStorageService:
         thumbnail_data = b'fake thumbnail data'
         result = service.upload_thumbnail('user123', thumbnail_data, 'photo.jpg')
         
-        assert result == 'photos/user123/thumbs/photo_thumb.jpg'
+        assert result['gcs_path'] == 'photos/user123/thumbs/photo_thumb.jpg'
+        assert result['file_size'] == len(thumbnail_data)
+        assert result['content_type'] == 'image/jpeg'
+        assert result['was_overwrite'] is False
         mock_bucket.blob.assert_called_once_with('photos/user123/thumbs/photo_thumb.jpg')
         mock_blob.upload_from_string.assert_called_once_with(
             thumbnail_data,
@@ -584,3 +592,181 @@ class TestUploadProgress:
         
         speed = progress.upload_speed
         assert speed > 0  # Should have some upload speed
+
+
+class TestThumbnailUpload:
+    """Test cases for enhanced thumbnail upload functionality."""
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_multiple_thumbnails_success(self, mock_client_class):
+        """Test successful batch thumbnail upload."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        # Each thumbnail: first call returns False (doesn't exist), second call returns True (after upload)
+        mock_blob.exists.side_effect = [False, True, False, True]
+        mock_blob.storage_class = 'STANDARD'
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        thumbnails = [
+            (b'thumbnail data 1', 'photo1.jpg'),
+            (b'thumbnail data 2', 'photo2.jpg'),
+        ]
+
+        # Track progress calls
+        progress_calls = []
+        def progress_callback(current, total, message):
+            progress_calls.append((current, total, message))
+
+        results = service.upload_multiple_thumbnails('user123', thumbnails, progress_callback)
+
+        assert len(results) == 2
+        assert all(r['success'] for r in results)
+        assert len(progress_calls) >= 2  # At least start and completion
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_check_thumbnail_exists_true(self, mock_client_class):
+        """Test checking existing thumbnail."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.return_value = True
+        mock_blob.size = 1024
+        mock_blob.content_type = 'image/jpeg'
+        mock_blob.updated = datetime.now()
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_blob.metadata = {'user_id': 'user123'}
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        result = service.check_thumbnail_exists('user123', 'photo.jpg')
+
+        assert result['exists'] is True
+        assert result['file_size'] == 1024
+        assert result['content_type'] == 'image/jpeg'
+        assert 'updated' in result
+        assert result['etag'] == 'test-etag'
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_check_thumbnail_exists_false(self, mock_client_class):
+        """Test checking non-existing thumbnail."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.return_value = False
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        result = service.check_thumbnail_exists('user123', 'photo.jpg')
+
+        assert result['exists'] is False
+        assert 'gcs_path' in result
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_thumbnail_with_deduplication_skip(self, mock_client_class):
+        """Test thumbnail upload with deduplication - skip duplicate."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        mock_blob.exists.return_value = True
+        mock_blob.size = 1024  # Same size as new thumbnail
+        mock_blob.content_type = 'image/jpeg'
+        mock_blob.updated = datetime.now()
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_blob.metadata = {'user_id': 'user123'}
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        thumbnail_data = b'x' * 1024  # Same size as existing
+        result = service.upload_thumbnail_with_deduplication('user123', thumbnail_data, 'photo.jpg')
+
+        assert result['skipped'] is True
+        assert result['reason'] == 'duplicate_size'
+        assert 'existing_info' in result
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_thumbnail_with_deduplication_upload(self, mock_client_class):
+        """Test thumbnail upload with deduplication - upload different size."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        # First exists check returns True (existing), then False and True for upload
+        mock_blob.exists.side_effect = [True, False, True]
+        mock_blob.size = 512  # Different size from new thumbnail
+        mock_blob.content_type = 'image/jpeg'
+        mock_blob.updated = datetime.now()
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_blob.metadata = {'user_id': 'user123'}
+        mock_blob.storage_class = 'STANDARD'
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        thumbnail_data = b'x' * 1024  # Different size from existing
+        result = service.upload_thumbnail_with_deduplication('user123', thumbnail_data, 'photo.jpg')
+
+        assert result['skipped'] is False
+        assert result['was_duplicate'] is True
+        assert 'gcs_path' in result
+
+    @patch.dict('os.environ', {'GCS_BUCKET': 'test-bucket', 'GOOGLE_CLOUD_PROJECT': 'test-project'})
+    @patch('src.imgstream.services.storage.storage.Client')
+    def test_upload_thumbnail_with_deduplication_force_overwrite(self, mock_client_class):
+        """Test thumbnail upload with forced overwrite."""
+        mock_client = MagicMock()
+        mock_bucket = MagicMock()
+        mock_blob = MagicMock()
+
+        mock_client.bucket.return_value = mock_bucket
+        mock_bucket.blob.return_value = mock_blob
+        # First exists check returns True, then upload sequence
+        mock_blob.exists.side_effect = [True, True, True]  # Existing, then upload checks
+        mock_blob.size = 1024  # Same size as new thumbnail
+        mock_blob.content_type = 'image/jpeg'
+        mock_blob.updated = datetime.now()
+        mock_blob.etag = 'test-etag'
+        mock_blob.generation = 12345
+        mock_blob.metadata = {'user_id': 'user123'}
+        mock_blob.storage_class = 'STANDARD'
+        mock_client_class.return_value = mock_client
+
+        service = StorageService()
+
+        thumbnail_data = b'x' * 1024
+        result = service.upload_thumbnail_with_deduplication(
+            'user123', thumbnail_data, 'photo.jpg', force_overwrite=True
+        )
+
+        assert result['skipped'] is False
+        assert result['was_duplicate'] is True
+        mock_blob.upload_from_string.assert_called_once()

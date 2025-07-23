@@ -2,9 +2,9 @@
 
 import logging
 import os
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Callable, Optional
 
 from google.cloud import storage  # type: ignore[attr-defined]
 from google.cloud.exceptions import GoogleCloudError, NotFound
@@ -134,7 +134,7 @@ class StorageService:
         user_id: str,
         file_data: bytes,
         filename: str,
-        progress_callback: Optional[Callable[[int, int, str], None]] = None
+        progress_callback: Callable[[int, int, str], None] | None = None
     ) -> dict:
         """
         Upload original photo to GCS with progress tracking.
@@ -223,17 +223,24 @@ class StorageService:
                 progress_callback(0, len(file_data), f"Unexpected error: {e}")
             raise StorageError(f"Unexpected error uploading '{filename}': {e}") from e
 
-    def upload_thumbnail(self, user_id: str, thumbnail_data: bytes, original_filename: str) -> str:
+    def upload_thumbnail(
+        self,
+        user_id: str,
+        thumbnail_data: bytes,
+        original_filename: str,
+        progress_callback: Callable[[int, int, str], None] | None = None
+    ) -> dict:
         """
-        Upload thumbnail image to GCS.
+        Upload thumbnail image to GCS with enhanced features.
 
         Args:
             user_id: User identifier
             thumbnail_data: Thumbnail image data
             original_filename: Original filename for reference
+            progress_callback: Optional callback function for progress updates
 
         Returns:
-            str: GCS object path for thumbnail
+            dict: Upload result with metadata
 
         Raises:
             StorageError: If upload fails
@@ -242,27 +249,224 @@ class StorageService:
             gcs_path = self._get_user_thumbnail_path(user_id, original_filename)
             blob = self.bucket.blob(gcs_path)
 
-            # Set metadata
+            # Check if thumbnail already exists
+            file_exists = blob.exists()
+            if file_exists:
+                logger.warning(f"Thumbnail already exists, will overwrite: {gcs_path}")
+
+            # Set comprehensive metadata
+            upload_timestamp = datetime.now().isoformat()
             blob.metadata = {
                 'user_id': user_id,
                 'original_filename': original_filename,
-                'uploaded_at': datetime.now().isoformat(),
-                'content_type': 'image/jpeg'
+                'uploaded_at': upload_timestamp,
+                'content_type': 'image/jpeg',
+                'file_size': str(len(thumbnail_data)),
+                'storage_class': 'STANDARD',
+                'region': self.region,
+                'upload_type': 'thumbnail'
             }
 
-            # Upload thumbnail (always JPEG)
+            # Progress tracking
+            if progress_callback:
+                progress_callback(0, len(thumbnail_data), "Starting thumbnail upload...")
+
+            # Upload thumbnail (always JPEG) with efficient binary processing
             blob.upload_from_string(
                 thumbnail_data,
                 content_type='image/jpeg'
             )
 
-            logger.info(f"Uploaded thumbnail: {gcs_path} ({len(thumbnail_data)} bytes)")
-            return gcs_path
+            if progress_callback:
+                progress_callback(len(thumbnail_data), len(thumbnail_data), "Thumbnail upload completed")
+
+            # Verify upload
+            if not blob.exists():
+                raise StorageError(f"Thumbnail upload verification failed for '{original_filename}'")
+
+            # Get final blob info
+            blob.reload()
+
+            upload_result = {
+                'gcs_path': gcs_path,
+                'file_size': len(thumbnail_data),
+                'content_type': 'image/jpeg',
+                'storage_class': blob.storage_class,
+                'uploaded_at': upload_timestamp,
+                'etag': blob.etag,
+                'generation': blob.generation,
+                'was_overwrite': file_exists
+            }
+
+            logger.info(
+                f"Uploaded thumbnail: {gcs_path} "
+                f"({len(thumbnail_data)} bytes, {blob.storage_class} class)"
+            )
+
+            return upload_result
 
         except GoogleCloudError as e:
+            if progress_callback:
+                progress_callback(0, len(thumbnail_data), f"Upload failed: {e}")
             raise StorageError(f"Failed to upload thumbnail for '{original_filename}': {e}") from e
         except Exception as e:
+            if progress_callback:
+                progress_callback(0, len(thumbnail_data), f"Unexpected error: {e}")
             raise StorageError(f"Unexpected error uploading thumbnail: {e}") from e
+
+    def upload_multiple_thumbnails(
+        self,
+        user_id: str,
+        thumbnails: list[tuple[bytes, str]],
+        progress_callback: Callable[[int, int, str], None] | None = None
+    ) -> list[dict]:
+        """
+        Upload multiple thumbnails in batch with efficient processing.
+
+        Args:
+            user_id: User identifier
+            thumbnails: List of (thumbnail_data, original_filename) tuples
+            progress_callback: Optional callback function for progress updates
+
+        Returns:
+            list[dict]: List of upload results
+
+        Raises:
+            StorageError: If batch upload fails
+        """
+        results = []
+        total_files = len(thumbnails)
+
+        try:
+            for i, (thumbnail_data, original_filename) in enumerate(thumbnails):
+                if progress_callback:
+                    progress_callback(i, total_files, f"Uploading thumbnail for {original_filename}...")
+
+                try:
+                    result = self.upload_thumbnail(user_id, thumbnail_data, original_filename)
+                    results.append({
+                        'success': True,
+                        'filename': original_filename,
+                        'result': result
+                    })
+                except StorageError as e:
+                    logger.error(f"Failed to upload thumbnail for {original_filename}: {e}")
+                    results.append({
+                        'success': False,
+                        'filename': original_filename,
+                        'error': str(e)
+                    })
+
+            if progress_callback:
+                successful = sum(1 for r in results if r['success'])
+                progress_callback(
+                    total_files,
+                    total_files,
+                    f"Batch thumbnail upload completed: {successful}/{total_files} successful"
+                )
+
+            logger.info(f"Batch thumbnail upload completed for user {user_id}: {len(results)} files processed")
+            return results
+
+        except Exception as e:
+            raise StorageError(f"Batch thumbnail upload failed: {e}") from e
+
+    def check_thumbnail_exists(self, user_id: str, original_filename: str) -> dict:
+        """
+        Check if thumbnail exists and get its metadata.
+
+        Args:
+            user_id: User identifier
+            original_filename: Original filename
+
+        Returns:
+            dict: Thumbnail existence info and metadata
+
+        Raises:
+            StorageError: If check fails
+        """
+        try:
+            gcs_path = self._get_user_thumbnail_path(user_id, original_filename)
+            blob = self.bucket.blob(gcs_path)
+
+            if not blob.exists():
+                return {
+                    'exists': False,
+                    'gcs_path': gcs_path
+                }
+
+            # Get metadata
+            blob.reload()
+            return {
+                'exists': True,
+                'gcs_path': gcs_path,
+                'file_size': blob.size,
+                'content_type': blob.content_type,
+                'updated': blob.updated.isoformat() if blob.updated else None,
+                'etag': blob.etag,
+                'generation': blob.generation,
+                'metadata': blob.metadata or {}
+            }
+
+        except GoogleCloudError as e:
+            raise StorageError(f"Failed to check thumbnail existence for '{original_filename}': {e}") from e
+        except Exception as e:
+            raise StorageError(f"Unexpected error checking thumbnail: {e}") from e
+
+    def upload_thumbnail_with_deduplication(
+        self,
+        user_id: str,
+        thumbnail_data: bytes,
+        original_filename: str,
+        force_overwrite: bool = False,
+        progress_callback: Callable[[int, int, str], None] | None = None
+    ) -> dict:
+        """
+        Upload thumbnail with smart deduplication.
+
+        Args:
+            user_id: User identifier
+            thumbnail_data: Thumbnail image data
+            original_filename: Original filename for reference
+            force_overwrite: Force overwrite even if thumbnail exists
+            progress_callback: Optional callback function for progress updates
+
+        Returns:
+            dict: Upload result with deduplication info
+
+        Raises:
+            StorageError: If upload fails
+        """
+        try:
+            # Check if thumbnail already exists
+            existing_info = self.check_thumbnail_exists(user_id, original_filename)
+
+            if existing_info['exists'] and not force_overwrite:
+                # Compare file sizes for basic deduplication
+                existing_size = existing_info.get('file_size', 0)
+                new_size = len(thumbnail_data)
+
+                if existing_size == new_size:
+                    logger.info(f"Thumbnail already exists with same size, skipping upload: {original_filename}")
+                    if progress_callback:
+                        progress_callback(new_size, new_size, "Thumbnail already exists, skipped")
+
+                    return {
+                        'skipped': True,
+                        'reason': 'duplicate_size',
+                        'existing_info': existing_info,
+                        'gcs_path': existing_info['gcs_path']
+                    }
+
+            # Upload thumbnail
+            result = self.upload_thumbnail(user_id, thumbnail_data, original_filename, progress_callback)
+            result['skipped'] = False
+            result['was_duplicate'] = existing_info['exists']
+
+            return result
+
+        except Exception as e:
+            raise StorageError(f"Failed to upload thumbnail with deduplication: {e}") from e
 
     def download_file(self, gcs_path: str) -> bytes:
         """
@@ -408,7 +612,7 @@ class StorageService:
         self,
         user_id: str,
         photos: list[tuple[bytes, str]],
-        progress_callback: Optional[Callable[[int, int, str], None]] = None
+        progress_callback: Callable[[int, int, str], None] | None = None
     ) -> list[dict]:
         """
         Upload multiple photos in batch.
