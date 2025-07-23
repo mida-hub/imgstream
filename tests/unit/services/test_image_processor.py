@@ -88,7 +88,8 @@ class TestImageProcessor:
 
     def test_validate_image_invalid_data(self):
         """Test image validation with invalid data."""
-        invalid_data = b'not an image'
+        # Create invalid data that passes size check but fails image validation
+        invalid_data = b'not an image but large enough' + b'x' * 200
         
         with pytest.raises(ImageProcessingError, match="Invalid or corrupted image"):
             self.processor.validate_image(invalid_data, 'test.jpg')
@@ -459,3 +460,119 @@ class TestImageProcessorEdgeCases:
         buffer = io.BytesIO()
         image.save(buffer, format=format_type)
         return buffer.getvalue()
+    def test_validate_file_size_valid(self):
+        """Test file size validation with valid size."""
+        # Create test data within valid range
+        test_data = b'x' * (10 * 1024)  # 10KB
+        
+        # Should not raise any exception
+        self.processor.validate_file_size(test_data, 'test.jpg')
+    
+    def test_validate_file_size_too_small(self):
+        """Test file size validation with file too small."""
+        # Create test data smaller than minimum
+        test_data = b'x' * 50  # 50 bytes
+        
+        with pytest.raises(ImageProcessingError, match="File 'test.jpg' is too small"):
+            self.processor.validate_file_size(test_data, 'test.jpg')
+    
+    def test_validate_file_size_too_large(self):
+        """Test file size validation with file too large."""
+        # Mock a large file size without actually creating large data
+        large_data = MagicMock()
+        large_data.__len__ = MagicMock(return_value=60 * 1024 * 1024)  # 60MB
+        
+        with pytest.raises(ImageProcessingError, match="File 'test.jpg' is too large"):
+            self.processor.validate_file_size(large_data, 'test.jpg')
+    
+    def test_get_validation_info_valid_image(self):
+        """Test getting validation info for valid image."""
+        image_data = self.create_test_image('JPEG')
+        
+        info = self.processor.get_validation_info(image_data, 'test.jpg')
+        
+        assert info['is_valid'] is True
+        assert info['format_supported'] is True
+        assert info['size_valid'] is True
+        assert info['image_readable'] is True
+        assert len(info['errors']) == 0
+    
+    def test_get_validation_info_invalid_size(self):
+        """Test getting validation info for image with invalid size."""
+        # Create small invalid data
+        small_data = b'x' * 50
+        
+        info = self.processor.get_validation_info(small_data, 'test.jpg')
+        
+        assert info['is_valid'] is False
+        assert info['size_valid'] is False
+        assert any('too small' in error for error in info['errors'])
+    
+    def test_get_validation_info_unsupported_format(self):
+        """Test getting validation info for unsupported format."""
+        image_data = self.create_test_image('JPEG')
+        
+        info = self.processor.get_validation_info(image_data, 'test.png')
+        
+        assert info['is_valid'] is False
+        assert info['format_supported'] is False
+        assert any('Unsupported format' in error for error in info['errors'])
+    
+    def test_get_validation_info_corrupted_image(self):
+        """Test getting validation info for corrupted image."""
+        corrupted_data = b'not an image but large enough' + b'x' * 2000
+        
+        info = self.processor.get_validation_info(corrupted_data, 'test.jpg')
+        
+        assert info['is_valid'] is False
+        assert info['image_readable'] is False
+        assert any('Cannot read image' in error for error in info['errors'])
+
+    def test_enhanced_format_validation(self):
+        """Test enhanced format validation with actual format detection."""
+        image_data = self.create_test_image('JPEG')
+        
+        # Should pass for JPEG
+        self.processor.validate_image(image_data, 'test.jpg')
+        
+        # Test with a mocked PNG format (with sufficient size)
+        with patch('PIL.Image.open') as mock_open:
+            mock_image = MagicMock()
+            mock_image.format = 'PNG'
+            mock_open.return_value.__enter__.return_value = mock_image
+            
+            # Create fake data with sufficient size
+            fake_png_data = b'fake_png_data' + b'x' * 200
+            with pytest.raises(UnsupportedFormatError, match="Detected format 'PNG' is not supported"):
+                self.processor.validate_image(fake_png_data, 'test.jpg')
+    def test_environment_variable_configuration(self):
+        """Test environment variable configuration for file size limits."""
+        # Test with environment variables set
+        with patch.dict('os.environ', {
+            'MAX_FILE_SIZE': '104857600',  # 100MB
+            'MIN_FILE_SIZE': '2048',       # 2KB
+            'THUMBNAIL_MAX_SIZE': '400',
+            'THUMBNAIL_QUALITY': '90'
+        }):
+            # Create new processor instance to pick up env vars
+            from src.imgstream.services.image_processor import ImageProcessor
+            processor = ImageProcessor()
+            
+            # Check that environment variables are applied
+            assert processor.MAX_FILE_SIZE == 104857600  # 100MB
+            assert processor.MIN_FILE_SIZE == 2048       # 2KB
+            assert processor.DEFAULT_THUMBNAIL_SIZE == 400
+            assert processor.DEFAULT_THUMBNAIL_QUALITY == 90
+    
+    def test_default_values_without_env_vars(self):
+        """Test default values when environment variables are not set."""
+        with patch.dict('os.environ', {}, clear=True):
+            # Create new processor instance
+            from src.imgstream.services.image_processor import ImageProcessor
+            processor = ImageProcessor()
+            
+            # Check default values
+            assert processor.MAX_FILE_SIZE == 50 * 1024 * 1024  # 50MB
+            assert processor.MIN_FILE_SIZE == 100
+            assert processor.DEFAULT_THUMBNAIL_SIZE == 300
+            assert processor.DEFAULT_THUMBNAIL_QUALITY == 85

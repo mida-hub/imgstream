@@ -102,6 +102,9 @@ class ImageProcessor:
 - HEIC形式のサポートにpillow-heifライブラリを使用
 - サムネイルサイズは300x300ピクセル（アスペクト比維持）
 - EXIF DateTimeOriginal → DateTime → DateTimeDigitized の優先順で日時取得
+- ファイルサイズ制限は環境変数で設定可能（運用時調整対応）
+  - `MAX_FILE_SIZE`: 最大ファイルサイズ（バイト単位、デフォルト: 50MB）
+  - `MIN_FILE_SIZE`: 最小ファイルサイズ（バイト単位、デフォルト: 100バイト）
 
 ### 4. メタデータサービス (MetadataService)
 
@@ -279,6 +282,61 @@ def ensure_user_access(user_id: str, resource_path: str) -> bool:
 2. **メモリ管理**
    - 大きな画像ファイルのストリーミング処理
    - 不要なオブジェクトの適切な解放
+
+## 環境変数設定
+
+### アプリケーション設定
+
+システムの動作は以下の環境変数で調整可能です：
+
+#### 画像処理設定
+
+| 環境変数名 | デフォルト値 | 説明 |
+|-----------|-------------|------|
+| `MAX_FILE_SIZE` | `52428800` (50MB) | アップロード可能な最大ファイルサイズ（バイト単位） |
+| `MIN_FILE_SIZE` | `100` | アップロード可能な最小ファイルサイズ（バイト単位） |
+| `THUMBNAIL_MAX_SIZE` | `300` | サムネイルの最大サイズ（ピクセル） |
+| `THUMBNAIL_QUALITY` | `85` | サムネイルのJPEG品質（1-100） |
+
+#### 使用例
+
+```bash
+# 最大ファイルサイズを100MBに設定
+export MAX_FILE_SIZE=104857600
+
+# 最小ファイルサイズを1KBに設定
+export MIN_FILE_SIZE=1024
+
+# サムネイルサイズを400pxに設定
+export THUMBNAIL_MAX_SIZE=400
+```
+
+#### Cloud Run での設定
+
+```yaml
+# cloud-run-service.yaml
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: imgstream
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      containers:
+      - image: gcr.io/PROJECT_ID/imgstream
+        env:
+        - name: MAX_FILE_SIZE
+          value: "104857600"  # 100MB
+        - name: MIN_FILE_SIZE
+          value: "1024"       # 1KB
+        - name: THUMBNAIL_MAX_SIZE
+          value: "400"
+        - name: THUMBNAIL_QUALITY
+          value: "90"
+```
 
 ## 運用・監視
 
