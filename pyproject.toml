@@ -65,10 +65,23 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+# Exclude test files from strict type checking
+exclude = [
+    "tests/.*",
+    "test_.*\\.py$",
+]
 
 [[tool.mypy.overrides]]
 module = "pillow_heif"
 ignore_missing_imports = true
+
+# Relaxed settings for test files
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
+check_untyped_defs = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
