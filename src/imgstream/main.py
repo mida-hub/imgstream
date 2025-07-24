@@ -10,6 +10,7 @@ import streamlit as st
 import structlog
 
 from imgstream.services.auth import get_auth_service
+from imgstream.services.image_processor import ImageProcessingError, ImageProcessor, UnsupportedFormatError
 
 # Configure structured logging
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +33,133 @@ structlog.configure(
 )
 
 logger = structlog.get_logger()
+
+
+def validate_uploaded_files(uploaded_files: list) -> tuple[list, list]:
+    """
+    Validate uploaded files for format and size.
+
+    Args:
+        uploaded_files: List of uploaded file objects from Streamlit
+
+    Returns:
+        tuple: (valid_files, validation_errors)
+    """
+    if not uploaded_files:
+        return [], []
+
+    image_processor = ImageProcessor()
+    valid_files = []
+    validation_errors = []
+
+    for uploaded_file in uploaded_files:
+        try:
+            # Check file format
+            if not image_processor.is_supported_format(uploaded_file.name):
+                validation_errors.append(
+                    {
+                        "filename": uploaded_file.name,
+                        "error": "Unsupported file format",
+                        "details": "Only HEIC, HEIF, JPG, and JPEG files are supported",
+                    }
+                )
+                continue
+
+            # Read file data
+            file_data = uploaded_file.read()
+            uploaded_file.seek(0)  # Reset file pointer for later use
+
+            # Validate file size
+            image_processor.validate_file_size(file_data, uploaded_file.name)
+
+            # Add to valid files
+            valid_files.append(
+                {
+                    "file_object": uploaded_file,
+                    "filename": uploaded_file.name,
+                    "size": len(file_data),
+                    "data": file_data,
+                }
+            )
+
+            logger.info("file_validation_success", filename=uploaded_file.name, size=len(file_data))
+
+        except (ImageProcessingError, UnsupportedFormatError) as e:
+            validation_errors.append({"filename": uploaded_file.name, "error": "Validation failed", "details": str(e)})
+            logger.warning("file_validation_failed", filename=uploaded_file.name, error=str(e))
+        except Exception as e:
+            validation_errors.append(
+                {
+                    "filename": uploaded_file.name,
+                    "error": "Unexpected error",
+                    "details": f"An unexpected error occurred: {str(e)}",
+                }
+            )
+            logger.error("file_validation_error", filename=uploaded_file.name, error=str(e))
+
+    return valid_files, validation_errors
+
+
+def format_file_size(size_bytes: int) -> str:
+    """
+    Format file size in human-readable format.
+
+    Args:
+        size_bytes: File size in bytes
+
+    Returns:
+        str: Formatted file size (e.g., "1.5 MB")
+    """
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    else:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
+def render_file_validation_results(valid_files: list, validation_errors: list) -> None:
+    """
+    Render the results of file validation.
+
+    Args:
+        valid_files: List of valid file objects
+        validation_errors: List of validation error objects
+    """
+    if valid_files:
+        st.success(f"✅ {len(valid_files)} file(s) ready for upload")
+
+        # Show valid files
+        with st.expander("📁 Valid Files", expanded=True):
+            for file_info in valid_files:
+                col1, col2, col3 = st.columns([3, 1, 1])
+                with col1:
+                    st.write(f"📷 **{file_info['filename']}**")
+                with col2:
+                    st.write(format_file_size(file_info["size"]))
+                with col3:
+                    st.write("✅ Valid")
+
+    if validation_errors:
+        st.error(f"❌ {len(validation_errors)} file(s) failed validation")
+
+        # Show validation errors
+        with st.expander("⚠️ Validation Errors", expanded=True):
+            for error in validation_errors:
+                st.error(f"**{error['filename']}**: {error['error']}")
+                if error["details"]:
+                    st.write(f"Details: {error['details']}")
+
+
+def get_file_size_limits() -> tuple[int, int]:
+    """
+    Get current file size limits from ImageProcessor.
+
+    Returns:
+        tuple: (min_size, max_size) in bytes
+    """
+    image_processor = ImageProcessor()
+    return image_processor.MIN_FILE_SIZE, image_processor.MAX_FILE_SIZE
 
 
 def render_empty_state(
@@ -482,15 +610,16 @@ def render_home_page() -> None:
 
 
 def render_upload_page() -> None:
-    """Render the upload page with improved layout and information."""
+    """Render the upload page with file selection and validation."""
     if not require_authentication():
         return
 
-    # Development notice
-    st.info("🚧 Upload functionality will be implemented in a later task")
-
     # Upload area with drag-and-drop styling
     st.markdown("### 📤 Upload Your Photos")
+
+    # Get file size limits for display
+    min_size, max_size = get_file_size_limits()
+    max_size_mb = max_size / (1024 * 1024)
 
     # File format information
     col1, col2 = st.columns([1, 1])
@@ -498,7 +627,8 @@ def render_upload_page() -> None:
     with col1:
         render_info_card(
             "Supported Formats",
-            "• HEIC (iPhone/iPad photos)\n• JPEG/JPG (Standard photos)\n• Maximum file size: 50MB per photo",
+            f"• HEIC (iPhone/iPad photos)\n• JPEG/JPG (Standard photos)\n"
+            f"• Maximum file size: {max_size_mb:.0f}MB per photo",
             "📋",
         )
 
@@ -507,22 +637,73 @@ def render_upload_page() -> None:
             "Smart Processing", "• Automatic EXIF data extraction\n• Thumbnail generation\n• Secure cloud storage", "⚙️"
         )
 
-    # File uploader placeholder with better styling
+    # File uploader with validation
     st.markdown("#### Choose Photos to Upload")
 
     uploaded_files = st.file_uploader(
         "Drag and drop photos here, or click to browse",
-        type=["heic", "jpg", "jpeg"],
+        type=["heic", "heif", "jpg", "jpeg"],
         accept_multiple_files=True,
-        disabled=True,
-        help="File upload will be enabled in the next development phase",
+        help=f"Supported formats: HEIC, HEIF, JPG, JPEG. Max size: {max_size_mb:.0f}MB per file",
+        key="photo_uploader",
     )
 
-    # Upload progress placeholder
+    # Initialize session state for upload management
+    if "upload_validated" not in st.session_state:
+        st.session_state.upload_validated = False
+    if "valid_files" not in st.session_state:
+        st.session_state.valid_files = []
+    if "validation_errors" not in st.session_state:
+        st.session_state.validation_errors = []
+
+    # Process uploaded files
     if uploaded_files:
-        st.markdown("#### Upload Progress")
-        st.progress(0)
-        st.write("Processing photos...")
+        # Validate files when new files are uploaded
+        if not st.session_state.upload_validated or len(uploaded_files) != len(st.session_state.valid_files) + len(
+            st.session_state.validation_errors
+        ):
+            with st.spinner("Validating uploaded files..."):
+                valid_files, validation_errors = validate_uploaded_files(uploaded_files)
+                st.session_state.valid_files = valid_files
+                st.session_state.validation_errors = validation_errors
+                st.session_state.upload_validated = True
+
+                logger.info(
+                    "file_validation_completed",
+                    total_files=len(uploaded_files),
+                    valid_files=len(valid_files),
+                    errors=len(validation_errors),
+                )
+
+        # Display validation results
+        st.divider()
+        st.markdown("#### Validation Results")
+        render_file_validation_results(st.session_state.valid_files, st.session_state.validation_errors)
+
+        # Show upload button if there are valid files
+        if st.session_state.valid_files:
+            st.divider()
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if st.button(
+                    f"🚀 Upload {len(st.session_state.valid_files)} Photo(s)", use_container_width=True, type="primary"
+                ):
+                    st.info("🚧 Upload processing will be implemented in task 8.2")
+                    # TODO: Implement actual upload processing in task 8.2
+
+        # Clear validation state when files are removed
+        if not uploaded_files:
+            st.session_state.upload_validated = False
+            st.session_state.valid_files = []
+            st.session_state.validation_errors = []
+
+    else:
+        # Show empty state when no files are uploaded
+        render_empty_state(
+            title="No Photos Selected",
+            description="Choose photos from your device to upload to your personal collection.",
+            icon="📁",
+        )
 
     # Upload tips
     with st.expander("💡 Upload Tips"):
@@ -536,6 +717,11 @@ def render_upload_page() -> None:
         - 📶 **Connection**: Ensure stable internet for large uploads
         - 💾 **Storage**: Photos are automatically organized by date
         - 🔒 **Privacy**: All uploads are private to your account
+
+        **File Requirements:**
+        - Supported formats: HEIC, HEIF, JPG, JPEG
+        - Maximum file size: {max_size_mb:.0f}MB per photo
+        - Minimum file size: {min_size} bytes
         """
         )
 
