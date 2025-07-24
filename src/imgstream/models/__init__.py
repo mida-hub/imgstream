@@ -7,8 +7,8 @@ This module contains data models and schemas:
 - DatabaseManager: Database connection and schema management
 """
 
-from .photo import PhotoMetadata
 from .database import DatabaseManager, create_database, get_database_manager
+from .photo import PhotoMetadata
 from .schema import get_schema_statements, validate_schema_compatibility
 
 __all__ = [

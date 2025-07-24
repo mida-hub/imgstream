@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class StorageError(Exception):
     """Raised when storage operations fail."""
+
     pass
 
 
@@ -57,13 +58,13 @@ class UploadProgress:
     def to_dict(self) -> dict:
         """Convert progress to dictionary."""
         return {
-            'filename': self.filename,
-            'total_bytes': self.total_bytes,
-            'uploaded_bytes': self.uploaded_bytes,
-            'progress_percentage': self.progress_percentage,
-            'status': self.status,
-            'elapsed_time': self.elapsed_time.total_seconds(),
-            'upload_speed': self.upload_speed
+            "filename": self.filename,
+            "total_bytes": self.total_bytes,
+            "uploaded_bytes": self.uploaded_bytes,
+            "progress_percentage": self.progress_percentage,
+            "status": self.status,
+            "elapsed_time": self.elapsed_time.total_seconds(),
+            "upload_speed": self.upload_speed,
         }
 
 
@@ -78,15 +79,15 @@ class StorageService:
             bucket_name: GCS bucket name (defaults to environment variable)
             project_id: GCP project ID (defaults to environment variable)
         """
-        self.bucket_name = bucket_name or os.getenv('GCS_BUCKET')
-        self.project_id = project_id or os.getenv('GOOGLE_CLOUD_PROJECT')
+        self.bucket_name = bucket_name or os.getenv("GCS_BUCKET")
+        self.project_id = project_id or os.getenv("GOOGLE_CLOUD_PROJECT")
 
         # Additional configuration from environment variables
-        self.region = os.getenv('GCS_REGION', 'asia-northeast1')
-        self.storage_class = os.getenv('GCS_STORAGE_CLASS', 'STANDARD')
-        self.default_signed_url_expiration = int(os.getenv('GCS_SIGNED_URL_EXPIRATION', '3600'))
-        self.lifecycle_enabled = os.getenv('GCS_LIFECYCLE_ENABLED', 'true').lower() == 'true'
-        self.coldline_days = int(os.getenv('GCS_COLDLINE_DAYS', '30'))
+        self.region = os.getenv("GCS_REGION", "asia-northeast1")
+        self.storage_class = os.getenv("GCS_STORAGE_CLASS", "STANDARD")
+        self.default_signed_url_expiration = int(os.getenv("GCS_SIGNED_URL_EXPIRATION", "3600"))
+        self.lifecycle_enabled = os.getenv("GCS_LIFECYCLE_ENABLED", "true").lower() == "true"
+        self.coldline_days = int(os.getenv("GCS_COLDLINE_DAYS", "30"))
 
         if not self.bucket_name:
             raise StorageError("GCS_BUCKET environment variable is required")
@@ -136,7 +137,7 @@ class StorageService:
         user_id: str,
         file_data: bytes,
         filename: str,
-        progress_callback: Callable[[int, int, str], None] | None = None
+        progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> dict:
         """
         Upload original photo to GCS with progress tracking.
@@ -165,14 +166,14 @@ class StorageService:
             # Set comprehensive metadata
             upload_timestamp = datetime.now().isoformat()
             blob.metadata = {
-                'user_id': user_id,
-                'original_filename': filename,
-                'uploaded_at': upload_timestamp,
-                'content_type': self._get_content_type(filename),
-                'file_size': str(len(file_data)),
-                'storage_class': self.storage_class,
-                'region': self.region,
-                'upload_type': 'original_photo'
+                "user_id": user_id,
+                "original_filename": filename,
+                "uploaded_at": upload_timestamp,
+                "content_type": self._get_content_type(filename),
+                "file_size": str(len(file_data)),
+                "storage_class": self.storage_class,
+                "region": self.region,
+                "upload_type": "original_photo",
             }
 
             # Set storage class explicitly
@@ -183,10 +184,7 @@ class StorageService:
                 progress_callback(0, len(file_data), "Starting upload...")
 
             # Upload with Standard storage class
-            blob.upload_from_string(
-                file_data,
-                content_type=self._get_content_type(filename)
-            )
+            blob.upload_from_string(file_data, content_type=self._get_content_type(filename))
 
             if progress_callback:
                 progress_callback(len(file_data), len(file_data), "Upload completed")
@@ -199,20 +197,17 @@ class StorageService:
             blob.reload()
 
             upload_result = {
-                'gcs_path': gcs_path,
-                'file_size': len(file_data),
-                'content_type': self._get_content_type(filename),
-                'storage_class': blob.storage_class,
-                'uploaded_at': upload_timestamp,
-                'etag': blob.etag,
-                'generation': blob.generation,
-                'was_overwrite': file_exists
+                "gcs_path": gcs_path,
+                "file_size": len(file_data),
+                "content_type": self._get_content_type(filename),
+                "storage_class": blob.storage_class,
+                "uploaded_at": upload_timestamp,
+                "etag": blob.etag,
+                "generation": blob.generation,
+                "was_overwrite": file_exists,
             }
 
-            logger.info(
-                f"Uploaded original photo: {gcs_path} "
-                f"({len(file_data)} bytes, {blob.storage_class} class)"
-            )
+            logger.info(f"Uploaded original photo: {gcs_path} " f"({len(file_data)} bytes, {blob.storage_class} class)")
 
             return upload_result
 
@@ -230,7 +225,7 @@ class StorageService:
         user_id: str,
         thumbnail_data: bytes,
         original_filename: str,
-        progress_callback: Callable[[int, int, str], None] | None = None
+        progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> dict:
         """
         Upload thumbnail image to GCS with enhanced features.
@@ -259,14 +254,14 @@ class StorageService:
             # Set comprehensive metadata
             upload_timestamp = datetime.now().isoformat()
             blob.metadata = {
-                'user_id': user_id,
-                'original_filename': original_filename,
-                'uploaded_at': upload_timestamp,
-                'content_type': 'image/jpeg',
-                'file_size': str(len(thumbnail_data)),
-                'storage_class': 'STANDARD',
-                'region': self.region,
-                'upload_type': 'thumbnail'
+                "user_id": user_id,
+                "original_filename": original_filename,
+                "uploaded_at": upload_timestamp,
+                "content_type": "image/jpeg",
+                "file_size": str(len(thumbnail_data)),
+                "storage_class": "STANDARD",
+                "region": self.region,
+                "upload_type": "thumbnail",
             }
 
             # Progress tracking
@@ -274,10 +269,7 @@ class StorageService:
                 progress_callback(0, len(thumbnail_data), "Starting thumbnail upload...")
 
             # Upload thumbnail (always JPEG) with efficient binary processing
-            blob.upload_from_string(
-                thumbnail_data,
-                content_type='image/jpeg'
-            )
+            blob.upload_from_string(thumbnail_data, content_type="image/jpeg")
 
             if progress_callback:
                 progress_callback(len(thumbnail_data), len(thumbnail_data), "Thumbnail upload completed")
@@ -290,20 +282,17 @@ class StorageService:
             blob.reload()
 
             upload_result = {
-                'gcs_path': gcs_path,
-                'file_size': len(thumbnail_data),
-                'content_type': 'image/jpeg',
-                'storage_class': blob.storage_class,
-                'uploaded_at': upload_timestamp,
-                'etag': blob.etag,
-                'generation': blob.generation,
-                'was_overwrite': file_exists
+                "gcs_path": gcs_path,
+                "file_size": len(thumbnail_data),
+                "content_type": "image/jpeg",
+                "storage_class": blob.storage_class,
+                "uploaded_at": upload_timestamp,
+                "etag": blob.etag,
+                "generation": blob.generation,
+                "was_overwrite": file_exists,
             }
 
-            logger.info(
-                f"Uploaded thumbnail: {gcs_path} "
-                f"({len(thumbnail_data)} bytes, {blob.storage_class} class)"
-            )
+            logger.info(f"Uploaded thumbnail: {gcs_path} " f"({len(thumbnail_data)} bytes, {blob.storage_class} class)")
 
             return upload_result
 
@@ -320,7 +309,7 @@ class StorageService:
         self,
         user_id: str,
         thumbnails: list[tuple[bytes, str]],
-        progress_callback: Callable[[int, int, str], None] | None = None
+        progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> list[dict]:
         """
         Upload multiple thumbnails in batch with efficient processing.
@@ -346,25 +335,15 @@ class StorageService:
 
                 try:
                     result = self.upload_thumbnail(user_id, thumbnail_data, original_filename)
-                    results.append({
-                        'success': True,
-                        'filename': original_filename,
-                        'result': result
-                    })
+                    results.append({"success": True, "filename": original_filename, "result": result})
                 except StorageError as e:
                     logger.error(f"Failed to upload thumbnail for {original_filename}: {e}")
-                    results.append({
-                        'success': False,
-                        'filename': original_filename,
-                        'error': str(e)
-                    })
+                    results.append({"success": False, "filename": original_filename, "error": str(e)})
 
             if progress_callback:
-                successful = sum(1 for r in results if r['success'])
+                successful = sum(1 for r in results if r["success"])
                 progress_callback(
-                    total_files,
-                    total_files,
-                    f"Batch thumbnail upload completed: {successful}/{total_files} successful"
+                    total_files, total_files, f"Batch thumbnail upload completed: {successful}/{total_files} successful"
                 )
 
             logger.info(f"Batch thumbnail upload completed for user {user_id}: {len(results)} files processed")
@@ -392,22 +371,19 @@ class StorageService:
             blob = self.bucket.blob(gcs_path)
 
             if not blob.exists():
-                return {
-                    'exists': False,
-                    'gcs_path': gcs_path
-                }
+                return {"exists": False, "gcs_path": gcs_path}
 
             # Get metadata
             blob.reload()
             return {
-                'exists': True,
-                'gcs_path': gcs_path,
-                'file_size': blob.size,
-                'content_type': blob.content_type,
-                'updated': blob.updated.isoformat() if blob.updated else None,
-                'etag': blob.etag,
-                'generation': blob.generation,
-                'metadata': blob.metadata or {}
+                "exists": True,
+                "gcs_path": gcs_path,
+                "file_size": blob.size,
+                "content_type": blob.content_type,
+                "updated": blob.updated.isoformat() if blob.updated else None,
+                "etag": blob.etag,
+                "generation": blob.generation,
+                "metadata": blob.metadata or {},
             }
 
         except GoogleCloudError as e:
@@ -421,7 +397,7 @@ class StorageService:
         thumbnail_data: bytes,
         original_filename: str,
         force_overwrite: bool = False,
-        progress_callback: Callable[[int, int, str], None] | None = None
+        progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> dict:
         """
         Upload thumbnail with smart deduplication.
@@ -443,9 +419,9 @@ class StorageService:
             # Check if thumbnail already exists
             existing_info = self.check_thumbnail_exists(user_id, original_filename)
 
-            if existing_info['exists'] and not force_overwrite:
+            if existing_info["exists"] and not force_overwrite:
                 # Compare file sizes for basic deduplication
-                existing_size = existing_info.get('file_size', 0)
+                existing_size = existing_info.get("file_size", 0)
                 new_size = len(thumbnail_data)
 
                 if existing_size == new_size:
@@ -454,16 +430,16 @@ class StorageService:
                         progress_callback(new_size, new_size, "Thumbnail already exists, skipped")
 
                     return {
-                        'skipped': True,
-                        'reason': 'duplicate_size',
-                        'existing_info': existing_info,
-                        'gcs_path': existing_info['gcs_path']
+                        "skipped": True,
+                        "reason": "duplicate_size",
+                        "existing_info": existing_info,
+                        "gcs_path": existing_info["gcs_path"],
                     }
 
             # Upload thumbnail
             result = self.upload_thumbnail(user_id, thumbnail_data, original_filename, progress_callback)
-            result['skipped'] = False
-            result['was_duplicate'] = existing_info['exists']
+            result["skipped"] = False
+            result["was_duplicate"] = existing_info["exists"]
 
             return result
 
@@ -523,10 +499,7 @@ class StorageService:
 
             # Generate signed URL
             expiration_time = datetime.now() + timedelta(seconds=expiration)
-            signed_url: str = blob.generate_signed_url(
-                expiration=expiration_time,
-                method='GET'
-            )
+            signed_url: str = blob.generate_signed_url(expiration=expiration_time, method="GET")
 
             logger.debug(f"Generated signed URL for: {gcs_path} (expires in {expiration}s)")
             return signed_url
@@ -537,11 +510,7 @@ class StorageService:
             raise StorageError(f"Unexpected error generating signed URL: {e}") from e
 
     def get_photo_display_url(
-        self,
-        user_id: str,
-        filename: str,
-        photo_type: str = "original",
-        expiration: int | None = None
+        self, user_id: str, filename: str, photo_type: str = "original", expiration: int | None = None
     ) -> dict:
         """
         Generate signed URL for photo display with user permission validation.
@@ -585,15 +554,15 @@ class StorageService:
             expires_at = datetime.now() + timedelta(seconds=exp_seconds)
 
             result = {
-                'signed_url': signed_url,
-                'gcs_path': gcs_path,
-                'photo_type': photo_type,
-                'filename': filename,
-                'user_id': user_id,
-                'file_size': blob.size,
-                'content_type': blob.content_type,
-                'expires_at': expires_at.isoformat(),
-                'expiration_seconds': exp_seconds
+                "signed_url": signed_url,
+                "gcs_path": gcs_path,
+                "photo_type": photo_type,
+                "filename": filename,
+                "user_id": user_id,
+                "file_size": blob.size,
+                "content_type": blob.content_type,
+                "expires_at": expires_at.isoformat(),
+                "expiration_seconds": exp_seconds,
             }
 
             logger.info(f"Generated {photo_type} display URL for user {user_id}: {filename}")
@@ -605,10 +574,7 @@ class StorageService:
             raise StorageError(f"Failed to generate photo display URL: {e}") from e
 
     def get_batch_photo_urls(
-        self,
-        user_id: str,
-        photo_requests: list[dict],
-        default_expiration: int | None = None
+        self, user_id: str, photo_requests: list[dict], default_expiration: int | None = None
     ) -> list[dict]:
         """
         Generate multiple signed URLs for batch photo access.
@@ -628,34 +594,22 @@ class StorageService:
 
         try:
             for request in photo_requests:
-                filename = request.get('filename')
+                filename = request.get("filename")
                 if not filename:
-                    results.append({
-                        'success': False,
-                        'error': 'Missing filename',
-                        'filename': None
-                    })
+                    results.append({"success": False, "error": "Missing filename", "filename": None})
                     continue
 
-                photo_type = request.get('photo_type', 'thumbnail')
-                expiration = request.get('expiration', default_expiration)
+                photo_type = request.get("photo_type", "thumbnail")
+                expiration = request.get("expiration", default_expiration)
 
                 try:
                     url_info = self.get_photo_display_url(user_id, filename, photo_type, expiration)
-                    results.append({
-                        'success': True,
-                        'filename': filename,
-                        'url_info': url_info
-                    })
+                    results.append({"success": True, "filename": filename, "url_info": url_info})
                 except StorageError as e:
                     logger.warning(f"Failed to generate URL for {filename}: {e}")
-                    results.append({
-                        'success': False,
-                        'filename': filename,
-                        'error': str(e)
-                    })
+                    results.append({"success": False, "filename": filename, "error": str(e)})
 
-            successful = sum(1 for r in results if r['success'])
+            successful = sum(1 for r in results if r["success"])
             logger.info(f"Generated batch URLs for user {user_id}: {successful}/{len(results)} successful")
 
             return results
@@ -690,12 +644,7 @@ class StorageService:
             logger.error(f"Error validating user access: {e}")
             return False
 
-    def get_secure_photo_url(
-        self,
-        user_id: str,
-        gcs_path: str,
-        expiration: int | None = None
-    ) -> str:
+    def get_secure_photo_url(self, user_id: str, gcs_path: str, expiration: int | None = None) -> str:
         """
         Generate signed URL with user access validation.
 
@@ -788,24 +737,24 @@ class StorageService:
         """
         extension = Path(filename).suffix.lower()
         content_types = {
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.heic': 'image/heic',
-            '.heif': 'image/heif',
-            '.png': 'image/png',
-            '.gif': 'image/gif',
-            '.webp': 'image/webp',
-            '.bmp': 'image/bmp',
-            '.tiff': 'image/tiff',
-            '.tif': 'image/tiff',
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".heic": "image/heic",
+            ".heif": "image/heif",
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+            ".bmp": "image/bmp",
+            ".tiff": "image/tiff",
+            ".tif": "image/tiff",
         }
-        return content_types.get(extension, 'application/octet-stream')
+        return content_types.get(extension, "application/octet-stream")
 
     def upload_multiple_photos(
         self,
         user_id: str,
         photos: list[tuple[bytes, str]],
-        progress_callback: Callable[[int, int, str], None] | None = None
+        progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> list[dict]:
         """
         Upload multiple photos in batch.
@@ -831,25 +780,15 @@ class StorageService:
 
                 try:
                     result = self.upload_original_photo(user_id, file_data, filename)
-                    results.append({
-                        'success': True,
-                        'filename': filename,
-                        'result': result
-                    })
+                    results.append({"success": True, "filename": filename, "result": result})
                 except StorageError as e:
                     logger.error(f"Failed to upload {filename}: {e}")
-                    results.append({
-                        'success': False,
-                        'filename': filename,
-                        'error': str(e)
-                    })
+                    results.append({"success": False, "filename": filename, "error": str(e)})
 
             if progress_callback:
-                successful = sum(1 for r in results if r['success'])
+                successful = sum(1 for r in results if r["success"])
                 progress_callback(
-                    total_files,
-                    total_files,
-                    f"Batch upload completed: {successful}/{total_files} successful"
+                    total_files, total_files, f"Batch upload completed: {successful}/{total_files} successful"
                 )
 
             logger.info(f"Batch upload completed for user {user_id}: {len(results)} files processed")
@@ -880,9 +819,7 @@ class StorageService:
             # Generate signed URL for PUT operation
             expiration_time = datetime.now() + timedelta(seconds=expiration)
             upload_url: str = blob.generate_signed_url(
-                expiration=expiration_time,
-                method='PUT',
-                content_type=self._get_content_type(filename)
+                expiration=expiration_time, method="PUT", content_type=self._get_content_type(filename)
             )
 
             logger.debug(f"Generated upload URL for: {gcs_path} (expires in {expiration}s)")

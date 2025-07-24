@@ -2,17 +2,18 @@
 Unit tests for authentication service.
 """
 
-import pytest
-import json
 import base64
-from unittest.mock import patch, MagicMock
+import json
+from unittest.mock import patch
+
+import pytest
 
 from src.imgstream.services.auth import (
+    AccessDeniedError,
+    AuthenticationError,
     CloudIAPAuthService,
     UserInfo,
     get_auth_service,
-    AuthenticationError,
-    AccessDeniedError,
 )
 
 
@@ -22,12 +23,9 @@ class TestUserInfo:
     def test_user_info_creation(self):
         """Test UserInfo creation with all fields."""
         user_info = UserInfo(
-            user_id="123456789",
-            email="user@example.com",
-            name="Test User",
-            picture="https://example.com/photo.jpg"
+            user_id="123456789", email="user@example.com", name="Test User", picture="https://example.com/photo.jpg"
         )
-        
+
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"
         assert user_info.name == "Test User"
@@ -35,11 +33,8 @@ class TestUserInfo:
 
     def test_user_info_creation_minimal(self):
         """Test UserInfo creation with required fields only."""
-        user_info = UserInfo(
-            user_id="123456789",
-            email="user@example.com"
-        )
-        
+        user_info = UserInfo(user_id="123456789", email="user@example.com")
+
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"
         assert user_info.name is None
@@ -47,41 +42,29 @@ class TestUserInfo:
 
     def test_get_storage_path_prefix(self):
         """Test storage path prefix generation."""
-        user_info = UserInfo(
-            user_id="123456789",
-            email="user@example.com"
-        )
-        
+        user_info = UserInfo(user_id="123456789", email="user@example.com")
+
         path = user_info.get_storage_path_prefix()
         assert path == "photos/user_at_example_dot_com/"
 
     def test_get_storage_path_prefix_special_chars(self):
         """Test storage path prefix with special characters in email."""
-        user_info = UserInfo(
-            user_id="123456789",
-            email="test.user+tag@sub.example.com"
-        )
-        
+        user_info = UserInfo(user_id="123456789", email="test.user+tag@sub.example.com")
+
         path = user_info.get_storage_path_prefix()
         assert path == "photos/test_dot_user+tag_at_sub_dot_example_dot_com/"
 
     def test_get_database_path(self):
         """Test database path generation."""
-        user_info = UserInfo(
-            user_id="123456789",
-            email="user@example.com"
-        )
-        
+        user_info = UserInfo(user_id="123456789", email="user@example.com")
+
         path = user_info.get_database_path()
         assert path == "dbs/user_at_example_dot_com/metadata.db"
 
     def test_get_database_path_special_chars(self):
         """Test database path with special characters in email."""
-        user_info = UserInfo(
-            user_id="123456789",
-            email="test.user+tag@sub.example.com"
-        )
-        
+        user_info = UserInfo(user_id="123456789", email="test.user+tag@sub.example.com")
+
         path = user_info.get_database_path()
         assert path == "dbs/test_dot_user+tag_at_sub_dot_example_dot_com/metadata.db"
 
@@ -98,12 +81,12 @@ class TestCloudIAPAuthService:
         # Create a simple JWT with dummy header and signature
         header = {"alg": "RS256", "typ": "JWT"}
         signature = "dummy_signature"
-        
+
         # Encode header and payload
-        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
-        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
-        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip('=')
-        
+        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
+        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip("=")
+
         return f"{header_b64}.{payload_b64}.{signature_b64}"
 
     def test_parse_iap_header_success(self):
@@ -112,13 +95,13 @@ class TestCloudIAPAuthService:
             "sub": "123456789",
             "email": "user@example.com",
             "name": "Test User",
-            "picture": "https://example.com/photo.jpg"
+            "picture": "https://example.com/photo.jpg",
         }
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
-        
+
         assert user_info is not None
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"
@@ -127,15 +110,12 @@ class TestCloudIAPAuthService:
 
     def test_parse_iap_header_minimal_payload(self):
         """Test IAP header parsing with minimal payload."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
-        
+
         assert user_info is not None
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"
@@ -145,17 +125,17 @@ class TestCloudIAPAuthService:
     def test_parse_iap_header_missing_header(self):
         """Test IAP header parsing with missing header."""
         headers = {}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
-        
+
         assert user_info is None
 
     def test_parse_iap_header_invalid_jwt(self):
         """Test IAP header parsing with invalid JWT."""
         headers = {"X-Goog-IAP-JWT-Assertion": "invalid.jwt.token"}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
-        
+
         assert user_info is None
 
     def test_parse_iap_header_missing_email(self):
@@ -166,9 +146,9 @@ class TestCloudIAPAuthService:
         }
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
-        
+
         assert user_info is None
 
     def test_parse_iap_header_missing_sub(self):
@@ -179,9 +159,9 @@ class TestCloudIAPAuthService:
         }
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
-        
+
         assert user_info is None
 
     def test_decode_jwt_payload_invalid_format(self):
@@ -197,29 +177,25 @@ class TestCloudIAPAuthService:
     def test_extract_user_info_missing_email(self):
         """Test user info extraction with missing email."""
         payload = {"sub": "123456789"}
-        
+
         with pytest.raises(ValueError, match="Email not found in JWT payload"):
             self.auth_service._extract_user_info(payload)
 
     def test_extract_user_info_missing_sub(self):
         """Test user info extraction with missing sub."""
         payload = {"email": "user@example.com"}
-        
+
         with pytest.raises(ValueError, match="Subject \\(user ID\\) not found in JWT payload"):
             self.auth_service._extract_user_info(payload)
 
     def test_authenticate_request_success(self):
         """Test successful request authentication."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com",
-            "name": "Test User"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com", "name": "Test User"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         result = self.auth_service.authenticate_request(headers)
-        
+
         assert result is True
         assert self.auth_service.is_authenticated() is True
         assert self.auth_service.get_current_user() is not None
@@ -229,9 +205,9 @@ class TestCloudIAPAuthService:
     def test_authenticate_request_failure(self):
         """Test failed request authentication."""
         headers = {}
-        
+
         result = self.auth_service.authenticate_request(headers)
-        
+
         assert result is False
         assert self.auth_service.is_authenticated() is False
         assert self.auth_service.get_current_user() is None
@@ -240,15 +216,12 @@ class TestCloudIAPAuthService:
 
     def test_get_user_storage_path(self):
         """Test getting user storage path."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         path = self.auth_service.get_user_storage_path()
         assert path == "photos/user_at_example_dot_com/"
 
@@ -259,15 +232,12 @@ class TestCloudIAPAuthService:
 
     def test_get_user_database_path(self):
         """Test getting user database path."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         path = self.auth_service.get_user_database_path()
         assert path == "dbs/user_at_example_dot_com/metadata.db"
 
@@ -278,17 +248,14 @@ class TestCloudIAPAuthService:
 
     def test_clear_authentication(self):
         """Test clearing authentication state."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         # Authenticate first
         self.auth_service.authenticate_request(headers)
         assert self.auth_service.is_authenticated() is True
-        
+
         # Clear authentication
         self.auth_service.clear_authentication()
         assert self.auth_service.is_authenticated() is False
@@ -305,9 +272,9 @@ class TestAuthServiceGlobal:
     def test_get_auth_service(self):
         """Test getting global auth service instance."""
         service = get_auth_service()
-        
+
         assert isinstance(service, CloudIAPAuthService)
-        
+
         # Should return the same instance
         service2 = get_auth_service()
         assert service is service2
@@ -325,26 +292,22 @@ class TestAccessControl:
         # Create a simple JWT with dummy header and signature
         header = {"alg": "RS256", "typ": "JWT"}
         signature = "dummy_signature"
-        
+
         # Encode header and payload
-        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
-        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
-        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip('=')
-        
+        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
+        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip("=")
+
         return f"{header_b64}.{payload_b64}.{signature_b64}"
 
     def test_ensure_authenticated_success(self):
         """Test ensure_authenticated with authenticated user."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com",
-            "name": "Test User"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com", "name": "Test User"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         user_info = self.auth_service.ensure_authenticated()
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"
@@ -356,45 +319,36 @@ class TestAccessControl:
 
     def test_check_resource_access_storage_success(self):
         """Test resource access check for user's storage path."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         # Test access to user's storage path
         user_path = "photos/user_at_example_dot_com/original/photo.jpg"
         assert self.auth_service.check_resource_access(user_path) is True
 
     def test_check_resource_access_database_success(self):
         """Test resource access check for user's database path."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         # Test access to user's database path
         db_path = "dbs/user_at_example_dot_com/metadata.db"
         assert self.auth_service.check_resource_access(db_path) is True
 
     def test_check_resource_access_denied(self):
         """Test resource access check for other user's resources."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         # Test access to another user's path
         other_user_path = "photos/other_at_example_dot_com/original/photo.jpg"
         assert self.auth_service.check_resource_access(other_user_path) is False
@@ -406,17 +360,14 @@ class TestAccessControl:
 
     def test_get_user_resource_paths_success(self):
         """Test getting user resource paths."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         paths = self.auth_service.get_user_resource_paths()
-        
+
         expected_paths = {
             "storage_prefix": "photos/user_at_example_dot_com/",
             "database_path": "dbs/user_at_example_dot_com/metadata.db",
@@ -424,7 +375,7 @@ class TestAccessControl:
             "thumbnails": "photos/user_at_example_dot_com/thumbs/",
             "database_dir": "dbs/user_at_example_dot_com/",
         }
-        
+
         assert paths == expected_paths
 
     def test_get_user_resource_paths_unauthenticated(self):
@@ -434,30 +385,24 @@ class TestAccessControl:
 
     def test_validate_user_ownership_success(self):
         """Test validating user ownership of resource."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         # Should not raise exception for user's resource
         user_path = "photos/user_at_example_dot_com/original/photo.jpg"
         self.auth_service.validate_user_ownership(user_path)
 
     def test_validate_user_ownership_access_denied(self):
         """Test validating user ownership with access denied."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         # Should raise exception for other user's resource
         other_user_path = "photos/other_at_example_dot_com/original/photo.jpg"
         with pytest.raises(AccessDeniedError, match="Access denied to resource"):
@@ -471,15 +416,12 @@ class TestAccessControl:
 
     def test_require_authentication_success(self):
         """Test require authentication with authenticated user."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         # Should not raise exception
         self.auth_service.require_authentication()
 
@@ -500,11 +442,11 @@ class TestErrorHandling:
         """Create a test JWT token with the given payload."""
         header = {"alg": "RS256", "typ": "JWT"}
         signature = "dummy_signature"
-        
-        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
-        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
-        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip('=')
-        
+
+        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
+        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip("=")
+
         return f"{header_b64}.{payload_b64}.{signature_b64}"
 
     def test_jwt_malformed_parts(self):
@@ -512,7 +454,7 @@ class TestErrorHandling:
         # JWT with only 2 parts instead of 3
         malformed_jwt = "header.payload"
         headers = {"X-Goog-IAP-JWT-Assertion": malformed_jwt}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
 
@@ -521,31 +463,25 @@ class TestErrorHandling:
         payload = {}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
 
     def test_jwt_null_values(self):
         """Test JWT with null values in payload."""
-        payload = {
-            "sub": None,
-            "email": None
-        }
+        payload = {"sub": None, "email": None}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
 
     def test_jwt_empty_string_values(self):
         """Test JWT with empty string values."""
-        payload = {
-            "sub": "",
-            "email": ""
-        }
+        payload = {"sub": "", "email": ""}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
 
@@ -555,14 +491,14 @@ class TestErrorHandling:
         header = {"alg": "RS256", "typ": "JWT"}
         invalid_json = "invalid json content"
         signature = "dummy_signature"
-        
-        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
-        payload_b64 = base64.urlsafe_b64encode(invalid_json.encode()).decode().rstrip('=')
-        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip('=')
-        
+
+        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
+        payload_b64 = base64.urlsafe_b64encode(invalid_json.encode()).decode().rstrip("=")
+        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip("=")
+
         jwt_token = f"{header_b64}.{payload_b64}.{signature_b64}"
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
 
@@ -571,78 +507,72 @@ class TestErrorHandling:
         # Create a JWT with invalid UTF-8 bytes
         header = {"alg": "RS256", "typ": "JWT"}
         signature = "dummy_signature"
-        
-        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
+
+        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
         # Invalid UTF-8 bytes
-        invalid_bytes = b'\xff\xfe\xfd'
-        payload_b64 = base64.urlsafe_b64encode(invalid_bytes).decode().rstrip('=')
-        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip('=')
-        
+        invalid_bytes = b"\xff\xfe\xfd"
+        payload_b64 = base64.urlsafe_b64encode(invalid_bytes).decode().rstrip("=")
+        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip("=")
+
         jwt_token = f"{header_b64}.{payload_b64}.{signature_b64}"
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
 
-    @patch('src.imgstream.services.auth.logger')
+    @patch("src.imgstream.services.auth.logger")
     def test_logging_on_missing_header(self, mock_logger):
         """Test that warning is logged when IAP header is missing."""
         headers = {}
-        
+
         self.auth_service.parse_iap_header(headers)
-        
+
         mock_logger.warning.assert_called_once_with("Cloud IAP JWT header not found")
 
-    @patch('src.imgstream.services.auth.logger')
+    @patch("src.imgstream.services.auth.logger")
     def test_logging_on_jwt_parse_error(self, mock_logger):
         """Test that error is logged when JWT parsing fails."""
         headers = {"X-Goog-IAP-JWT-Assertion": "invalid.jwt.token"}
-        
+
         self.auth_service.parse_iap_header(headers)
-        
+
         mock_logger.error.assert_called_once()
         args, kwargs = mock_logger.error.call_args
         assert "Failed to parse IAP header" in args[0]
 
-    @patch('src.imgstream.services.auth.logger')
+    @patch("src.imgstream.services.auth.logger")
     def test_logging_on_successful_auth(self, mock_logger):
         """Test that info is logged on successful authentication."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.parse_iap_header(headers)
-        
+
         mock_logger.info.assert_called_once_with("Successfully authenticated user: user@example.com")
 
-    @patch('src.imgstream.services.auth.logger')
+    @patch("src.imgstream.services.auth.logger")
     def test_logging_on_access_denied(self, mock_logger):
         """Test that warning is logged on access denied."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         # Try to access another user's resource
         other_user_path = "photos/other_at_example_dot_com/original/photo.jpg"
         self.auth_service.check_resource_access(other_user_path)
-        
+
         mock_logger.warning.assert_called()
         args, kwargs = mock_logger.warning.call_args_list[-1]
         assert "Access denied: User user@example.com attempted to access" in args[0]
 
-    @patch('src.imgstream.services.auth.logger')
+    @patch("src.imgstream.services.auth.logger")
     def test_logging_on_clear_authentication(self, mock_logger):
         """Test that info is logged when authentication is cleared."""
         self.auth_service.clear_authentication()
-        
+
         mock_logger.info.assert_called_once_with("Authentication state cleared")
 
 
@@ -657,25 +587,22 @@ class TestEdgeCases:
         """Create a test JWT token with the given payload."""
         header = {"alg": "RS256", "typ": "JWT"}
         signature = "dummy_signature"
-        
-        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
-        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
-        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip('=')
-        
+
+        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
+        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+        signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip("=")
+
         return f"{header_b64}.{payload_b64}.{signature_b64}"
 
     def test_very_long_email(self):
         """Test with very long email address."""
         long_email = "a" * 100 + "@" + "b" * 100 + ".com"
-        payload = {
-            "sub": "123456789",
-            "email": long_email
-        }
+        payload = {"sub": "123456789", "email": long_email}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
-        
+
         assert user_info is not None
         assert user_info.email == long_email
         # Test that path generation works with long email
@@ -686,18 +613,15 @@ class TestEdgeCases:
     def test_email_with_multiple_special_chars(self):
         """Test email with multiple special characters."""
         special_email = "test.user+tag@sub.domain.example.com"
-        payload = {
-            "sub": "123456789",
-            "email": special_email
-        }
+        payload = {"sub": "123456789", "email": special_email}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
-        
+
         assert user_info is not None
         assert user_info.email == special_email
-        
+
         # Test path generation
         storage_path = user_info.get_storage_path_prefix()
         expected_path = "photos/test_dot_user+tag_at_sub_dot_domain_dot_example_dot_com/"
@@ -705,26 +629,20 @@ class TestEdgeCases:
 
     def test_concurrent_authentication_requests(self):
         """Test concurrent authentication requests don't interfere."""
-        payload1 = {
-            "sub": "user1",
-            "email": "user1@example.com"
-        }
-        payload2 = {
-            "sub": "user2",
-            "email": "user2@example.com"
-        }
-        
+        payload1 = {"sub": "user1", "email": "user1@example.com"}
+        payload2 = {"sub": "user2", "email": "user2@example.com"}
+
         jwt_token1 = self.create_test_jwt(payload1)
         jwt_token2 = self.create_test_jwt(payload2)
-        
+
         headers1 = {"X-Goog-IAP-JWT-Assertion": jwt_token1}
         headers2 = {"X-Goog-IAP-JWT-Assertion": jwt_token2}
-        
+
         # Authenticate with first user
         result1 = self.auth_service.authenticate_request(headers1)
         assert result1 is True
         assert self.auth_service.get_user_email() == "user1@example.com"
-        
+
         # Authenticate with second user (should replace first)
         result2 = self.auth_service.authenticate_request(headers2)
         assert result2 is True
@@ -732,15 +650,12 @@ class TestEdgeCases:
 
     def test_resource_path_edge_cases(self):
         """Test resource access with edge case paths."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         self.auth_service.authenticate_request(headers)
-        
+
         # Test various path formats
         test_cases = [
             ("photos/user_at_example_dot_com/", True),  # Exact prefix match
@@ -754,27 +669,24 @@ class TestEdgeCases:
             ("/", False),  # Root path
             ("photos/", False),  # Just photos directory
         ]
-        
+
         for path, expected in test_cases:
             result = self.auth_service.check_resource_access(path)
             assert result == expected, f"Path '{path}' should return {expected}, got {result}"
 
     def test_multiple_authentication_cycles(self):
         """Test multiple authentication and clearing cycles."""
-        payload = {
-            "sub": "123456789",
-            "email": "user@example.com"
-        }
+        payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         # Perform multiple auth cycles
-        for i in range(5):
+        for _ in range(5):
             # Authenticate
             result = self.auth_service.authenticate_request(headers)
             assert result is True
             assert self.auth_service.is_authenticated() is True
-            
+
             # Clear
             self.auth_service.clear_authentication()
             assert self.auth_service.is_authenticated() is False
@@ -792,13 +704,13 @@ class TestEdgeCases:
             "iat": 1234567800,
             "custom_field": "custom_value",
             "roles": ["admin", "user"],
-            "permissions": {"read": True, "write": False}
+            "permissions": {"read": True, "write": False},
         }
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
-        
+
         user_info = self.auth_service.parse_iap_header(headers)
-        
+
         assert user_info is not None
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"

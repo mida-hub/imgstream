@@ -2,14 +2,13 @@
 Unit tests for database schema module.
 """
 
-import pytest
 from src.imgstream.models.schema import (
+    PHOTOS_TABLE_INDEXES,
+    PHOTOS_TABLE_SCHEMA,
+    get_index_creation_statements,
     get_schema_statements,
     get_table_creation_statement,
-    get_index_creation_statements,
     validate_schema_compatibility,
-    PHOTOS_TABLE_SCHEMA,
-    PHOTOS_TABLE_INDEXES,
 )
 
 

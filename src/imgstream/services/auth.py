@@ -178,25 +178,17 @@ class CloudIAPAuthService:
         # Check storage path access with exact prefix matching
         if user_storage_prefix:
             storage_prefix_clean = user_storage_prefix.rstrip("/")
-            if resource_path == storage_prefix_clean or resource_path.startswith(
-                storage_prefix_clean + "/"
-            ):
+            if resource_path == storage_prefix_clean or resource_path.startswith(storage_prefix_clean + "/"):
                 return True
 
         # Check database path access
         if user_db_prefix:
             db_dir = user_db_prefix.rsplit("/", 1)[0]
-            if (
-                resource_path == db_dir
-                or resource_path.startswith(db_dir + "/")
-                or resource_path == user_db_prefix
-            ):
+            if resource_path == db_dir or resource_path.startswith(db_dir + "/") or resource_path == user_db_prefix:
                 return True
 
         user_email = self.get_user_email()
-        logger.warning(
-            f"Access denied: User {user_email} attempted to access {resource_path}"
-        )
+        logger.warning(f"Access denied: User {user_email} attempted to access {resource_path}")
         return False
 
     def get_user_resource_paths(self) -> dict[str, str]:

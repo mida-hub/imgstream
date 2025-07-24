@@ -2,12 +2,12 @@
 Unit tests for database module.
 """
 
-import pytest
-import tempfile
 import os
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+import tempfile
+from unittest.mock import patch
+
 import duckdb
+import pytest
 
 from src.imgstream.models.database import (
     DatabaseManager,
@@ -80,9 +80,7 @@ class TestDatabaseManager:
 
             # Verify table was created
             conn = manager.connect()
-            result = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='photos'"
-            ).fetchone()
+            result = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='photos'").fetchone()
             assert result is not None
 
             manager.close()
@@ -171,7 +169,8 @@ class TestDatabaseManager:
 
             # Test query with parameters
             manager.execute_query(
-                "INSERT INTO photos (id, user_id, filename, original_path, thumbnail_path, file_size, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                """INSERT INTO photos (id, user_id, filename, original_path,
+                   thumbnail_path, file_size, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?)""",
                 (
                     "test-id",
                     "user123",
@@ -282,9 +281,7 @@ class TestDatabaseFunctions:
             # Mock verification to fail first, then succeed
             mock_verify.side_effect = [False, True]
 
-            with patch(
-                "src.imgstream.models.database.DatabaseManager.initialize_schema"
-            ) as mock_init:
+            with patch("src.imgstream.models.database.DatabaseManager.initialize_schema") as mock_init:
                 manager = get_database_manager(db_path, create_if_missing=False)
 
                 # Should have called initialize_schema due to failed verification

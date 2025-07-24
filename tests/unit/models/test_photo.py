@@ -2,8 +2,8 @@
 Unit tests for PhotoMetadata model.
 """
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 from src.imgstream.models.photo import PhotoMetadata
 
 
@@ -39,7 +39,7 @@ class TestPhotoMetadata:
 
     def test_create_new_with_defaults(self):
         """Test creating new PhotoMetadata with default values."""
-        before_creation = datetime.now(timezone.utc)
+        before_creation = datetime.now(UTC)
 
         photo = PhotoMetadata.create_new(
             user_id="user123",
@@ -50,7 +50,7 @@ class TestPhotoMetadata:
             mime_type="image/jpeg",
         )
 
-        after_creation = datetime.now(timezone.utc)
+        after_creation = datetime.now(UTC)
 
         assert photo.created_at is None
         assert before_creation <= photo.uploaded_at <= after_creation
@@ -157,8 +157,8 @@ class TestPhotoMetadata:
             filename="test.jpg",
             original_path="photos/user123/original/test.jpg",
             thumbnail_path="photos/user123/thumbs/test_thumb.jpg",
-            created_at=datetime.now(timezone.utc),
-            uploaded_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            uploaded_at=datetime.now(UTC),
             file_size=1024000,
             mime_type="image/jpeg",
         )
@@ -173,8 +173,8 @@ class TestPhotoMetadata:
             filename="test.jpg",
             original_path="photos/user123/original/test.jpg",
             thumbnail_path="photos/user123/thumbs/test_thumb.jpg",
-            created_at=datetime.now(timezone.utc),
-            uploaded_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            uploaded_at=datetime.now(UTC),
             file_size=1024000,
             mime_type="image/jpeg",
         )
@@ -189,8 +189,8 @@ class TestPhotoMetadata:
             filename="test.jpg",
             original_path="photos/user123/original/test.jpg",
             thumbnail_path="photos/user123/thumbs/test_thumb.jpg",
-            created_at=datetime.now(timezone.utc),
-            uploaded_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            uploaded_at=datetime.now(UTC),
             file_size=0,
             mime_type="image/jpeg",
         )
@@ -205,8 +205,8 @@ class TestPhotoMetadata:
             filename="test.txt",
             original_path="photos/user123/original/test.txt",
             thumbnail_path="photos/user123/thumbs/test_thumb.jpg",
-            created_at=datetime.now(timezone.utc),
-            uploaded_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            uploaded_at=datetime.now(UTC),
             file_size=1024000,
             mime_type="text/plain",
         )
@@ -224,7 +224,7 @@ class TestPhotoMetadata:
             original_path="photos/user123/original/vacation.jpg",
             thumbnail_path="photos/user123/thumbs/vacation_thumb.jpg",
             created_at=created_at,
-            uploaded_at=datetime.now(timezone.utc),
+            uploaded_at=datetime.now(UTC),
             file_size=1024000,
             mime_type="image/jpeg",
         )
@@ -241,7 +241,7 @@ class TestPhotoMetadata:
             original_path="photos/user123/original/vacation.jpg",
             thumbnail_path="photos/user123/thumbs/vacation_thumb.jpg",
             created_at=None,
-            uploaded_at=datetime.now(timezone.utc),
+            uploaded_at=datetime.now(UTC),
             file_size=1024000,
             mime_type="image/jpeg",
         )
@@ -251,7 +251,7 @@ class TestPhotoMetadata:
 
     def test_is_recent_true(self):
         """Test is_recent returns True for recent photos."""
-        recent_time = datetime.now(timezone.utc) - timedelta(days=3)
+        recent_time = datetime.now(UTC) - timedelta(days=3)
 
         photo = PhotoMetadata(
             id="test-id-123",
@@ -269,7 +269,7 @@ class TestPhotoMetadata:
 
     def test_is_recent_false(self):
         """Test is_recent returns False for old photos."""
-        old_time = datetime.now(timezone.utc) - timedelta(days=10)
+        old_time = datetime.now(UTC) - timedelta(days=10)
 
         photo = PhotoMetadata(
             id="test-id-123",

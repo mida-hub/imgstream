@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from google.cloud.exceptions import NotFound
 
@@ -14,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class MetadataError(Exception):
     """Raised when metadata operations fail."""
+
     pass
 
 
@@ -51,10 +51,7 @@ class MetadataService:
     def db_manager(self) -> DatabaseManager:
         """Get database manager, initializing if needed."""
         if self._db_manager is None:
-            self._db_manager = get_database_manager(
-                str(self.local_db_path),
-                create_if_missing=True
-            )
+            self._db_manager = get_database_manager(str(self.local_db_path), create_if_missing=True)
         return self._db_manager
 
     def ensure_local_database(self) -> bool:
@@ -108,7 +105,7 @@ class MetadataService:
             self.temp_dir.mkdir(parents=True, exist_ok=True)
 
             # Write to local file
-            with open(self.local_db_path, 'wb') as f:
+            with open(self.local_db_path, "wb") as f:
                 f.write(db_data)
 
             # Verify the downloaded database
@@ -182,15 +179,11 @@ class MetadataService:
                 raise MetadataError("Local database does not exist")
 
             # Read database file
-            with open(self.local_db_path, 'rb') as f:
+            with open(self.local_db_path, "rb") as f:
                 db_data = f.read()
 
             # Upload to GCS
-            result = self.storage_service.upload_original_photo(
-                self.user_id,
-                db_data,
-                "metadata.db"
-            )
+            result = self.storage_service.upload_original_photo(self.user_id, db_data, "metadata.db")
 
             logger.info(f"Uploaded database to GCS: {result['gcs_path']}")
             return True
@@ -210,28 +203,25 @@ class MetadataService:
         """
         try:
             info = {
-                'user_id': self.user_id,
-                'local_path': str(self.local_db_path),
-                'gcs_path': self.gcs_db_path,
-                'local_exists': self.local_db_path.exists(),
-                'gcs_exists': self._gcs_database_exists()
+                "user_id": self.user_id,
+                "local_path": str(self.local_db_path),
+                "gcs_path": self.gcs_db_path,
+                "local_exists": self.local_db_path.exists(),
+                "gcs_exists": self._gcs_database_exists(),
             }
 
-            if info['local_exists']:
+            if info["local_exists"]:
                 stat = self.local_db_path.stat()
-                info.update({
-                    'local_size': stat.st_size,
-                    'local_modified': stat.st_mtime
-                })
+                info.update({"local_size": stat.st_size, "local_modified": stat.st_mtime})
 
                 # Get table info
                 try:
                     with self.db_manager as db:
                         table_info = db.get_table_info()
-                        info['table_info'] = table_info
+                        info["table_info"] = table_info
                 except Exception as e:
                     logger.warning(f"Failed to get table info: {e}")
-                    info['table_info'] = None
+                    info["table_info"] = None
 
             return info
 
@@ -252,7 +242,7 @@ class MetadataService:
         except Exception as e:
             logger.error(f"Failed to cleanup local database: {e}")
 
-    def __enter__(self) -> 'MetadataService':
+    def __enter__(self) -> "MetadataService":
         """Context manager entry."""
         self.ensure_local_database()
         return self

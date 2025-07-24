@@ -5,10 +5,9 @@ This module contains the PhotoMetadata dataclass that represents
 photo metadata stored in DuckDB.
 """
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Optional
 import uuid
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
 
 @dataclass
@@ -25,7 +24,7 @@ class PhotoMetadata:
     filename: str
     original_path: str
     thumbnail_path: str
-    created_at: Optional[datetime]
+    created_at: datetime | None
     uploaded_at: datetime
     file_size: int
     mime_type: str
@@ -39,8 +38,8 @@ class PhotoMetadata:
         thumbnail_path: str,
         file_size: int,
         mime_type: str,
-        created_at: Optional[datetime] = None,
-        uploaded_at: Optional[datetime] = None,
+        created_at: datetime | None = None,
+        uploaded_at: datetime | None = None,
     ) -> "PhotoMetadata":
         """
         Create a new PhotoMetadata instance with generated ID and current timestamp.
@@ -65,7 +64,7 @@ class PhotoMetadata:
             original_path=original_path,
             thumbnail_path=thumbnail_path,
             created_at=created_at,
-            uploaded_at=uploaded_at or datetime.now(timezone.utc),
+            uploaded_at=uploaded_at or datetime.now(UTC),
             file_size=file_size,
             mime_type=mime_type,
         )
@@ -106,11 +105,7 @@ class PhotoMetadata:
             filename=data["filename"],
             original_path=data["original_path"],
             thumbnail_path=data["thumbnail_path"],
-            created_at=(
-                datetime.fromisoformat(data["created_at"])
-                if data["created_at"]
-                else None
-            ),
+            created_at=(datetime.fromisoformat(data["created_at"]) if data["created_at"] else None),
             uploaded_at=datetime.fromisoformat(data["uploaded_at"]),
             file_size=data["file_size"],
             mime_type=data["mime_type"],
@@ -158,5 +153,5 @@ class PhotoMetadata:
         Returns:
             True if uploaded within the specified days
         """
-        time_diff = datetime.now(timezone.utc) - self.uploaded_at
+        time_diff = datetime.now(UTC) - self.uploaded_at
         return time_diff.days <= days

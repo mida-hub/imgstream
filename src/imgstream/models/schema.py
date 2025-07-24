@@ -4,8 +4,6 @@ Database schema definitions for imgstream application.
 This module contains SQL schema definitions and database initialization functions.
 """
 
-from typing import List
-
 # SQL schema for the photos table
 PHOTOS_TABLE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS photos (
@@ -33,7 +31,7 @@ PHOTOS_TABLE_INDEXES = [
 ALL_SCHEMA_STATEMENTS = [PHOTOS_TABLE_SCHEMA] + PHOTOS_TABLE_INDEXES
 
 
-def get_schema_statements() -> List[str]:
+def get_schema_statements() -> list[str]:
     """
     Get all database schema creation statements.
 
@@ -53,7 +51,7 @@ def get_table_creation_statement() -> str:
     return PHOTOS_TABLE_SCHEMA
 
 
-def get_index_creation_statements() -> List[str]:
+def get_index_creation_statements() -> list[str]:
     """
     Get all index creation statements.
 

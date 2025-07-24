@@ -48,17 +48,15 @@ class ImageProcessor:
     def __init__(self) -> None:
         """Initialize the image processor."""
         # File size limits (in bytes) - configurable via environment variables
-        self.MAX_FILE_SIZE = int(os.getenv('MAX_FILE_SIZE', 50 * 1024 * 1024))  # Default: 50MB
-        self.MIN_FILE_SIZE = int(os.getenv('MIN_FILE_SIZE', 100))  # Default: 100 bytes
+        self.MAX_FILE_SIZE = int(os.getenv("MAX_FILE_SIZE", 50 * 1024 * 1024))  # Default: 50MB
+        self.MIN_FILE_SIZE = int(os.getenv("MIN_FILE_SIZE", 100))  # Default: 100 bytes
 
         # Thumbnail settings - configurable via environment variables
-        self.DEFAULT_THUMBNAIL_SIZE = int(os.getenv('THUMBNAIL_MAX_SIZE', 300))  # Default: 300px
-        self.DEFAULT_THUMBNAIL_QUALITY = int(os.getenv('THUMBNAIL_QUALITY', 85))  # Default: 85
+        self.DEFAULT_THUMBNAIL_SIZE = int(os.getenv("THUMBNAIL_MAX_SIZE", 300))  # Default: 300px
+        self.DEFAULT_THUMBNAIL_QUALITY = int(os.getenv("THUMBNAIL_QUALITY", 85))  # Default: 85
 
         if not HEIF_AVAILABLE:
-            logger.warning(
-                "HEIF support not available. Install pillow-heif for HEIC support."
-            )
+            logger.warning("HEIF support not available. Install pillow-heif for HEIC support.")
 
     def is_supported_format(self, filename: str) -> bool:
         """
@@ -100,24 +98,21 @@ class ImageProcessor:
 
         if file_size < self.MIN_FILE_SIZE:
             raise ImageProcessingError(
-                f"File '{filename}' is too small ({file_size} bytes). "
-                f"Minimum size: {self.MIN_FILE_SIZE} bytes"
+                f"File '{filename}' is too small ({file_size} bytes). " f"Minimum size: {self.MIN_FILE_SIZE} bytes"
             )
 
         if file_size > self.MAX_FILE_SIZE:
             max_size_mb = self.MAX_FILE_SIZE / (1024 * 1024)
             current_size_mb = file_size / (1024 * 1024)
             raise ImageProcessingError(
-                f"File '{filename}' is too large ({current_size_mb:.1f}MB). "
-                f"Maximum size: {max_size_mb:.0f}MB"
+                f"File '{filename}' is too large ({current_size_mb:.1f}MB). " f"Maximum size: {max_size_mb:.0f}MB"
             )
 
         if file_size > self.MAX_FILE_SIZE:
             max_size_mb = self.MAX_FILE_SIZE / (1024 * 1024)
             current_size_mb = file_size / (1024 * 1024)
             raise ImageProcessingError(
-                f"File '{filename}' is too large ({current_size_mb:.1f}MB). "
-                f"Maximum size: {max_size_mb:.0f}MB"
+                f"File '{filename}' is too large ({current_size_mb:.1f}MB). " f"Maximum size: {max_size_mb:.0f}MB"
             )
 
     def extract_exif_date(self, image_data: bytes) -> datetime | None:
@@ -142,9 +137,7 @@ class ImageProcessor:
                 for tag_name in self.EXIF_DATE_TAGS:
                     date_value = self._get_exif_date_by_name(exif_data, tag_name)
                     if date_value:
-                        logger.debug(
-                            f"Found date from EXIF tag '{tag_name}': {date_value}"
-                        )
+                        logger.debug(f"Found date from EXIF tag '{tag_name}': {date_value}")
                         return date_value
 
                 logger.debug("No date information found in EXIF data")
@@ -233,8 +226,7 @@ class ImageProcessor:
         if not self.is_supported_format(filename):
             supported_formats = ", ".join(self.SUPPORTED_FORMATS)
             raise UnsupportedFormatError(
-                f"Unsupported format for file '{filename}'. "
-                f"Supported formats: {supported_formats}"
+                f"Unsupported format for file '{filename}'. " f"Supported formats: {supported_formats}"
             )
 
         # Try to open and validate the image
@@ -247,16 +239,13 @@ class ImageProcessor:
                 format_lower = image.format.lower() if image.format else ""
                 if format_lower not in ["jpeg", "heic"]:
                     raise UnsupportedFormatError(
-                        f"Detected format '{image.format}' is not supported. "
-                        f"Supported formats: JPEG, HEIC"
+                        f"Detected format '{image.format}' is not supported. " f"Supported formats: JPEG, HEIC"
                     )
 
         except UnsupportedFormatError:
             raise
         except Exception as e:
-            raise ImageProcessingError(
-                f"Invalid or corrupted image file '{filename}': {e}"
-            ) from e
+            raise ImageProcessingError(f"Invalid or corrupted image file '{filename}': {e}") from e
 
     def get_validation_info(self, image_data: bytes, filename: str) -> dict:
         """
@@ -277,7 +266,7 @@ class ImageProcessor:
             "warnings": [],
             "format_supported": False,
             "size_valid": False,
-            "image_readable": False
+            "image_readable": False,
         }
 
         try:
@@ -294,9 +283,7 @@ class ImageProcessor:
         else:
             validation_info["is_valid"] = False
             supported_formats = ", ".join(self.SUPPORTED_FORMATS)
-            validation_info["errors"].append(
-                f"Unsupported format. Supported formats: {supported_formats}"
-            )
+            validation_info["errors"].append(f"Unsupported format. Supported formats: {supported_formats}")
 
         # Try to read the image
         try:
@@ -309,14 +296,10 @@ class ImageProcessor:
                     detected_format = image.format.lower()
                     if detected_format not in ["jpeg", "heic"]:
                         validation_info["is_valid"] = False
-                        validation_info["errors"].append(
-                            f"Detected format '{image.format}' is not supported"
-                        )
+                        validation_info["errors"].append(f"Detected format '{image.format}' is not supported")
                     elif detected_format == "heic" and not HEIF_AVAILABLE:
                         validation_info["is_valid"] = False
-                        validation_info["errors"].append(
-                            "HEIC format requires pillow-heif library"
-                        )
+                        validation_info["errors"].append("HEIC format requires pillow-heif library")
 
         except Exception as e:
             validation_info["is_valid"] = False
@@ -376,9 +359,7 @@ class ImageProcessor:
         except Exception as e:
             raise ImageProcessingError(f"Failed to generate thumbnail: {e}") from e
 
-    def _calculate_thumbnail_size(
-        self, original_size: tuple[int, int], max_size: tuple[int, int]
-    ) -> tuple[int, int]:
+    def _calculate_thumbnail_size(self, original_size: tuple[int, int], max_size: tuple[int, int]) -> tuple[int, int]:
         """
         Calculate thumbnail size while preserving aspect ratio.
 
@@ -480,9 +461,7 @@ class ImageProcessor:
         except (UnsupportedFormatError, ImageProcessingError):
             raise
         except Exception as e:
-            raise ImageProcessingError(
-                f"Failed to generate thumbnail with metadata for '{filename}': {e}"
-            ) from e
+            raise ImageProcessingError(f"Failed to generate thumbnail with metadata for '{filename}': {e}") from e
 
     def extract_metadata(self, image_data: bytes, filename: str) -> dict:
         """
@@ -533,9 +512,7 @@ class ImageProcessor:
         except (UnsupportedFormatError, ImageProcessingError):
             raise
         except Exception as e:
-            raise ImageProcessingError(
-                f"Failed to extract metadata from '{filename}': {e}"
-            ) from e
+            raise ImageProcessingError(f"Failed to extract metadata from '{filename}': {e}") from e
 
 
 # Global image processor instance

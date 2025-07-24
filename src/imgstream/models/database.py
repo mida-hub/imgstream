@@ -5,10 +5,12 @@ This module provides functions to initialize DuckDB databases and manage
 database connections.
 """
 
-import duckdb
 import logging
 from pathlib import Path
-from typing import Optional, List, Any
+from typing import Any
+
+import duckdb
+
 from .schema import get_schema_statements, validate_schema_compatibility
 
 logger = logging.getLogger(__name__)
@@ -27,7 +29,7 @@ class DatabaseManager:
             db_path: Path to the DuckDB database file
         """
         self.db_path = db_path
-        self._connection: Optional[duckdb.DuckDBPyConnection] = None
+        self._connection: duckdb.DuckDBPyConnection | None = None
 
     def connect(self) -> duckdb.DuckDBPyConnection:
         """
@@ -88,9 +90,7 @@ class DatabaseManager:
 
         try:
             # Check if photos table exists
-            result = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='photos'"
-            ).fetchone()
+            result = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='photos'").fetchone()
 
             if not result:
                 logger.warning("Photos table does not exist")
@@ -124,7 +124,7 @@ class DatabaseManager:
             logger.error(f"Schema verification failed: {e}")
             return False
 
-    def get_table_info(self) -> List[dict]:
+    def get_table_info(self) -> list[dict]:
         """
         Get information about the photos table structure.
 
@@ -150,9 +150,7 @@ class DatabaseManager:
             logger.error(f"Failed to get table info: {e}")
             return []
 
-    def execute_query(
-        self, query: str, parameters: Optional[tuple] = None
-    ) -> List[tuple]:
+    def execute_query(self, query: str, parameters: tuple | None = None) -> list[tuple]:
         """
         Execute a SQL query and return results.
 
@@ -222,9 +220,7 @@ def create_database(db_path: str) -> DatabaseManager:
         raise RuntimeError(f"Database creation failed: {e}") from e
 
 
-def get_database_manager(
-    db_path: str, create_if_missing: bool = True
-) -> DatabaseManager:
+def get_database_manager(db_path: str, create_if_missing: bool = True) -> DatabaseManager:
     """
     Get a DatabaseManager instance, optionally creating the database if it doesn't exist.
 
