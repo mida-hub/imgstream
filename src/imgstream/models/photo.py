@@ -99,14 +99,24 @@ class PhotoMetadata:
         Returns:
             PhotoMetadata instance
         """
+        # Handle created_at which can be None, string, or datetime
+        created_at = data["created_at"]
+        if created_at is not None and isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at)
+
+        # Handle uploaded_at which can be string or datetime
+        uploaded_at = data["uploaded_at"]
+        if isinstance(uploaded_at, str):
+            uploaded_at = datetime.fromisoformat(uploaded_at)
+
         return cls(
             id=data["id"],
             user_id=data["user_id"],
             filename=data["filename"],
             original_path=data["original_path"],
             thumbnail_path=data["thumbnail_path"],
-            created_at=(datetime.fromisoformat(data["created_at"]) if data["created_at"] else None),
-            uploaded_at=datetime.fromisoformat(data["uploaded_at"]),
+            created_at=created_at,
+            uploaded_at=uploaded_at,
             file_size=data["file_size"],
             mime_type=data["mime_type"],
         )

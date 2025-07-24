@@ -1,14 +1,46 @@
 """Metadata service for managing photo metadata with DuckDB."""
 
 import logging
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from pathlib import Path
 
 from google.cloud.exceptions import NotFound
 
 from ..models.database import DatabaseManager, create_database, get_database_manager
+from ..models.photo import PhotoMetadata
 from .storage import StorageError, get_storage_service
 
 logger = logging.getLogger(__name__)
+
+# Global thread pool for async operations
+_sync_executor: ThreadPoolExecutor | None = None
+_sync_executor_lock = threading.Lock()
+
+
+def get_sync_executor() -> ThreadPoolExecutor:
+    """Get or create the global sync executor."""
+    global _sync_executor
+    if _sync_executor is None:
+        with _sync_executor_lock:
+            if _sync_executor is None:
+                _sync_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="gcs-sync")
+    return _sync_executor
+
+
+def shutdown_sync_executor() -> None:
+    """Shutdown the global sync executor."""
+    global _sync_executor
+    if _sync_executor is not None:
+        with _sync_executor_lock:
+            if _sync_executor is not None:
+                _sync_executor.shutdown(wait=True)
+                _sync_executor = None
+
+
+
 
 
 class MetadataError(Exception):
@@ -44,6 +76,13 @@ class MetadataService:
 
         # Database manager will be initialized when needed
         self._db_manager: DatabaseManager | None = None
+
+        # Async sync management
+        self._sync_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"metadata-sync-{user_id}")
+        self._sync_lock = threading.Lock()
+        self._last_sync_time: datetime | None = None
+        self._sync_pending = False
+        self._sync_enabled = True
 
         logger.info(f"Initialized metadata service for user {user_id}")
 
@@ -191,6 +230,16 @@ class MetadataService:
         except Exception as e:
             raise MetadataError(f"Failed to upload database to GCS: {e}") from e
 
+    def disable_async_sync(self) -> None:
+        """Disable async sync operations."""
+        self._sync_enabled = False
+        logger.info(f"Async sync disabled for user {self.user_id}")
+
+    def enable_async_sync(self) -> None:
+        """Enable async sync operations."""
+        self._sync_enabled = True
+        logger.info(f"Async sync enabled for user {self.user_id}")
+
     def get_database_info(self) -> dict:
         """
         Get information about the database.
@@ -231,6 +280,10 @@ class MetadataService:
     def cleanup_local_database(self) -> None:
         """Clean up local database file."""
         try:
+            # Shutdown sync executor
+            if hasattr(self, "_sync_executor"):
+                self._sync_executor.shutdown(wait=True)
+
             if self._db_manager:
                 self._db_manager.close()
                 self._db_manager = None
@@ -242,6 +295,113 @@ class MetadataService:
         except Exception as e:
             logger.error(f"Failed to cleanup local database: {e}")
 
+    # Async Sync Methods
+
+    def enable_sync(self) -> None:
+        """Enable automatic GCS synchronization."""
+        with self._sync_lock:
+            self._sync_enabled = True
+            logger.info(f"Enabled GCS sync for user {self.user_id}")
+
+    def disable_sync(self) -> None:
+        """Disable automatic GCS synchronization."""
+        with self._sync_lock:
+            self._sync_enabled = False
+            logger.info(f"Disabled GCS sync for user {self.user_id}")
+
+    def is_sync_enabled(self) -> bool:
+        """Check if GCS synchronization is enabled."""
+        with self._sync_lock:
+            return self._sync_enabled
+
+    def get_sync_status(self) -> dict:
+        """
+        Get current synchronization status.
+
+        Returns:
+            dict: Sync status information
+        """
+        with self._sync_lock:
+            return {
+                "enabled": self._sync_enabled,
+                "pending": self._sync_pending,
+                "last_sync_time": self._last_sync_time.isoformat() if self._last_sync_time else None,
+                "user_id": self.user_id,
+            }
+
+    def _sync_to_gcs_async(self) -> None:
+        """
+        Internal method to sync database to GCS asynchronously.
+        This runs in a background thread.
+        """
+        try:
+            with self._sync_lock:
+                if not self._sync_enabled:
+                    logger.debug(f"Sync disabled for user {self.user_id}, skipping")
+                    return
+
+                self._sync_pending = True
+
+            # Perform the actual sync
+            success = self.upload_to_gcs(force=False)
+
+            with self._sync_lock:
+                self._sync_pending = False
+                if success:
+                    self._last_sync_time = datetime.now(UTC)
+                    logger.info(f"Async sync completed successfully for user {self.user_id}")
+                else:
+                    logger.warning(f"Async sync failed for user {self.user_id}")
+
+        except Exception as e:
+            with self._sync_lock:
+                self._sync_pending = False
+            logger.error(f"Async sync error for user {self.user_id}: {e}")
+
+    def trigger_async_sync(self) -> None:
+        """
+        Trigger asynchronous synchronization to GCS.
+        This method returns immediately and sync happens in background.
+        """
+        try:
+            with self._sync_lock:
+                if not self._sync_enabled:
+                    logger.debug(f"Sync disabled for user {self.user_id}")
+                    return
+
+                if self._sync_pending:
+                    logger.debug(f"Sync already pending for user {self.user_id}")
+                    return
+
+            # Submit sync task to executor
+            self._sync_executor.submit(self._sync_to_gcs_async)
+            logger.debug(f"Submitted async sync task for user {self.user_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to trigger async sync for user {self.user_id}: {e}")
+
+    def wait_for_sync_completion(self, timeout: float = 30.0) -> bool:
+        """
+        Wait for any pending sync operations to complete.
+
+        Args:
+            timeout: Maximum time to wait in seconds
+
+        Returns:
+            bool: True if sync completed, False if timeout
+        """
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            with self._sync_lock:
+                if not self._sync_pending:
+                    return True
+
+            time.sleep(0.1)
+
+        logger.warning(f"Sync completion timeout for user {self.user_id}")
+        return False
+
     def __enter__(self) -> "MetadataService":
         """Context manager entry."""
         self.ensure_local_database()
@@ -251,6 +411,283 @@ class MetadataService:
         """Context manager exit."""
         if self._db_manager:
             self._db_manager.close()
+
+    # CRUD Operations
+
+    def save_photo_metadata(self, photo_metadata: PhotoMetadata) -> None:
+        """
+        Save photo metadata to the database.
+
+        Args:
+            photo_metadata: PhotoMetadata instance to save
+
+        Raises:
+            MetadataError: If save operation fails
+        """
+        try:
+            # Validate metadata
+            if not photo_metadata.validate():
+                raise MetadataError("Invalid photo metadata")
+
+            # Ensure user_id matches
+            if photo_metadata.user_id != self.user_id:
+                raise MetadataError(f"User ID mismatch: expected {self.user_id}, got {photo_metadata.user_id}")
+
+            # Ensure local database exists
+            self.ensure_local_database()
+
+            # Insert or update metadata
+            with self.db_manager as db:
+                # Check if photo already exists
+                existing = db.execute_query("SELECT id FROM photos WHERE id = ?", (photo_metadata.id,))
+
+                if existing:
+                    # Update existing record
+                    db.execute_query(
+                        """UPDATE photos SET
+                           user_id = ?, filename = ?, original_path = ?, thumbnail_path = ?,
+                           created_at = ?, uploaded_at = ?, file_size = ?, mime_type = ?
+                           WHERE id = ?""",
+                        (
+                            photo_metadata.user_id,
+                            photo_metadata.filename,
+                            photo_metadata.original_path,
+                            photo_metadata.thumbnail_path,
+                            photo_metadata.created_at.isoformat() if photo_metadata.created_at else None,
+                            photo_metadata.uploaded_at.isoformat(),
+                            photo_metadata.file_size,
+                            photo_metadata.mime_type,
+                            photo_metadata.id,
+                        ),
+                    )
+                    logger.info(f"Updated photo metadata: {photo_metadata.id}")
+                else:
+                    # Insert new record
+                    db.execute_query(
+                        """INSERT INTO photos
+                           (id, user_id, filename, original_path, thumbnail_path,
+                            created_at, uploaded_at, file_size, mime_type)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (
+                            photo_metadata.id,
+                            photo_metadata.user_id,
+                            photo_metadata.filename,
+                            photo_metadata.original_path,
+                            photo_metadata.thumbnail_path,
+                            photo_metadata.created_at.isoformat() if photo_metadata.created_at else None,
+                            photo_metadata.uploaded_at.isoformat(),
+                            photo_metadata.file_size,
+                            photo_metadata.mime_type,
+                        ),
+                    )
+                    logger.info(f"Saved new photo metadata: {photo_metadata.id}")
+
+            # Trigger async sync after successful save
+            self.trigger_async_sync()
+
+        except Exception as e:
+            raise MetadataError(f"Failed to save photo metadata: {e}") from e
+
+    def get_photo_by_id(self, photo_id: str) -> PhotoMetadata | None:
+        """
+        Get photo metadata by ID.
+
+        Args:
+            photo_id: Photo ID to retrieve
+
+        Returns:
+            PhotoMetadata instance or None if not found
+
+        Raises:
+            MetadataError: If retrieval fails
+        """
+        try:
+            self.ensure_local_database()
+
+            with self.db_manager as db:
+                result = db.execute_query(
+                    """SELECT id, user_id, filename, original_path, thumbnail_path,
+                              created_at, uploaded_at, file_size, mime_type
+                       FROM photos WHERE id = ? AND user_id = ?""",
+                    (photo_id, self.user_id),
+                )
+
+                if not result:
+                    return None
+
+                row = result[0]
+                return PhotoMetadata(
+                    id=row[0],
+                    user_id=row[1],
+                    filename=row[2],
+                    original_path=row[3],
+                    thumbnail_path=row[4],
+                    created_at=row[5],
+                    uploaded_at=row[6],
+                    file_size=row[7],
+                    mime_type=row[8],
+                )
+
+        except Exception as e:
+            raise MetadataError(f"Failed to get photo by ID: {e}") from e
+
+    def get_photos_by_date(self, limit: int = 50, offset: int = 0) -> list[PhotoMetadata]:
+        """
+        Get photos ordered by creation date (newest first) with pagination.
+
+        Args:
+            limit: Maximum number of photos to return
+            offset: Number of photos to skip
+
+        Returns:
+            List of PhotoMetadata instances
+
+        Raises:
+            MetadataError: If retrieval fails
+        """
+        try:
+            self.ensure_local_database()
+
+            with self.db_manager as db:
+                result = db.execute_query(
+                    """SELECT id, user_id, filename, original_path, thumbnail_path,
+                              created_at, uploaded_at, file_size, mime_type
+                       FROM photos
+                       WHERE user_id = ?
+                       ORDER BY COALESCE(created_at, uploaded_at) DESC
+                       LIMIT ? OFFSET ?""",
+                    (self.user_id, limit, offset),
+                )
+
+                photos = []
+                for row in result:
+                    photos.append(
+                        PhotoMetadata(
+                            id=row[0],
+                            user_id=row[1],
+                            filename=row[2],
+                            original_path=row[3],
+                            thumbnail_path=row[4],
+                            created_at=row[5],
+                            uploaded_at=row[6],
+                            file_size=row[7],
+                            mime_type=row[8],
+                        )
+                    )
+
+                logger.info(f"Retrieved {len(photos)} photos for user {self.user_id}")
+                return photos
+
+        except Exception as e:
+            raise MetadataError(f"Failed to get photos by date: {e}") from e
+
+    def get_photos_count(self) -> int:
+        """
+        Get total count of photos for the user.
+
+        Returns:
+            Total number of photos
+
+        Raises:
+            MetadataError: If count fails
+        """
+        try:
+            self.ensure_local_database()
+
+            with self.db_manager as db:
+                result = db.execute_query("SELECT COUNT(*) FROM photos WHERE user_id = ?", (self.user_id,))
+
+                return result[0][0] if result else 0
+
+        except Exception as e:
+            raise MetadataError(f"Failed to get photos count: {e}") from e
+
+    def delete_photo_metadata(self, photo_id: str) -> bool:
+        """
+        Delete photo metadata by ID.
+
+        Args:
+            photo_id: Photo ID to delete
+
+        Returns:
+            True if deleted, False if not found
+
+        Raises:
+            MetadataError: If deletion fails
+        """
+        try:
+            self.ensure_local_database()
+
+            with self.db_manager as db:
+                db.execute_query("DELETE FROM photos WHERE id = ? AND user_id = ?", (photo_id, self.user_id))
+
+                # Check if any rows were affected
+                count_result = db.execute_query("SELECT changes()")
+
+                deleted = count_result[0][0] > 0 if count_result else False
+
+                if deleted:
+                    logger.info(f"Deleted photo metadata: {photo_id}")
+                    # Trigger async sync after successful deletion
+                    self.trigger_async_sync()
+                else:
+                    logger.warning(f"Photo not found for deletion: {photo_id}")
+
+                return deleted
+
+        except Exception as e:
+            raise MetadataError(f"Failed to delete photo metadata: {e}") from e
+
+    def search_photos_by_filename(self, filename_pattern: str, limit: int = 50, offset: int = 0) -> list[PhotoMetadata]:
+        """
+        Search photos by filename pattern.
+
+        Args:
+            filename_pattern: Pattern to search for (supports SQL LIKE patterns)
+            limit: Maximum number of photos to return
+            offset: Number of photos to skip
+
+        Returns:
+            List of PhotoMetadata instances
+
+        Raises:
+            MetadataError: If search fails
+        """
+        try:
+            self.ensure_local_database()
+
+            with self.db_manager as db:
+                result = db.execute_query(
+                    """SELECT id, user_id, filename, original_path, thumbnail_path,
+                              created_at, uploaded_at, file_size, mime_type
+                       FROM photos
+                       WHERE user_id = ? AND filename LIKE ?
+                       ORDER BY COALESCE(created_at, uploaded_at) DESC
+                       LIMIT ? OFFSET ?""",
+                    (self.user_id, filename_pattern, limit, offset),
+                )
+
+                photos = []
+                for row in result:
+                    photos.append(
+                        PhotoMetadata(
+                            id=row[0],
+                            user_id=row[1],
+                            filename=row[2],
+                            original_path=row[3],
+                            thumbnail_path=row[4],
+                            created_at=row[5],
+                            uploaded_at=row[6],
+                            file_size=row[7],
+                            mime_type=row[8],
+                        )
+                    )
+
+                logger.info(f"Found {len(photos)} photos matching pattern '{filename_pattern}'")
+                return photos
+
+        except Exception as e:
+            raise MetadataError(f"Failed to search photos by filename: {e}") from e
 
 
 # Global metadata service instances
