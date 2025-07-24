@@ -888,3 +888,292 @@ class TestMetadataServiceAsyncSync:
 
         # Verify sync was triggered
         mock_storage.upload_original_photo.assert_called()
+
+
+class TestMetadataServiceIntegration:
+    """Integration test cases for MetadataService covering end-to-end scenarios."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.temp_dir = tempfile.mkdtemp()
+        self.user_id = "test_user_123"
+
+    def teardown_method(self):
+        """Clean up test fixtures."""
+        cleanup_metadata_services()
+        import shutil
+
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    @patch("src.imgstream.services.metadata.get_storage_service")
+    @patch("src.imgstream.services.metadata.get_database_manager")
+    def test_full_metadata_lifecycle(self, mock_get_db_manager, mock_get_storage):
+        """Test complete metadata lifecycle: create, read, update, delete."""
+        mock_storage = MagicMock()
+        mock_get_storage.return_value = mock_storage
+        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.upload_original_photo.return_value = {"gcs_path": "test/path"}
+
+        mock_db_manager = MagicMock()
+        mock_get_db_manager.return_value = mock_db_manager
+        mock_db_manager.__enter__ = MagicMock(return_value=mock_db_manager)
+        mock_db_manager.__exit__ = MagicMock(return_value=None)
+
+        # Mock database responses for lifecycle
+        mock_db_manager.execute_query.side_effect = [
+            [],  # No existing record (create)
+            None,  # Insert successful
+            [
+                (  # Get photo by ID
+                    "test_id",
+                    self.user_id,
+                    "test.jpg",
+                    "original/test.jpg",
+                    "thumbs/test.jpg",
+                    datetime(2024, 1, 15, tzinfo=UTC),
+                    datetime(2024, 1, 15, tzinfo=UTC),
+                    1000,
+                    "image/jpeg",
+                )
+            ],
+            [("test_id",)],  # Existing record found (update)
+            None,  # Update successful
+            [
+                (  # Get updated photo
+                    "test_id",
+                    self.user_id,
+                    "updated.jpg",
+                    "original/updated.jpg",
+                    "thumbs/updated.jpg",
+                    datetime(2024, 1, 15, tzinfo=UTC),
+                    datetime(2024, 1, 15, tzinfo=UTC),
+                    2000,
+                    "image/jpeg",
+                )
+            ],
+            None,  # Delete query
+            [(1,)],  # changes() returns 1 (delete successful)
+        ]
+
+        service = MetadataService(self.user_id, self.temp_dir)
+
+        # Create photo metadata
+        photo = PhotoMetadata.create_new(
+            user_id=self.user_id,
+            filename="test.jpg",
+            original_path="original/test.jpg",
+            thumbnail_path="thumbs/test.jpg",
+            file_size=1000,
+            mime_type="image/jpeg",
+        )
+        photo.id = "test_id"  # Set fixed ID for testing
+
+        # CREATE
+        service.save_photo_metadata(photo)
+
+        # READ
+        retrieved = service.get_photo_by_id("test_id")
+        assert retrieved is not None
+        assert retrieved.filename == "test.jpg"
+
+        # UPDATE
+        photo.filename = "updated.jpg"
+        photo.original_path = "original/updated.jpg"
+        photo.thumbnail_path = "thumbs/updated.jpg"
+        photo.file_size = 2000
+        service.save_photo_metadata(photo)
+
+        # Verify update
+        updated = service.get_photo_by_id("test_id")
+        assert updated is not None
+        assert updated.filename == "updated.jpg"
+        assert updated.file_size == 2000
+
+        # DELETE
+        deleted = service.delete_photo_metadata("test_id")
+        assert deleted is True
+
+        # Wait for async sync to complete
+        service.wait_for_sync_completion(timeout=5.0)
+
+        # Verify sync was triggered (at least once for the operations)
+        assert mock_storage.upload_original_photo.call_count >= 1
+
+    @patch("src.imgstream.services.metadata.get_storage_service")
+    @patch("src.imgstream.services.metadata.get_database_manager")
+    def test_concurrent_operations(self, mock_get_db_manager, mock_get_storage):
+        """Test concurrent metadata operations."""
+        mock_storage = MagicMock()
+        mock_get_storage.return_value = mock_storage
+        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.upload_original_photo.return_value = {"gcs_path": "test/path"}
+
+        mock_db_manager = MagicMock()
+        mock_get_db_manager.return_value = mock_db_manager
+        mock_db_manager.__enter__ = MagicMock(return_value=mock_db_manager)
+        mock_db_manager.__exit__ = MagicMock(return_value=None)
+        mock_db_manager.execute_query.side_effect = [
+            [],  # No existing record 1
+            None,  # Insert successful 1
+            [],  # No existing record 2
+            None,  # Insert successful 2
+            [],  # No existing record 3
+            None,  # Insert successful 3
+        ]
+
+        service = MetadataService(self.user_id, self.temp_dir)
+
+        # Create multiple photos concurrently
+        photos = []
+        for i in range(3):
+            photo = PhotoMetadata.create_new(
+                user_id=self.user_id,
+                filename=f"test_{i}.jpg",
+                original_path=f"original/test_{i}.jpg",
+                thumbnail_path=f"thumbs/test_{i}.jpg",
+                file_size=1000 + i,
+                mime_type="image/jpeg",
+            )
+            photos.append(photo)
+            service.save_photo_metadata(photo)
+
+        # Wait for all sync operations to complete
+        service.wait_for_sync_completion(timeout=10.0)
+
+        # Verify all operations completed
+        assert mock_db_manager.execute_query.call_count >= 6
+
+    @patch("src.imgstream.services.metadata.get_storage_service")
+    @patch("src.imgstream.services.metadata.get_database_manager")
+    def test_database_recovery_scenario(self, mock_get_db_manager, mock_get_storage):
+        """Test database recovery from GCS when local DB is corrupted."""
+        mock_storage = MagicMock()
+        mock_get_storage.return_value = mock_storage
+
+        # First call: local DB doesn't exist, GCS has backup
+        # Second call: download the backup
+        mock_storage.download_file.side_effect = [
+            b"fake_backup_data",  # GCS has backup
+            b"fake_backup_data",  # Download backup
+        ]
+
+        mock_db_manager = MagicMock()
+        mock_get_db_manager.return_value = mock_db_manager
+        mock_db_manager.__enter__ = MagicMock(return_value=mock_db_manager)
+        mock_db_manager.__exit__ = MagicMock(return_value=None)
+        mock_db_manager.verify_schema.return_value = True
+
+        service = MetadataService(self.user_id, self.temp_dir)
+
+        # Ensure database (should download from GCS)
+        downloaded = service.ensure_local_database()
+        assert downloaded is True
+
+        # Verify local file was created
+        assert service.local_db_path.exists()
+
+        # Verify download was called
+        assert mock_storage.download_file.call_count == 2
+
+    @patch("src.imgstream.services.metadata.get_storage_service")
+    def test_sync_disable_enable_cycle(self, mock_get_storage):
+        """Test disabling and re-enabling sync functionality."""
+        mock_storage = MagicMock()
+        mock_get_storage.return_value = mock_storage
+        mock_storage.upload_original_photo.return_value = {"gcs_path": "test/path"}
+
+        service = MetadataService(self.user_id, self.temp_dir)
+
+        # Create local database file
+        service.local_db_path.write_bytes(b"fake_db_content")
+
+        # Initially enabled
+        assert service.is_sync_enabled() is True
+
+        # Disable sync
+        service.disable_async_sync()
+        assert service.is_sync_enabled() is False
+
+        # Trigger sync (should be ignored)
+        service.trigger_async_sync()
+        time.sleep(0.1)
+        mock_storage.upload_original_photo.assert_not_called()
+
+        # Re-enable sync
+        service.enable_async_sync()
+        assert service.is_sync_enabled() is True
+
+        # Trigger sync (should work now)
+        service.trigger_async_sync()
+        service.wait_for_sync_completion(timeout=5.0)
+        mock_storage.upload_original_photo.assert_called_once()
+
+    @patch("src.imgstream.services.metadata.get_storage_service")
+    @patch("src.imgstream.services.metadata.get_database_manager")
+    def test_pagination_and_search_integration(self, mock_get_db_manager, mock_get_storage):
+        """Test pagination and search functionality integration."""
+        mock_storage = MagicMock()
+        mock_get_storage.return_value = mock_storage
+        mock_storage.download_file.side_effect = StorageError("Not found")
+
+        mock_db_manager = MagicMock()
+        mock_get_db_manager.return_value = mock_db_manager
+        mock_db_manager.__enter__ = MagicMock(return_value=mock_db_manager)
+        mock_db_manager.__exit__ = MagicMock(return_value=None)
+
+        # Mock responses for different queries
+        def mock_execute_query(query, params):
+            if "COUNT(*)" in query:
+                return [(100,)]  # Total count
+            elif "LIKE" in query:
+                # Search results
+                return [
+                    (
+                        "search_id",
+                        self.user_id,
+                        "vacation_photo.jpg",
+                        "original/vacation.jpg",
+                        "thumbs/vacation.jpg",
+                        datetime(2024, 1, 15, tzinfo=UTC),
+                        datetime(2024, 1, 15, tzinfo=UTC),
+                        1000,
+                        "image/jpeg",
+                    )
+                ]
+            else:
+                # Regular pagination results
+                return [
+                    (
+                        f"id_{params[2]}",
+                        self.user_id,
+                        f"photo_{params[2]}.jpg",
+                        f"original/photo_{params[2]}.jpg",
+                        f"thumbs/photo_{params[2]}.jpg",
+                        datetime(2024, 1, 15, tzinfo=UTC),
+                        datetime(2024, 1, 15, tzinfo=UTC),
+                        1000,
+                        "image/jpeg",
+                    )
+                ]
+
+        mock_db_manager.execute_query.side_effect = mock_execute_query
+
+        service = MetadataService(self.user_id, self.temp_dir)
+
+        # Test pagination
+        page1 = service.get_photos_by_date(limit=10, offset=0)
+        assert len(page1) == 1
+        assert page1[0].filename == "photo_0.jpg"
+
+        page2 = service.get_photos_by_date(limit=10, offset=10)
+        assert len(page2) == 1
+        assert page2[0].filename == "photo_10.jpg"
+
+        # Test search
+        search_results = service.search_photos_by_filename("%vacation%")
+        assert len(search_results) == 1
+        assert search_results[0].filename == "vacation_photo.jpg"
+
+        # Test count
+        total_count = service.get_photos_count()
+        assert total_count == 100

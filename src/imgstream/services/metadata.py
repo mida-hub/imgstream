@@ -40,9 +40,6 @@ def shutdown_sync_executor() -> None:
                 _sync_executor = None
 
 
-
-
-
 class MetadataError(Exception):
     """Raised when metadata operations fail."""
 
