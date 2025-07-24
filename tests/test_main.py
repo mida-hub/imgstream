@@ -18,7 +18,6 @@ class TestMainApplication:
     @patch("imgstream.main.authenticate_user")
     @patch("imgstream.main.logger")
     @patch("streamlit.set_page_config")
-    @patch("streamlit.title")
     @patch("streamlit.markdown")
     @patch("streamlit.columns")
     @patch("streamlit.sidebar")
@@ -31,7 +30,6 @@ class TestMainApplication:
         mock_sidebar,
         mock_columns,
         mock_markdown,
-        mock_title,
         mock_set_page_config,
         mock_logger,
         mock_authenticate,
@@ -54,7 +52,6 @@ class TestMainApplication:
         mock_set_page_config.assert_called_once()
 
         # Verify basic UI elements are called
-        mock_title.assert_called()
         mock_markdown.assert_called()
 
         # Verify authentication is attempted
@@ -108,3 +105,13 @@ def test_authentication_functions():
     assert callable(authenticate_user)
     assert callable(handle_logout)
     assert callable(require_authentication)
+
+
+def test_ui_helper_functions():
+    """Test UI helper functions."""
+    from imgstream.main import render_empty_state, render_error_message, render_info_card
+
+    # Verify UI helper functions exist and are callable
+    assert callable(render_empty_state)
+    assert callable(render_error_message)
+    assert callable(render_info_card)
