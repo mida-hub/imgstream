@@ -15,6 +15,7 @@ from imgstream.main import main
 class TestMainApplication:
     """Test main application functionality."""
 
+    @patch("imgstream.main.authenticate_user")
     @patch("imgstream.main.logger")
     @patch("streamlit.set_page_config")
     @patch("streamlit.title")
@@ -33,15 +34,18 @@ class TestMainApplication:
         mock_title,
         mock_set_page_config,
         mock_logger,
+        mock_authenticate,
     ):
         """Test basic main function execution."""
         mock_secrets.get.return_value = False
         mock_columns.return_value = [MagicMock(), MagicMock(), MagicMock()]
+        mock_authenticate.return_value = False
 
         # Mock session state
         mock_session_state = MagicMock()
         mock_session_state.authenticated = False
         mock_session_state.current_page = "home"
+        mock_session_state.user_email = None
 
         with patch.object(st, "session_state", mock_session_state):
             main()
@@ -52,6 +56,9 @@ class TestMainApplication:
         # Verify basic UI elements are called
         mock_title.assert_called()
         mock_markdown.assert_called()
+
+        # Verify authentication is attempted
+        mock_authenticate.assert_called_once()
 
         # Verify structured logging is used
         mock_logger.info.assert_called()
@@ -75,18 +82,29 @@ def test_main_function_exists():
 
     assert callable(main)
 
-    def test_structlog_configuration(self):
-        """Test that structlog is properly configured."""
-        # Import after configuration
-        from imgstream.main import logger
 
-        # Verify logger is a structlog logger
-        assert hasattr(logger, "info")
-        assert hasattr(logger, "error")
-        assert hasattr(logger, "warning")
+def test_structlog_configuration():
+    """Test that structlog is properly configured."""
+    # Import after configuration
+    from imgstream.main import logger
 
-        # Test that logger can be called with structured data
-        try:
-            logger.info("test_message", key="value", number=123)
-        except Exception as e:
-            raise AssertionError(f"Structured logging failed: {e}") from e
+    # Verify logger is a structlog logger
+    assert hasattr(logger, "info")
+    assert hasattr(logger, "error")
+    assert hasattr(logger, "warning")
+
+    # Test that logger can be called with structured data
+    try:
+        logger.info("test_message", key="value", number=123)
+    except Exception as e:
+        raise AssertionError(f"Structured logging failed: {e}") from e
+
+
+def test_authentication_functions():
+    """Test authentication-related functions."""
+    from imgstream.main import authenticate_user, handle_logout, require_authentication
+
+    # Verify functions exist and are callable
+    assert callable(authenticate_user)
+    assert callable(handle_logout)
+    assert callable(require_authentication)
