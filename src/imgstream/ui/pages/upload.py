@@ -1,5 +1,8 @@
 """Upload page for imgstream application."""
 
+from datetime import datetime
+from typing import Any
+
 import streamlit as st
 import structlog
 
@@ -8,9 +11,11 @@ from imgstream.ui.components import render_empty_state, render_info_card
 from imgstream.ui.upload_handlers import (
     get_file_size_limits,
     process_batch_upload,
+    render_detailed_progress_info,
     render_file_validation_results,
     render_upload_progress,
     render_upload_results,
+    render_upload_statistics,
     validate_uploaded_files,
 )
 
@@ -65,6 +70,10 @@ def render_upload_page() -> None:
         st.session_state.valid_files = []
     if "validation_errors" not in st.session_state:
         st.session_state.validation_errors = []
+    if "upload_in_progress" not in st.session_state:
+        st.session_state.upload_in_progress = False
+    if "last_upload_result" not in st.session_state:
+        st.session_state.last_upload_result = None
 
     # Process uploaded files
     if uploaded_files:
@@ -95,58 +104,103 @@ def render_upload_page() -> None:
             st.divider()
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
+                # Disable button during upload
+                upload_button_disabled = st.session_state.upload_in_progress
+
                 if st.button(
                     f"🚀 Upload {len(st.session_state.valid_files)} Photo(s)",
                     use_container_width=True,
                     type="primary",
+                    disabled=upload_button_disabled,
                 ):
-                    # Process upload with progress indication
+                    # Set upload in progress
+                    st.session_state.upload_in_progress = True
+                    # Initialize progress tracking
+                    start_time = datetime.now()
                     progress_placeholder = st.empty()
+                    progress_info_placeholder = st.empty()
+                    stats_placeholder = st.empty()
 
-                    with st.spinner("Processing uploads..."):
-                        # Show initial progress
+                    # Track processing results for real-time updates
+                    processing_results: list[dict[str, Any]] = []
+
+                    def progress_callback(
+                        current_file: str, current_step: str, completed: int, total: int, stage: str = "processing"
+                    ) -> None:
+                        """Callback function for real-time progress updates."""
                         render_upload_progress(
-                            progress_placeholder,
-                            "Initializing...",
-                            "Starting upload process",
-                            0,
-                            len(st.session_state.valid_files),
+                            progress_placeholder, current_file, current_step, completed, total, stage
                         )
 
-                        # Process the batch upload
-                        batch_result = process_batch_upload(st.session_state.valid_files)
+                        # Update detailed progress info
+                        render_detailed_progress_info(
+                            progress_info_placeholder,
+                            processing_results,
+                            {"filename": current_file, "step": current_step},
+                        )
 
-                    # Clear progress display
+                        # Update statistics
+                        render_upload_statistics(stats_placeholder, start_time)
+
+                    # Show initial progress
+                    progress_callback(
+                        "Initializing...",
+                        "🚀 Starting upload process...",
+                        0,
+                        len(st.session_state.valid_files),
+                        "processing",
+                    )
+
+                    # Process the batch upload with enhanced progress tracking
+                    batch_result = process_batch_upload(st.session_state.valid_files, progress_callback)
+
+                    # Calculate total processing time
+                    end_time = datetime.now()
+                    processing_time = (end_time - start_time).total_seconds()
+
+                    # Clear progress displays
                     progress_placeholder.empty()
+                    progress_info_placeholder.empty()
+                    stats_placeholder.empty()
 
-                    # Show results
-                    render_upload_results(batch_result)
+                    # Store results and reset upload state
+                    st.session_state.last_upload_result = batch_result
+                    st.session_state.upload_in_progress = False
 
-                    # If successful, suggest next actions
-                    if batch_result["success"] and batch_result["successful_uploads"] > 0:
-                        st.divider()
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            if st.button("🖼️ View Gallery", use_container_width=True):
-                                st.session_state.current_page = "gallery"
-                                st.rerun()
-                        with col2:
-                            if st.button("📤 Upload More", use_container_width=True):
-                                st.rerun()
+                    # Show enhanced results with processing time
+                    st.divider()
+                    st.markdown("### 📊 Upload Results")
+                    render_upload_results(batch_result, processing_time)
+
+        # Show upload in progress indicator
+        if st.session_state.upload_in_progress:
+            st.info("🔄 Upload in progress... Please do not refresh the page.")
 
         # Clear validation state when files are removed
         if not uploaded_files:
             st.session_state.upload_validated = False
             st.session_state.valid_files = []
             st.session_state.validation_errors = []
+            st.session_state.upload_in_progress = False
 
     else:
-        # Show empty state when no files are uploaded
-        render_empty_state(
-            title="No Photos Selected",
-            description="Choose photos from your device to upload to your personal collection.",
-            icon="📁",
-        )
+        # Show last upload result if available
+        if st.session_state.last_upload_result and not st.session_state.upload_in_progress:
+            st.divider()
+            st.markdown("### 📋 Previous Upload Results")
+            render_upload_results(st.session_state.last_upload_result)
+
+            # Clear results button
+            if st.button("🗑️ Clear Results", use_container_width=True):
+                st.session_state.last_upload_result = None
+                st.rerun()
+        else:
+            # Show empty state when no files are uploaded
+            render_empty_state(
+                title="No Photos Selected",
+                description="Choose photos from your device to upload to your personal collection.",
+                icon="📁",
+            )
 
     # Upload tips
     with st.expander("💡 Upload Tips"):
