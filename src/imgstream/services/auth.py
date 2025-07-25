@@ -144,6 +144,10 @@ class CloudIAPAuthService:
         self._current_user = None
         logger.info("Authentication state cleared")
 
+    def set_current_user(self, user_info: UserInfo | None) -> None:
+        """Set the current user (for testing/development purposes)."""
+        self._current_user = user_info
+
     def ensure_authenticated(self) -> UserInfo:
         """
         Ensure user is authenticated, raise exception if not.

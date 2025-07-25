@@ -6,8 +6,9 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from imgstream.main import format_file_size, get_file_size_limits, validate_uploaded_files
 from imgstream.services.image_processor import ImageProcessingError
+from imgstream.ui.components import format_file_size
+from imgstream.ui.upload_handlers import get_file_size_limits, validate_uploaded_files
 
 
 class TestFileValidation:
@@ -19,7 +20,7 @@ class TestFileValidation:
         assert valid_files == []
         assert errors == []
 
-    @patch("imgstream.main.ImageProcessor")
+    @patch("imgstream.ui.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_valid_file(self, mock_processor_class):
         """Test validation with valid file."""
         # Mock ImageProcessor
@@ -40,7 +41,7 @@ class TestFileValidation:
         assert valid_files[0]["filename"] == "test.jpg"
         assert valid_files[0]["size"] == len(b"fake_image_data")
 
-    @patch("imgstream.main.ImageProcessor")
+    @patch("imgstream.ui.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_unsupported_format(self, mock_processor_class):
         """Test validation with unsupported file format."""
         # Mock ImageProcessor
@@ -60,7 +61,7 @@ class TestFileValidation:
         assert errors[0]["filename"] == "test.png"
         assert "Unsupported file format" in errors[0]["error"]
 
-    @patch("imgstream.main.ImageProcessor")
+    @patch("imgstream.ui.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_size_error(self, mock_processor_class):
         """Test validation with file size error."""
         # Mock ImageProcessor
@@ -81,7 +82,7 @@ class TestFileValidation:
         assert errors[0]["filename"] == "large_file.jpg"
         assert "Validation failed" in errors[0]["error"]
 
-    @patch("imgstream.main.ImageProcessor")
+    @patch("imgstream.ui.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_mixed_results(self, mock_processor_class):
         """Test validation with mix of valid and invalid files."""
         # Mock ImageProcessor
@@ -132,7 +133,7 @@ class TestFileUtilities:
         assert format_file_size(1024 * 1024 * 2.5) == "2.5 MB"
         assert format_file_size(1024 * 1024 * 50) == "50.0 MB"
 
-    @patch("imgstream.main.ImageProcessor")
+    @patch("imgstream.ui.upload_handlers.ImageProcessor")
     def test_get_file_size_limits(self, mock_processor_class):
         """Test getting file size limits."""
         mock_processor = MagicMock()
@@ -151,7 +152,9 @@ class TestUploadPageIntegration:
 
     def test_upload_page_functions_exist(self):
         """Test that upload page functions exist and are callable."""
-        from imgstream.main import format_file_size, render_upload_page, validate_uploaded_files
+        from imgstream.ui.components import format_file_size
+        from imgstream.ui.pages.upload import render_upload_page
+        from imgstream.ui.upload_handlers import validate_uploaded_files
 
         assert callable(render_upload_page)
         assert callable(validate_uploaded_files)
