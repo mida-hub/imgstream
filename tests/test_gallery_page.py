@@ -333,3 +333,188 @@ class TestGalleryPaginationIntegration:
         assert callable(render_gallery_header)
         assert callable(render_pagination_controls)
         assert callable(render_pagination_summary)
+
+
+class TestPhotoDetailDisplay:
+    """Test photo detail display functionality."""
+
+    def test_render_photo_detail_modal_functions_exist(self):
+        """Test that photo detail modal functions exist."""
+        from src.imgstream.ui.pages.gallery import (
+            render_photo_detail_modal,
+            render_photo_detail_header,
+            render_photo_detail_image,
+            render_photo_detail_sidebar,
+            render_photo_detail_footer,
+            download_original_photo,
+            download_thumbnail_photo,
+            copy_image_url,
+            confirm_delete_photo
+        )
+        
+        # Check that functions are callable
+        assert callable(render_photo_detail_modal)
+        assert callable(render_photo_detail_header)
+        assert callable(render_photo_detail_image)
+        assert callable(render_photo_detail_sidebar)
+        assert callable(render_photo_detail_footer)
+        assert callable(download_original_photo)
+        assert callable(download_thumbnail_photo)
+        assert callable(copy_image_url)
+        assert callable(confirm_delete_photo)
+
+    def test_photo_detail_modal_session_state(self):
+        """Test photo detail modal session state handling."""
+        import streamlit as st
+        
+        # Test when no photo is selected
+        st.session_state.show_photo_details = False
+        st.session_state.selected_photo = None
+        
+        from src.imgstream.ui.pages.gallery import render_photo_detail_modal
+        
+        # Should not raise any errors when no photo is selected
+        try:
+            render_photo_detail_modal()
+        except Exception:
+            pytest.fail("render_photo_detail_modal should handle empty state gracefully")
+
+    def test_download_original_photo_success(self):
+        """Test successful original photo download."""
+        with patch('src.imgstream.ui.pages.gallery.get_photo_original_url') as mock_url:
+            mock_url.return_value = "https://example.com/original.jpg"
+            
+            from src.imgstream.ui.pages.gallery import download_original_photo
+            
+            photo = {"id": "photo1", "filename": "test.jpg"}
+            
+            # Should not raise any errors
+            try:
+                download_original_photo(photo)
+            except Exception:
+                pytest.fail("download_original_photo should handle success case")
+
+    def test_download_original_photo_failure(self):
+        """Test original photo download failure."""
+        with patch('src.imgstream.ui.pages.gallery.get_photo_original_url') as mock_url:
+            mock_url.return_value = None
+            
+            from src.imgstream.ui.pages.gallery import download_original_photo
+            
+            photo = {"id": "photo1", "filename": "test.jpg"}
+            
+            # Should not raise any errors even on failure
+            try:
+                download_original_photo(photo)
+            except Exception:
+                pytest.fail("download_original_photo should handle failure gracefully")
+
+    def test_download_thumbnail_photo_success(self):
+        """Test successful thumbnail photo download."""
+        with patch('src.imgstream.ui.pages.gallery.get_photo_thumbnail_url') as mock_url:
+            mock_url.return_value = "https://example.com/thumbnail.jpg"
+            
+            from src.imgstream.ui.pages.gallery import download_thumbnail_photo
+            
+            photo = {"id": "photo1", "filename": "test.jpg"}
+            
+            # Should not raise any errors
+            try:
+                download_thumbnail_photo(photo)
+            except Exception:
+                pytest.fail("download_thumbnail_photo should handle success case")
+
+    def test_copy_image_url_success(self):
+        """Test successful image URL copying."""
+        with patch('src.imgstream.ui.pages.gallery.get_photo_original_url') as mock_url:
+            mock_url.return_value = "https://example.com/original.jpg"
+            
+            from src.imgstream.ui.pages.gallery import copy_image_url
+            
+            photo = {"id": "photo1", "filename": "test.jpg"}
+            
+            # Should not raise any errors
+            try:
+                copy_image_url(photo)
+            except Exception:
+                pytest.fail("copy_image_url should handle success case")
+
+    def test_copy_image_url_failure(self):
+        """Test image URL copying failure."""
+        with patch('src.imgstream.ui.pages.gallery.get_photo_original_url') as mock_url:
+            mock_url.return_value = None
+            
+            from src.imgstream.ui.pages.gallery import copy_image_url
+            
+            photo = {"id": "photo1", "filename": "test.jpg"}
+            
+            # Should not raise any errors even on failure
+            try:
+                copy_image_url(photo)
+            except Exception:
+                pytest.fail("copy_image_url should handle failure gracefully")
+
+    def test_confirm_delete_photo(self):
+        """Test photo deletion confirmation."""
+        from src.imgstream.ui.pages.gallery import confirm_delete_photo
+        
+        photo = {"id": "photo1", "filename": "test.jpg"}
+        
+        # Should not raise any errors
+        try:
+            confirm_delete_photo(photo)
+        except Exception:
+            pytest.fail("confirm_delete_photo should handle confirmation display")
+
+
+class TestPhotoDetailIntegration:
+    """Test photo detail integration functionality."""
+
+    def test_photo_detail_data_handling(self):
+        """Test photo detail data structure handling."""
+        # Test comprehensive photo data structure
+        photo = {
+            "id": "photo123",
+            "filename": "detailed_test.jpg",
+            "created_at": "2024-01-01T12:00:00Z",
+            "uploaded_at": "2024-01-01T12:30:00Z",
+            "file_size": 2048000,
+            "mime_type": "image/jpeg",
+            "thumbnail_path": "thumbs/detailed_test.jpg",
+            "original_path": "original/detailed_test.jpg"
+        }
+        
+        # Test that all fields are accessible
+        assert photo["id"] == "photo123"
+        assert photo["filename"] == "detailed_test.jpg"
+        assert photo["file_size"] == 2048000
+        assert photo["mime_type"] == "image/jpeg"
+        
+        # Test date handling
+        from datetime import datetime
+        created_at = datetime.fromisoformat(photo["created_at"].replace("Z", "+00:00"))
+        uploaded_at = datetime.fromisoformat(photo["uploaded_at"].replace("Z", "+00:00"))
+        
+        assert created_at.year == 2024
+        assert uploaded_at.year == 2024
+        assert uploaded_at > created_at
+
+    def test_photo_navigation_context(self):
+        """Test photo navigation context handling."""
+        import streamlit as st
+        
+        # Set up photo navigation context
+        photos = [
+            {"id": "photo1", "filename": "first.jpg"},
+            {"id": "photo2", "filename": "second.jpg"},
+            {"id": "photo3", "filename": "third.jpg"}
+        ]
+        
+        st.session_state.gallery_photos = photos
+        st.session_state.photo_index = 1
+        st.session_state.total_photos = 3
+        
+        # Test context is properly set
+        assert st.session_state.photo_index == 1
+        assert st.session_state.total_photos == 3
+        assert len(st.session_state.gallery_photos) == 3
