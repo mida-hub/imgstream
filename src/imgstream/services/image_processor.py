@@ -147,6 +147,25 @@ class ImageProcessor:
             logger.error(f"Failed to extract EXIF date: {e}")
             return None
 
+    def extract_creation_date(self, image_data: bytes) -> datetime:
+        """
+        Extract creation date from image, with fallback to current time.
+
+        Args:
+            image_data: Raw image data as bytes
+
+        Returns:
+            datetime: Creation date from EXIF if available, otherwise current time
+        """
+        # Try to extract from EXIF first
+        exif_date = self.extract_exif_date(image_data)
+        if exif_date:
+            return exif_date
+
+        # Fallback to current time if no EXIF date found
+        logger.info("No EXIF date found, using current time as creation date")
+        return datetime.now()
+
     def _get_exif_date_by_name(self, exif_data: dict, tag_name: str) -> datetime | None:
         """
         Get date from EXIF data by tag name.

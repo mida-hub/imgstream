@@ -1,9 +1,16 @@
 """Upload handlers for imgstream application."""
 
+from datetime import datetime
+from typing import Any
+
 import streamlit as st
 import structlog
 
+from imgstream.models.photo import PhotoMetadata
+from imgstream.services.auth import get_auth_service
 from imgstream.services.image_processor import ImageProcessingError, ImageProcessor, UnsupportedFormatError
+from imgstream.services.metadata import get_metadata_service
+from imgstream.services.storage import get_storage_service
 from imgstream.ui.components import format_file_size
 
 logger = structlog.get_logger()
@@ -116,3 +123,223 @@ def get_file_size_limits() -> tuple[int, int]:
     """
     image_processor = ImageProcessor()
     return image_processor.MIN_FILE_SIZE, image_processor.MAX_FILE_SIZE
+
+
+def process_single_upload(file_info: dict[str, Any]) -> dict[str, Any]:
+    """
+    Process a single file upload through the complete pipeline.
+
+    Args:
+        file_info: Dictionary containing file information from validation
+
+    Returns:
+        dict: Processing result with success status and details
+    """
+    filename = file_info["filename"]
+    file_data = file_info["data"]
+
+    try:
+        logger.info("upload_processing_started", filename=filename, size=len(file_data))
+
+        # Get services
+        auth_service = get_auth_service()
+        image_processor = ImageProcessor()
+        storage_service = get_storage_service()
+
+        # Ensure user is authenticated
+        user_info = auth_service.ensure_authenticated()
+
+        # Get metadata service for this user
+        metadata_service = get_metadata_service(user_info.user_id)
+
+        # Step 1: Extract EXIF metadata
+        logger.info("extracting_exif_metadata", filename=filename)
+        try:
+            creation_date = image_processor.extract_creation_date(file_data)
+        except Exception as e:
+            logger.warning("exif_extraction_failed", filename=filename, error=str(e))
+            # Use current time as fallback
+            creation_date = datetime.now()
+
+        # Step 2: Generate thumbnail
+        logger.info("generating_thumbnail", filename=filename)
+        thumbnail_data = image_processor.generate_thumbnail(file_data)
+
+        # Step 3: Upload original image to GCS
+        logger.info("uploading_original_image", filename=filename)
+        original_upload_result = storage_service.upload_original_photo(user_info.user_id, file_data, filename)
+        original_gcs_path = original_upload_result["gcs_path"]
+
+        # Step 4: Upload thumbnail to GCS
+        logger.info("uploading_thumbnail", filename=filename)
+        thumbnail_upload_result = storage_service.upload_thumbnail(user_info.user_id, thumbnail_data, filename)
+        thumbnail_gcs_path = thumbnail_upload_result["gcs_path"]
+
+        # Step 5: Save metadata to DuckDB
+        logger.info("saving_metadata", filename=filename)
+
+        # Determine MIME type based on file extension
+        file_extension = filename.lower().split(".")[-1]
+        mime_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "heic": "image/heic", "heif": "image/heif"}.get(
+            file_extension, "application/octet-stream"
+        )
+
+        photo_metadata = PhotoMetadata.create_new(
+            user_id=user_info.user_id,
+            filename=filename,
+            original_path=original_gcs_path,
+            thumbnail_path=thumbnail_gcs_path,
+            file_size=len(file_data),
+            mime_type=mime_type,
+            created_at=creation_date,
+            uploaded_at=datetime.now(),
+        )
+
+        metadata_service.save_photo_metadata(photo_metadata)
+
+        logger.info("upload_processing_completed", filename=filename)
+
+        return {
+            "success": True,
+            "filename": filename,
+            "original_path": original_gcs_path,
+            "thumbnail_path": thumbnail_gcs_path,
+            "creation_date": creation_date,
+            "message": f"Successfully uploaded {filename}",
+        }
+
+    except Exception as e:
+        logger.error("upload_processing_failed", filename=filename, error=str(e))
+        return {
+            "success": False,
+            "filename": filename,
+            "error": str(e),
+            "message": f"Failed to upload {filename}: {str(e)}",
+        }
+
+
+def process_batch_upload(valid_files: list[dict[str, Any]]) -> dict[str, Any]:
+    """
+    Process multiple files through the upload pipeline.
+
+    Args:
+        valid_files: List of validated file information dictionaries
+
+    Returns:
+        dict: Batch processing results with success/failure counts and details
+    """
+    if not valid_files:
+        return {
+            "success": True,
+            "total_files": 0,
+            "successful_uploads": 0,
+            "failed_uploads": 0,
+            "results": [],
+            "message": "No files to process",
+        }
+
+    logger.info("batch_upload_started", total_files=len(valid_files))
+
+    results = []
+    successful_uploads = 0
+    failed_uploads = 0
+
+    # Process each file
+    for file_info in valid_files:
+        result = process_single_upload(file_info)
+        results.append(result)
+
+        if result["success"]:
+            successful_uploads += 1
+        else:
+            failed_uploads += 1
+
+    # Create summary
+    batch_result = {
+        "success": failed_uploads == 0,
+        "total_files": len(valid_files),
+        "successful_uploads": successful_uploads,
+        "failed_uploads": failed_uploads,
+        "results": results,
+        "message": f"Processed {len(valid_files)} files: {successful_uploads} successful, {failed_uploads} failed",
+    }
+
+    logger.info(
+        "batch_upload_completed", total_files=len(valid_files), successful=successful_uploads, failed=failed_uploads
+    )
+
+    return batch_result
+
+
+def render_upload_progress(
+    progress_placeholder: Any, current_file: str, current_step: str, completed: int, total: int
+) -> None:
+    """
+    Render upload progress information.
+
+    Args:
+        progress_placeholder: Streamlit placeholder for progress display
+        current_file: Name of file currently being processed
+        current_step: Current processing step
+        completed: Number of completed files
+        total: Total number of files
+    """
+    progress_percentage = (completed / total) * 100 if total > 0 else 0
+
+    with progress_placeholder.container():
+        st.progress(progress_percentage / 100, text=f"Processing {completed}/{total} files")
+
+        if current_file:
+            st.write(f"📷 **Current file:** {current_file}")
+            st.write(f"⚙️ **Step:** {current_step}")
+
+
+def render_upload_results(batch_result: dict[str, Any]) -> None:
+    """
+    Render the results of batch upload processing.
+
+    Args:
+        batch_result: Dictionary containing batch processing results
+    """
+    total_files = batch_result["total_files"]
+    successful_uploads = batch_result["successful_uploads"]
+    failed_uploads = batch_result["failed_uploads"]
+
+    # Overall status
+    if batch_result["success"]:
+        st.success(f"✅ Successfully uploaded {successful_uploads} photo(s)!")
+    else:
+        st.warning(f"⚠️ Upload completed with {failed_uploads} error(s)")
+
+    # Summary metrics
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Files", total_files)
+    with col2:
+        st.metric("Successful", successful_uploads, delta=successful_uploads if successful_uploads > 0 else None)
+    with col3:
+        st.metric("Failed", failed_uploads, delta=-failed_uploads if failed_uploads > 0 else None)
+
+    # Detailed results
+    if batch_result["results"]:
+        with st.expander("📋 Detailed Results", expanded=failed_uploads > 0):
+            for result in batch_result["results"]:
+                if result["success"]:
+                    st.success(f"✅ **{result['filename']}** - {result['message']}")
+                    if "creation_date" in result:
+                        st.write(f"   📅 Creation date: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
+                else:
+                    st.error(f"❌ **{result['filename']}** - {result['message']}")
+                    if "error" in result:
+                        with st.expander(f"Error details for {result['filename']}"):
+                            st.code(result["error"])
+
+    # Clear session state after successful upload
+    if batch_result["success"] and successful_uploads > 0:
+        # Clear upload-related session state
+        if "valid_files" in st.session_state:
+            st.session_state.valid_files = []
+        if "validation_errors" in st.session_state:
+            st.session_state.validation_errors = []
+        if "upload_validated" in st.session_state:
+            st.session_state.upload_validated = False

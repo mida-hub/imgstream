@@ -5,7 +5,14 @@ import structlog
 
 from imgstream.ui.auth_handlers import require_authentication
 from imgstream.ui.components import render_empty_state, render_info_card
-from imgstream.ui.upload_handlers import get_file_size_limits, render_file_validation_results, validate_uploaded_files
+from imgstream.ui.upload_handlers import (
+    get_file_size_limits,
+    process_batch_upload,
+    render_file_validation_results,
+    render_upload_progress,
+    render_upload_results,
+    validate_uploaded_files,
+)
 
 logger = structlog.get_logger()
 
@@ -93,8 +100,39 @@ def render_upload_page() -> None:
                     use_container_width=True,
                     type="primary",
                 ):
-                    st.info("🚧 Upload processing will be implemented in task 8.2")
-                    # TODO: Implement actual upload processing in task 8.2
+                    # Process upload with progress indication
+                    progress_placeholder = st.empty()
+
+                    with st.spinner("Processing uploads..."):
+                        # Show initial progress
+                        render_upload_progress(
+                            progress_placeholder,
+                            "Initializing...",
+                            "Starting upload process",
+                            0,
+                            len(st.session_state.valid_files),
+                        )
+
+                        # Process the batch upload
+                        batch_result = process_batch_upload(st.session_state.valid_files)
+
+                    # Clear progress display
+                    progress_placeholder.empty()
+
+                    # Show results
+                    render_upload_results(batch_result)
+
+                    # If successful, suggest next actions
+                    if batch_result["success"] and batch_result["successful_uploads"] > 0:
+                        st.divider()
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("🖼️ View Gallery", use_container_width=True):
+                                st.session_state.current_page = "gallery"
+                                st.rerun()
+                        with col2:
+                            if st.button("📤 Upload More", use_container_width=True):
+                                st.rerun()
 
         # Clear validation state when files are removed
         if not uploaded_files:
