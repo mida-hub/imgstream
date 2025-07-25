@@ -1,13 +1,14 @@
 """Image processing service for imgstream application."""
 
 import io
-import logging
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from PIL import ExifTags, Image
+
+from ..logging_config import get_logger, log_error, log_performance
 
 try:
     from pillow_heif import register_heif_opener
@@ -17,7 +18,7 @@ try:
 except ImportError:
     HEIF_AVAILABLE = False
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ImageProcessingError(Exception):
@@ -56,7 +57,9 @@ class ImageProcessor:
         self.DEFAULT_THUMBNAIL_QUALITY = int(os.getenv("THUMBNAIL_QUALITY", 85))  # Default: 85
 
         if not HEIF_AVAILABLE:
-            logger.warning("HEIF support not available. Install pillow-heif for HEIC support.")
+            logger.warning("heif_support_unavailable", 
+                         message="Install pillow-heif for HEIC support",
+                         supported_formats=list(self.SUPPORTED_FORMATS - {".heic", ".heif"}))
 
     def is_supported_format(self, filename: str) -> bool:
         """
@@ -74,10 +77,10 @@ class ImageProcessor:
             # Check HEIC/HEIF support specifically
             if file_extension in {".heic", ".heif"}:
                 if not HEIF_AVAILABLE:
-                    logger.warning(
-                        "HEIC/HEIF format detected but pillow-heif is not installed. "
-                        "Install with: pip install pillow-heif"
-                    )
+                    logger.warning("heic_format_unsupported", 
+                                 filename=filename,
+                                 extension=file_extension,
+                                 install_command="pip install pillow-heif")
                 return HEIF_AVAILABLE
             return True
 
@@ -97,6 +100,10 @@ class ImageProcessor:
         file_size = len(image_data)
 
         if file_size < self.MIN_FILE_SIZE:
+            logger.warning("file_size_too_small", 
+                         filename=filename,
+                         file_size=file_size,
+                         min_size=self.MIN_FILE_SIZE)
             raise ImageProcessingError(
                 f"File '{filename}' is too small ({file_size} bytes). " f"Minimum size: {self.MIN_FILE_SIZE} bytes"
             )
@@ -104,16 +111,17 @@ class ImageProcessor:
         if file_size > self.MAX_FILE_SIZE:
             max_size_mb = self.MAX_FILE_SIZE / (1024 * 1024)
             current_size_mb = file_size / (1024 * 1024)
+            logger.warning("file_size_too_large", 
+                         filename=filename,
+                         file_size=file_size,
+                         file_size_mb=current_size_mb,
+                         max_size=self.MAX_FILE_SIZE,
+                         max_size_mb=max_size_mb)
             raise ImageProcessingError(
                 f"File '{filename}' is too large ({current_size_mb:.1f}MB). " f"Maximum size: {max_size_mb:.0f}MB"
             )
 
-        if file_size > self.MAX_FILE_SIZE:
-            max_size_mb = self.MAX_FILE_SIZE / (1024 * 1024)
-            current_size_mb = file_size / (1024 * 1024)
-            raise ImageProcessingError(
-                f"File '{filename}' is too large ({current_size_mb:.1f}MB). " f"Maximum size: {max_size_mb:.0f}MB"
-            )
+        logger.debug("file_size_valid", filename=filename, file_size=file_size)
 
     def extract_exif_date(self, image_data: bytes) -> datetime | None:
         """
@@ -130,21 +138,23 @@ class ImageProcessor:
                 exif_data = image.getexif()
 
                 if not exif_data:
-                    logger.debug("No EXIF data found in image")
+                    logger.debug("exif_data_not_found")
                     return None
 
                 # Try to extract date from EXIF tags in priority order
                 for tag_name in self.EXIF_DATE_TAGS:
                     date_value = self._get_exif_date_by_name(exif_data, tag_name)
                     if date_value:
-                        logger.debug(f"Found date from EXIF tag '{tag_name}': {date_value}")
+                        logger.debug("exif_date_extracted", 
+                                   tag_name=tag_name, 
+                                   date_value=date_value.isoformat())
                         return date_value
 
-                logger.debug("No date information found in EXIF data")
+                logger.debug("exif_date_not_found", tags_checked=self.EXIF_DATE_TAGS)
                 return None
 
         except Exception as e:
-            logger.error(f"Failed to extract EXIF date: {e}")
+            log_error(e, {"operation": "extract_exif_date"})
             return None
 
     def extract_creation_date(self, image_data: bytes) -> datetime:
@@ -163,7 +173,7 @@ class ImageProcessor:
             return exif_date
 
         # Fallback to current time if no EXIF date found
-        logger.info("No EXIF date found, using current time as creation date")
+        logger.info("exif_date_fallback", fallback_time=datetime.now().isoformat())
         return datetime.now()
 
     def _get_exif_date_by_name(self, exif_data: dict, tag_name: str) -> datetime | None:
@@ -197,7 +207,10 @@ class ImageProcessor:
             return datetime.strptime(date_string, "%Y:%m:%d %H:%M:%S")
 
         except (ValueError, TypeError) as e:
-            logger.debug(f"Failed to parse date from EXIF tag '{tag_name}': {e}")
+            logger.debug("exif_date_parse_failed", 
+                       tag_name=tag_name, 
+                       date_string=date_string,
+                       error=str(e))
             return None
 
     def get_image_info(self, image_data: bytes) -> dict:
@@ -213,9 +226,10 @@ class ImageProcessor:
         Raises:
             ImageProcessingError: If image cannot be processed
         """
+        start_time = datetime.now()
         try:
             with Image.open(io.BytesIO(image_data)) as image:
-                return {
+                info = {
                     "format": image.format,
                     "mode": image.mode,
                     "size": image.size,
@@ -223,7 +237,17 @@ class ImageProcessor:
                     "height": image.height,
                     "has_exif": bool(image.getexif()),
                 }
+                
+                duration = (datetime.now() - start_time).total_seconds()
+                log_performance("get_image_info", duration, 
+                              format=info["format"],
+                              width=info["width"],
+                              height=info["height"],
+                              file_size=len(image_data))
+                
+                return info
         except Exception as e:
+            log_error(e, {"operation": "get_image_info", "file_size": len(image_data)})
             raise ImageProcessingError(f"Failed to get image info: {e}") from e
 
     def validate_image(self, image_data: bytes, filename: str) -> None:
@@ -238,12 +262,18 @@ class ImageProcessor:
             UnsupportedFormatError: If format is not supported
             ImageProcessingError: If image is invalid, corrupted, or size is invalid
         """
+        start_time = datetime.now()
+        
         # Check file size first
         self.validate_file_size(image_data, filename)
 
         # Check file extension
         if not self.is_supported_format(filename):
             supported_formats = ", ".join(self.SUPPORTED_FORMATS)
+            logger.error("unsupported_format", 
+                       filename=filename,
+                       extension=Path(filename).suffix.lower(),
+                       supported_formats=list(self.SUPPORTED_FORMATS))
             raise UnsupportedFormatError(
                 f"Unsupported format for file '{filename}'. " f"Supported formats: {supported_formats}"
             )
@@ -257,13 +287,29 @@ class ImageProcessor:
                 # Additional format-specific validation
                 format_lower = image.format.lower() if image.format else ""
                 if format_lower not in ["jpeg", "heic"]:
+                    logger.error("invalid_detected_format", 
+                               filename=filename,
+                               detected_format=image.format,
+                               supported_formats=["JPEG", "HEIC"])
                     raise UnsupportedFormatError(
                         f"Detected format '{image.format}' is not supported. " f"Supported formats: JPEG, HEIC"
                     )
 
+            duration = (datetime.now() - start_time).total_seconds()
+            log_performance("validate_image", duration, 
+                          filename=filename,
+                          file_size=len(image_data),
+                          format=format_lower)
+            
+            logger.debug("image_validation_success", 
+                       filename=filename,
+                       format=format_lower,
+                       file_size=len(image_data))
+
         except UnsupportedFormatError:
             raise
         except Exception as e:
+            log_error(e, {"operation": "validate_image", "filename": filename, "file_size": len(image_data)})
             raise ImageProcessingError(f"Invalid or corrupted image file '{filename}': {e}") from e
 
     def get_validation_info(self, image_data: bytes, filename: str) -> dict:
@@ -343,6 +389,8 @@ class ImageProcessor:
         Raises:
             ImageProcessingError: If thumbnail generation fails
         """
+        start_time = datetime.now()
+        
         # Use environment variable defaults if not specified
         if max_size is None:
             max_size = (self.DEFAULT_THUMBNAIL_SIZE, self.DEFAULT_THUMBNAIL_SIZE)
@@ -351,12 +399,14 @@ class ImageProcessor:
 
         try:
             with Image.open(io.BytesIO(image_data)) as image:
+                original_size = image.size
+                original_mode = image.mode
+                
                 # Convert to RGB if necessary (for HEIC and other formats)
                 if image.mode not in ("RGB", "L"):
                     image = image.convert("RGB")
 
                 # Calculate thumbnail size while preserving aspect ratio
-                original_size = image.size
                 thumbnail_size = self._calculate_thumbnail_size(original_size, max_size)
 
                 # Resize image to exact thumbnail size (can upscale or downscale)
@@ -368,14 +418,30 @@ class ImageProcessor:
 
                 thumbnail_data = thumbnail_buffer.getvalue()
 
-                logger.debug(
-                    f"Generated thumbnail: {original_size} -> {thumbnail_size}, "
-                    f"size: {len(thumbnail_data)} bytes, quality: {quality}"
-                )
+                duration = (datetime.now() - start_time).total_seconds()
+                log_performance("generate_thumbnail", duration,
+                              original_size=original_size,
+                              thumbnail_size=thumbnail_size,
+                              original_file_size=len(image_data),
+                              thumbnail_file_size=len(thumbnail_data),
+                              quality=quality,
+                              compression_ratio=len(image_data) / len(thumbnail_data))
+
+                logger.debug("thumbnail_generated",
+                           original_size=original_size,
+                           thumbnail_size=thumbnail_size,
+                           original_mode=original_mode,
+                           original_file_size=len(image_data),
+                           thumbnail_file_size=len(thumbnail_data),
+                           quality=quality)
 
                 return thumbnail_data
 
         except Exception as e:
+            log_error(e, {"operation": "generate_thumbnail", 
+                         "original_file_size": len(image_data),
+                         "max_size": max_size,
+                         "quality": quality})
             raise ImageProcessingError(f"Failed to generate thumbnail: {e}") from e
 
     def _calculate_thumbnail_size(self, original_size: tuple[int, int], max_size: tuple[int, int]) -> tuple[int, int]:
@@ -468,12 +534,15 @@ class ImageProcessor:
                 "processed_at": datetime.now(),
             }
 
-            logger.info(
-                f"Generated thumbnail for {filename}: "
-                f"{original_info['width']}x{original_info['height']} -> "
-                f"{thumbnail_info['width']}x{thumbnail_info['height']}, "
-                f"size: {len(image_data)} -> {len(thumbnail_data)} bytes"
-            )
+            logger.info("thumbnail_with_metadata_generated",
+                       filename=filename,
+                       original_dimensions=f"{original_info['width']}x{original_info['height']}",
+                       thumbnail_dimensions=f"{thumbnail_info['width']}x{thumbnail_info['height']}",
+                       original_size=len(image_data),
+                       thumbnail_size=len(thumbnail_data),
+                       format=original_info['format'],
+                       has_exif=original_info['has_exif'],
+                       creation_date=creation_date.isoformat() if creation_date else None)
 
             return result
 
@@ -520,11 +589,14 @@ class ImageProcessor:
                 "processed_at": datetime.now(),
             }
 
-            logger.info(
-                f"Extracted metadata for {filename}: "
-                f"{image_info['width']}x{image_info['height']}, "
-                f"format: {image_info['format']}, creation_date: {creation_date}"
-            )
+            logger.info("metadata_extracted",
+                       filename=filename,
+                       dimensions=f"{image_info['width']}x{image_info['height']}",
+                       format=image_info['format'],
+                       mode=image_info['mode'],
+                       file_size=len(image_data),
+                       has_exif=image_info['has_exif'],
+                       creation_date=creation_date.isoformat() if creation_date else None)
 
             return metadata
 

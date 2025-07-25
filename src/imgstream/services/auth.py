@@ -2,11 +2,12 @@
 
 import base64
 import json
-import logging
 from dataclasses import dataclass
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from ..logging_config import get_logger, log_error, log_security_event, log_user_action
+
+logger = get_logger(__name__)
 
 
 class AuthenticationError(Exception):
@@ -55,15 +56,16 @@ class CloudIAPAuthService:
         jwt_token = headers.get(self.IAP_HEADER_NAME)
 
         if not jwt_token:
-            logger.warning("Cloud IAP JWT header not found")
+            log_security_event("missing_iap_header", context={"headers_present": list(headers.keys())})
             return None
 
         try:
             user_info = self._decode_jwt_payload(jwt_token)
-            logger.info(f"Successfully authenticated user: {user_info.email}")
+            log_user_action(user_info.user_id, "authentication_success", email=user_info.email)
             return user_info
         except Exception as e:
-            logger.error(f"Failed to parse IAP header: {e}")
+            log_error(e, {"operation": "parse_iap_header", "has_token": bool(jwt_token)})
+            log_security_event("authentication_failure", context={"error": str(e)})
             return None
 
     def _decode_jwt_payload(self, jwt_token: str) -> UserInfo:
@@ -106,9 +108,11 @@ class CloudIAPAuthService:
 
         if user_info:
             self._current_user = user_info
+            logger.info("request_authenticated", user_id=user_info.user_id, email=user_info.email)
             return True
         else:
             self._current_user = None
+            log_security_event("request_authentication_failed")
             return False
 
     def get_current_user(self) -> UserInfo | None:
@@ -141,8 +145,9 @@ class CloudIAPAuthService:
 
     def clear_authentication(self) -> None:
         """Clear the current authentication state."""
+        user_id = self._current_user.user_id if self._current_user else None
         self._current_user = None
-        logger.info("Authentication state cleared")
+        log_user_action(user_id or "unknown", "authentication_cleared")
 
     def set_current_user(self, user_info: UserInfo | None) -> None:
         """Set the current user (for testing/development purposes)."""
@@ -173,7 +178,7 @@ class CloudIAPAuthService:
             bool: True if user has access, False otherwise
         """
         if not self.is_authenticated():
-            logger.warning("Access check failed: User not authenticated")
+            log_security_event("access_check_unauthenticated", context={"resource_path": resource_path})
             return False
 
         user_storage_prefix = self.get_user_storage_path()
@@ -183,16 +188,26 @@ class CloudIAPAuthService:
         if user_storage_prefix:
             storage_prefix_clean = user_storage_prefix.rstrip("/")
             if resource_path == storage_prefix_clean or resource_path.startswith(storage_prefix_clean + "/"):
+                logger.debug("resource_access_granted", 
+                           user_id=self.get_user_id(), 
+                           resource_path=resource_path,
+                           access_type="storage")
                 return True
 
         # Check database path access
         if user_db_prefix:
             db_dir = user_db_prefix.rsplit("/", 1)[0]
             if resource_path == db_dir or resource_path.startswith(db_dir + "/") or resource_path == user_db_prefix:
+                logger.debug("resource_access_granted", 
+                           user_id=self.get_user_id(), 
+                           resource_path=resource_path,
+                           access_type="database")
                 return True
 
         user_email = self.get_user_email()
-        logger.warning(f"Access denied: User {user_email} attempted to access {resource_path}")
+        log_security_event("access_denied", 
+                          user_id=self.get_user_id(),
+                          context={"user_email": user_email, "resource_path": resource_path})
         return False
 
     def get_user_resource_paths(self) -> dict[str, str]:
