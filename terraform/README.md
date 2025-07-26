@@ -229,14 +229,70 @@ After successful deployment, Terraform will output:
   }
   ```
 
+## Cloud Run Deployment
+
+### Container Image Build
+
+1. **Build for Cloud Run**:
+   ```bash
+   # Build production image
+   docker build -f Dockerfile.cloudrun -t gcr.io/PROJECT_ID/imgstream:latest .
+   
+   # Push to Container Registry
+   docker push gcr.io/PROJECT_ID/imgstream:latest
+   ```
+
+2. **Deploy using script**:
+   ```bash
+   # Make script executable
+   chmod +x scripts/deploy-cloud-run.sh
+   
+   # Deploy to development
+   ./scripts/deploy-cloud-run.sh -p PROJECT_ID -e dev
+   
+   # Deploy to production
+   ./scripts/deploy-cloud-run.sh -p PROJECT_ID -e prod
+   ```
+
+3. **Deploy using Cloud Build**:
+   ```bash
+   # Submit build to Cloud Build
+   gcloud builds submit --config cloudbuild.yaml \
+     --substitutions _ENVIRONMENT=dev,_REGION=us-central1
+   ```
+
+### Environment Variables
+
+The Cloud Run service automatically receives:
+- `ENVIRONMENT`: Environment name (dev/prod)
+- `GCP_PROJECT_ID`: GCP project ID
+- `GCP_REGION`: GCP region
+- `GCS_PHOTOS_BUCKET`: Photos storage bucket name
+- `GCS_DATABASE_BUCKET`: Database backup bucket name
+
+### Secrets Management
+
+Secrets are managed via Google Secret Manager:
+- `DB_ENCRYPTION_KEY`: Database encryption key
+- `SESSION_SECRET`: Session secret for Streamlit
+- Custom secrets can be added via `secret_env_vars` variable
+
+### Resource Configuration
+
+- **Development**: 1 vCPU, 1GB RAM, 0-3 instances
+- **Production**: 1 vCPU, 2GB RAM, 1-10 instances
+- **Timeout**: 5 minutes
+- **Concurrency**: 80 requests per instance
+
 ## Next Steps
 
-After deploying the storage infrastructure:
+After deploying the infrastructure:
 
-1. Deploy Cloud Run service (Task 11.2)
-2. Configure Cloud IAP (Task 11.3)
-3. Set up CI/CD pipeline (Task 12)
-4. Configure monitoring and alerting (Task 14.2)
+1. ✅ Deploy storage infrastructure (Task 11.1)
+2. ✅ Deploy Cloud Run service (Task 11.2)
+3. Configure Cloud IAP (Task 11.3)
+4. Set up CI/CD pipeline (Task 12)
+5. Configure monitoring and alerting (Task 14.2)
 
 ## Support
 

@@ -19,3 +19,19 @@ allowed_users = [
   # Add specific user emails here
   # "admin@example.com"
 ]
+
+# Cloud Run configuration for production
+enable_public_access = false  # Disable public access (use IAP)
+min_instances       = 1      # Keep at least 1 instance running
+max_instances       = 10     # Allow scaling up to 10 instances
+cpu_limit          = "1000m"
+memory_limit       = "2Gi"
+
+# Container image (update with actual image)
+container_image = "gcr.io/cloudrun/hello"  # Placeholder
+
+# Custom domain (optional)
+# custom_domain = "imgstream.example.com"
+
+# Create default secrets
+create_default_secrets = true

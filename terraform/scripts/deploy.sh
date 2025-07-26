@@ -83,6 +83,26 @@ echo "Action: $ACTION"
 echo "Working Directory: $TERRAFORM_DIR"
 echo ""
 
+# Check if required APIs are enabled
+echo "Checking required APIs..."
+REQUIRED_APIS=(
+    "run.googleapis.com"
+    "storage.googleapis.com"
+    "secretmanager.googleapis.com"
+    "cloudbuild.googleapis.com"
+    "containerregistry.googleapis.com"
+)
+
+for api in "${REQUIRED_APIS[@]}"; do
+    if gcloud services list --enabled --filter="name:$api" --format="value(name)" | grep -q "$api"; then
+        echo "✓ $api is enabled"
+    else
+        echo "⚠ $api is not enabled. Enabling..."
+        gcloud services enable "$api"
+    fi
+done
+echo ""
+
 # Check if terraform is installed
 if ! command -v terraform &> /dev/null; then
     echo "Error: Terraform is not installed"

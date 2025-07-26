@@ -1,0 +1,60 @@
+# Cloud Build configuration for imgstream
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-f', 'Dockerfile.cloudrun',
+      '-t', 'gcr.io/$PROJECT_ID/imgstream:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/imgstream:latest',
+      '.'
+    ]
+
+  # Push the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/imgstream:$COMMIT_SHA']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/imgstream:latest']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args: [
+      'run', 'deploy', 'imgstream-${_ENVIRONMENT}',
+      '--image', 'gcr.io/$PROJECT_ID/imgstream:$COMMIT_SHA',
+      '--region', '${_REGION}',
+      '--platform', 'managed',
+      '--service-account', 'imgstream-cloud-run-${_ENVIRONMENT}@$PROJECT_ID.iam.gserviceaccount.com',
+      '--no-allow-unauthenticated',  # Require authentication (for IAP)
+      '--memory', '${_MEMORY_LIMIT}',
+      '--cpu', '${_CPU_LIMIT}',
+      '--concurrency', '80',
+      '--timeout', '300',
+      '--max-instances', '${_MAX_INSTANCES}',
+      '--min-instances', '${_MIN_INSTANCES}',
+      '--set-env-vars', 'ENVIRONMENT=${_ENVIRONMENT},GCP_PROJECT_ID=$PROJECT_ID,GCP_REGION=${_REGION}',
+      '--quiet'
+    ]
+
+# Substitution variables
+substitutions:
+  _ENVIRONMENT: 'dev'
+  _REGION: 'us-central1'
+  _MEMORY_LIMIT: '1Gi'
+  _CPU_LIMIT: '1000m'
+  _MAX_INSTANCES: '3'
+  _MIN_INSTANCES: '0'
+
+# Build options
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+  
+# Build timeout
+timeout: '1200s'  # 20 minutes
+
+# Images to be pushed to Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/imgstream:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/imgstream:latest'

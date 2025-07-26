@@ -34,3 +34,26 @@ output "service_account_email" {
   description = "Email of the Cloud Run service account"
   value       = google_service_account.cloud_run.email
 }
+
+output "cloud_run_service_name" {
+  description = "Name of the Cloud Run service"
+  value       = google_cloud_run_v2_service.imgstream.name
+}
+
+output "cloud_run_service_url" {
+  description = "URL of the Cloud Run service"
+  value       = google_cloud_run_v2_service.imgstream.uri
+}
+
+output "cloud_run_service_location" {
+  description = "Location of the Cloud Run service"
+  value       = google_cloud_run_v2_service.imgstream.location
+}
+
+output "secret_names" {
+  description = "Names of created secrets"
+  value = merge(
+    { for k, v in google_secret_manager_secret.app_secrets : k => v.secret_id },
+    var.create_default_secrets ? { for k, v in google_secret_manager_secret.default_secrets : k => v.secret_id } : {}
+  )
+}

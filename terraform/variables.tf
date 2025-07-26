@@ -58,3 +58,59 @@ variable "allowed_users" {
   type        = list(string)
   default     = []
 }
+
+# Cloud Run configuration
+variable "container_image" {
+  description = "Container image for Cloud Run service"
+  type        = string
+  default     = "gcr.io/cloudrun/hello"  # Placeholder image
+}
+
+variable "enable_public_access" {
+  description = "Enable public access to Cloud Run service (disable for IAP)"
+  type        = bool
+  default     = false
+}
+
+variable "custom_domain" {
+  description = "Custom domain for Cloud Run service"
+  type        = string
+  default     = ""
+}
+
+variable "secret_env_vars" {
+  description = "Environment variables to store as secrets"
+  type        = map(string)
+  default     = {}
+  sensitive   = true
+}
+
+variable "create_default_secrets" {
+  description = "Create default secrets for the application"
+  type        = bool
+  default     = true
+}
+
+variable "min_instances" {
+  description = "Minimum number of instances"
+  type        = number
+  default     = 0
+}
+
+variable "max_instances" {
+  description = "Maximum number of instances"
+  type        = number
+  default     = 10
+}
+
+variable "cpu_limit" {
+  description = "CPU limit for containers"
+  type        = string
+  default     = "1000m"
+}
+
+variable "memory_limit" {
+  description = "Memory limit for containers"
+  type        = string
+  default     = "2Gi"
+}

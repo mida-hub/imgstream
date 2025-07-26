@@ -8,7 +8,10 @@ resource "google_project_service" "required_apis" {
     "iap.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
-    "compute.googleapis.com"
+    "compute.googleapis.com",
+    "secretmanager.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "containerregistry.googleapis.com"
   ])
 
   service = each.value
@@ -23,7 +26,8 @@ resource "google_project_iam_member" "cloud_run_permissions" {
     "roles/storage.objectAdmin",
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
-    "roles/cloudtrace.agent"
+    "roles/cloudtrace.agent",
+    "roles/secretmanager.secretAccessor"
   ])
 
   project = var.project_id

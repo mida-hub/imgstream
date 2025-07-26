@@ -228,3 +228,6 @@ terraform.tfvars.json
 .env.local
 .env.development
 .env.production
+
+# Cloud Build
+cloudbuild-local.yaml
