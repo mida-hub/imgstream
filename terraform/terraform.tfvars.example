@@ -1,0 +1,25 @@
+# Example Terraform variables file
+# Copy this file to terraform.tfvars and customize for your environment
+
+# Required variables
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+
+# Environment configuration
+environment = "dev"
+app_name    = "imgstream"
+
+# Storage configuration
+bucket_location         = "US"
+lifecycle_coldline_days = 30
+lifecycle_archive_days  = 365
+lifecycle_delete_days   = 0  # Set to 0 to never delete, or specify days
+
+# Authentication configuration (for future IAP setup)
+allowed_domains = [
+  "example.com"
+]
+
+allowed_users = [
+  "user@example.com"
+]
