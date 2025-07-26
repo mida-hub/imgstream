@@ -180,7 +180,7 @@ resource "google_cloud_run_v2_service" "imgstream" {
 
 # IAM policy for Cloud Run service
 resource "google_cloud_run_v2_service_iam_binding" "public_access" {
-  count = var.enable_public_access ? 1 : 0
+  count = var.enable_public_access && !var.enable_iap ? 1 : 0
   
   location = google_cloud_run_v2_service.imgstream.location
   name     = google_cloud_run_v2_service.imgstream.name
@@ -188,9 +188,19 @@ resource "google_cloud_run_v2_service_iam_binding" "public_access" {
   members  = ["allUsers"]
 }
 
-# IAM policy for authenticated access (when IAP is enabled)
+# IAM policy for IAP access (when IAP is enabled)
+resource "google_cloud_run_v2_service_iam_binding" "iap_access" {
+  count = var.enable_iap ? 1 : 0
+  
+  location = google_cloud_run_v2_service.imgstream.location
+  name     = google_cloud_run_v2_service.imgstream.name
+  role     = "roles/run.invoker"
+  members  = ["serviceAccount:service-${data.google_project.current.number}@gcp-sa-iap.iam.gserviceaccount.com"]
+}
+
+# IAM policy for authenticated access (when neither public nor IAP is enabled)
 resource "google_cloud_run_v2_service_iam_binding" "authenticated_access" {
-  count = var.enable_public_access ? 0 : 1
+  count = !var.enable_public_access && !var.enable_iap ? 1 : 0
   
   location = google_cloud_run_v2_service.imgstream.location
   name     = google_cloud_run_v2_service.imgstream.name

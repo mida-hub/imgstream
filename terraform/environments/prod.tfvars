@@ -35,3 +35,14 @@ container_image = "gcr.io/cloudrun/hello"  # Placeholder
 
 # Create default secrets
 create_default_secrets = true
+
+# IAP configuration for production
+iap_support_email = "admin@example.com"  # Update with actual support email
+enable_iap = true  # Enable IAP for production
+enable_security_policy = true  # Enable security policy
+enable_waf_rules = true  # Enable WAF rules
+rate_limit_requests_per_minute = 100  # Standard rate limit
+session_duration = 3600  # 1 hour
+
+# Geographic restrictions (optional)
+# allowed_countries = ["US", "CA", "JP"]  # Uncomment and specify allowed countries

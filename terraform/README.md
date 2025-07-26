@@ -24,27 +24,53 @@ This directory contains Terraform configurations for deploying the imgstream pho
 
 ## Quick Start
 
+### Option 1: Automated Setup with IAP (Recommended for Production)
+
+1. **Setup Cloud IAP with automated script**
+   ```bash
+   # Make scripts executable
+   chmod +x scripts/setup-iap.sh scripts/test-iap.sh
+   
+   # Setup development environment
+   ./scripts/setup-iap.sh -p YOUR_PROJECT_ID -e support@example.com -env dev
+   
+   # Setup production with custom domain and access control
+   ./scripts/setup-iap.sh -p YOUR_PROJECT_ID -e support@example.com -env prod \
+     -d imgstream.example.com -u admin@example.com,user@example.com
+   ```
+
+2. **Test IAP configuration**
+   ```bash
+   # Test the setup
+   ./scripts/test-iap.sh -p YOUR_PROJECT_ID -env prod
+   ```
+
+### Option 2: Manual Terraform Deployment
+
 1. **Clone and navigate to terraform directory**
    ```bash
    cd terraform
    ```
 
-2. **Copy and configure variables**
+2. **Configure environment variables**
    ```bash
-   cp terraform.tfvars.example terraform.tfvars
-   # Edit terraform.tfvars with your project-specific values
+   # Edit terraform/environments/dev.tfvars or prod.tfvars
+   # Update the following required variables:
+   # - iap_support_email
+   # - allowed_users or allowed_domains
+   # - custom_domain (optional)
    ```
 
 3. **Deploy infrastructure**
    ```bash
-   # Make deploy script executable
-   chmod +x scripts/deploy.sh
+   # Initialize Terraform
+   terraform init
    
-   # Plan deployment (recommended first step)
-   ./scripts/deploy.sh -p YOUR_PROJECT_ID -e dev -a plan
+   # Plan deployment
+   terraform plan -var-file="environments/prod.tfvars" -var="project_id=YOUR_PROJECT_ID"
    
    # Apply deployment
-   ./scripts/deploy.sh -p YOUR_PROJECT_ID -e dev -a apply
+   terraform apply -var-file="environments/prod.tfvars" -var="project_id=YOUR_PROJECT_ID"
    ```
 
 ## Infrastructure Components

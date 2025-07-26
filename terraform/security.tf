@@ -11,7 +11,9 @@ resource "google_project_service" "required_apis" {
     "compute.googleapis.com",
     "secretmanager.googleapis.com",
     "cloudbuild.googleapis.com",
-    "containerregistry.googleapis.com"
+    "containerregistry.googleapis.com",
+    "certificatemanager.googleapis.com",
+    "dns.googleapis.com"
   ])
 
   service = each.value

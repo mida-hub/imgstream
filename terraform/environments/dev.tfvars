@@ -25,3 +25,11 @@ container_image = "gcr.io/cloudrun/hello"  # Placeholder
 
 # Create default secrets
 create_default_secrets = true
+
+# IAP configuration for development
+iap_support_email = "developer@example.com"  # Update with actual email
+enable_iap = false  # Disable IAP for development (use public access)
+enable_security_policy = false  # Disable security policy for development
+enable_waf_rules = false
+rate_limit_requests_per_minute = 1000  # Higher limit for development
+session_duration = 7200  # 2 hours
