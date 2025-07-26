@@ -40,7 +40,24 @@ format-check: ## Check code formatting
 type-check: ## Run type checking with mypy
 	uv run mypy src/
 
+security: ## Run security scans
+	uv run bandit -r src/
+	uv export --format requirements-txt --no-dev > requirements.txt
+	uv run safety check --file requirements.txt
+	rm -f requirements.txt
+
+benchmark: ## Run performance benchmarks
+	uv run pytest tests/performance/ --benchmark-only
+
 quality: lint format-check type-check ## Run all code quality checks
+
+quality-full: quality security test-cov ## Run comprehensive quality checks including security and coverage
+
+ci-test: ## Run tests in CI mode (with coverage and XML output)
+	ENVIRONMENT=production uv run pytest --cov=src --cov-report=xml --cov-report=term-missing
+
+ci-quality: ## Run quality checks in CI mode
+	./scripts/quality-check.sh -e production
 
 clean: ## Clean up temporary files
 	find . -type d -name "__pycache__" -exec rm -rf {} +
@@ -48,6 +65,7 @@ clean: ## Clean up temporary files
 	find . -type f -name "*.pyo" -delete
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
 	rm -rf .coverage htmlcov/ .pytest_cache/ .mypy_cache/ .ruff_cache/
+	rm -f bandit-report.json safety-report.json coverage.xml requirements.txt
 
 run: ## Run the Streamlit application
 	uv run streamlit run src/imgstream/main.py

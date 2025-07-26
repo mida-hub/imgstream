@@ -34,9 +34,14 @@ packages = ["src/imgstream"]
 dev-dependencies = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-benchmark>=4.0.0",
     "black>=23.7.0",
     "ruff>=0.0.287",
     "mypy>=1.5.0",
+    "bandit>=1.7.5",
+    "safety>=2.3.0",
+    "pre-commit>=3.4.0",
 ]
 
 [tool.black]

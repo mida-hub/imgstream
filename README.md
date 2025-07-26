@@ -144,6 +144,7 @@ The project uses pytest for testing with the following structure:
 - **Unit tests**: Test individual components in isolation
 - **Integration tests**: Test component interactions
 - **End-to-end tests**: Test complete user workflows
+- **Performance tests**: Benchmark critical operations
 
 ```bash
 # Run all tests
@@ -156,7 +157,63 @@ make test-cov
 uv run pytest -m unit
 uv run pytest -m integration
 uv run pytest -m e2e
+
+# Run performance tests
+uv run pytest tests/performance/ --benchmark-only
+
+# Run quality checks
+./scripts/quality-check.sh
 ```
+
+## CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration and deployment:
+
+### Workflows
+
+1. **Test and Lint** (`.github/workflows/test.yml`)
+   - Runs on every push and pull request
+   - Code formatting check (black)
+   - Import sorting (ruff)
+   - Linting (ruff)
+   - Type checking (mypy)
+   - Unit and integration tests with coverage
+   - Docker build test
+
+2. **Security Scan** (`.github/workflows/security.yml`)
+   - Daily security scans
+   - Static analysis with Bandit
+   - Dependency vulnerability scanning with Safety
+   - CodeQL analysis
+   - Dependency review for PRs
+
+3. **Code Quality Analysis**
+   - SonarCloud integration
+   - Coverage reporting
+   - Performance benchmarking
+
+### Pre-commit Hooks
+
+The project uses pre-commit hooks to ensure code quality:
+
+```bash
+# Install pre-commit hooks
+uv run pre-commit install
+
+# Run hooks on all files
+uv run pre-commit run --all-files
+
+# Update hooks
+uv run pre-commit autoupdate
+```
+
+### Quality Gates
+
+- **Code Coverage**: Minimum 80% coverage required
+- **Security**: No high-severity security issues
+- **Linting**: All ruff checks must pass
+- **Type Checking**: All mypy checks must pass
+- **Formatting**: Code must be formatted with black
 
 ## Deployment
 
