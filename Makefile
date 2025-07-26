@@ -107,3 +107,33 @@ docker-compose-down: ## Stop docker compose services
 docker-clean: ## Clean up Docker images and containers
 	docker system prune -f
 	docker image prune -f
+
+# Deployment commands
+build-image: ## Build and push Docker image to GCR
+	@if [ -z "$(PROJECT_ID)" ]; then echo "Error: PROJECT_ID is required. Usage: make build-image PROJECT_ID=your-project-id"; exit 1; fi
+	./scripts/build-image.sh -p $(PROJECT_ID) -t latest --push
+
+build-image-tag: ## Build and push Docker image with specific tag
+	@if [ -z "$(PROJECT_ID)" ] || [ -z "$(TAG)" ]; then echo "Error: PROJECT_ID and TAG are required. Usage: make build-image-tag PROJECT_ID=your-project-id TAG=v1.0.0"; exit 1; fi
+	./scripts/build-image.sh -p $(PROJECT_ID) -t $(TAG) --push
+
+deploy-dev: ## Deploy to development environment
+	@if [ -z "$(PROJECT_ID)" ] || [ -z "$(IMAGE)" ]; then echo "Error: PROJECT_ID and IMAGE are required. Usage: make deploy-dev PROJECT_ID=your-project-id IMAGE=gcr.io/your-project-id/imgstream:latest"; exit 1; fi
+	./scripts/deploy-cloud-run.sh -p $(PROJECT_ID) -e dev -i $(IMAGE)
+
+deploy-prod: ## Deploy to production environment
+	@if [ -z "$(PROJECT_ID)" ] || [ -z "$(IMAGE)" ]; then echo "Error: PROJECT_ID and IMAGE are required. Usage: make deploy-prod PROJECT_ID=your-project-id IMAGE=gcr.io/your-project-id/imgstream:v1.0.0"; exit 1; fi
+	./scripts/deploy-cloud-run.sh -p $(PROJECT_ID) -e prod -i $(IMAGE)
+
+deploy-dev-latest: ## Build and deploy latest to development
+	@if [ -z "$(PROJECT_ID)" ]; then echo "Error: PROJECT_ID is required. Usage: make deploy-dev-latest PROJECT_ID=your-project-id"; exit 1; fi
+	./scripts/build-image.sh -p $(PROJECT_ID) -t latest --push
+	./scripts/deploy-cloud-run.sh -p $(PROJECT_ID) -e dev -i gcr.io/$(PROJECT_ID)/imgstream:latest
+
+health-check: ## Check application health
+	@echo "Checking application health..."
+	@if [ -n "$(URL)" ]; then \
+		curl -f "$(URL)/health?format=json" | python -m json.tool; \
+	else \
+		echo "Error: URL is required. Usage: make health-check URL=https://your-app-url"; \
+	fi
