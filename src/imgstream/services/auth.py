@@ -6,20 +6,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..logging_config import get_logger, log_error, log_security_event, log_user_action
+from ..error_handling import AuthenticationError, AuthorizationError
 
 logger = get_logger(__name__)
 
 
-class AuthenticationError(Exception):
-    """Raised when authentication is required but user is not authenticated."""
-
-    pass
-
-
-class AccessDeniedError(Exception):
-    """Raised when user attempts to access resources they don't own."""
-
-    pass
+# Keep backward compatibility aliases
+AccessDeniedError = AuthorizationError
 
 
 @dataclass
@@ -164,7 +157,11 @@ class CloudIAPAuthService:
             AuthenticationError: If user is not authenticated
         """
         if not self.is_authenticated():
-            raise AuthenticationError("User is not authenticated")
+            raise AuthenticationError(
+                "User is not authenticated",
+                code="user_not_authenticated",
+                details={"operation": "ensure_authenticated"}
+            )
         return self._current_user  # type: ignore
 
     def check_resource_access(self, resource_path: str) -> bool:
@@ -242,12 +239,20 @@ class CloudIAPAuthService:
 
         Raises:
             AuthenticationError: If user is not authenticated
-            AccessDeniedError: If user doesn't own the resource
+            AuthorizationError: If user doesn't own the resource
         """
         self.ensure_authenticated()
 
         if not self.check_resource_access(resource_path):
-            raise AccessDeniedError(f"Access denied to resource: {resource_path}")
+            raise AuthorizationError(
+                f"Access denied to resource: {resource_path}",
+                code="resource_access_denied",
+                details={
+                    "resource_path": resource_path,
+                    "user_id": self.get_user_id(),
+                    "user_email": self.get_user_email(),
+                }
+            )
 
     def require_authentication(self) -> None:
         """

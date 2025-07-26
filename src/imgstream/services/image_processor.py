@@ -9,6 +9,7 @@ from typing import Any
 from PIL import ExifTags, Image
 
 from ..logging_config import get_logger, log_error, log_performance
+from ..error_handling import ImageProcessingError, ValidationError
 
 try:
     from pillow_heif import register_heif_opener
@@ -21,16 +22,8 @@ except ImportError:
 logger = get_logger(__name__)
 
 
-class ImageProcessingError(Exception):
-    """Raised when image processing fails."""
-
-    pass
-
-
-class UnsupportedFormatError(Exception):
-    """Raised when image format is not supported."""
-
-    pass
+# Keep backward compatibility alias
+UnsupportedFormatError = ValidationError
 
 
 class ImageProcessor:
@@ -104,8 +97,15 @@ class ImageProcessor:
                          filename=filename,
                          file_size=file_size,
                          min_size=self.MIN_FILE_SIZE)
-            raise ImageProcessingError(
-                f"File '{filename}' is too small ({file_size} bytes). " f"Minimum size: {self.MIN_FILE_SIZE} bytes"
+            raise ValidationError(
+                f"File '{filename}' is too small ({file_size} bytes). Minimum size: {self.MIN_FILE_SIZE} bytes",
+                code="file_too_small",
+                user_message=f"ファイル '{filename}' が小さすぎます。最小サイズ: {self.MIN_FILE_SIZE} バイト",
+                details={
+                    "filename": filename,
+                    "file_size": file_size,
+                    "min_size": self.MIN_FILE_SIZE,
+                }
             )
 
         if file_size > self.MAX_FILE_SIZE:
@@ -117,8 +117,17 @@ class ImageProcessor:
                          file_size_mb=current_size_mb,
                          max_size=self.MAX_FILE_SIZE,
                          max_size_mb=max_size_mb)
-            raise ImageProcessingError(
-                f"File '{filename}' is too large ({current_size_mb:.1f}MB). " f"Maximum size: {max_size_mb:.0f}MB"
+            raise ValidationError(
+                f"File '{filename}' is too large ({current_size_mb:.1f}MB). Maximum size: {max_size_mb:.0f}MB",
+                code="file_too_large",
+                user_message=f"ファイル '{filename}' が大きすぎます。最大サイズ: {max_size_mb:.0f}MB",
+                details={
+                    "filename": filename,
+                    "file_size": file_size,
+                    "file_size_mb": current_size_mb,
+                    "max_size": self.MAX_FILE_SIZE,
+                    "max_size_mb": max_size_mb,
+                }
             )
 
         logger.debug("file_size_valid", filename=filename, file_size=file_size)
@@ -248,7 +257,16 @@ class ImageProcessor:
                 return info
         except Exception as e:
             log_error(e, {"operation": "get_image_info", "file_size": len(image_data)})
-            raise ImageProcessingError(f"Failed to get image info: {e}") from e
+            raise ImageProcessingError(
+                f"Failed to get image info: {e}",
+                code="image_info_failed",
+                user_message="画像情報の取得に失敗しました。",
+                details={
+                    "file_size": len(image_data),
+                    "operation": "get_image_info",
+                },
+                original_exception=e
+            ) from e
 
     def validate_image(self, image_data: bytes, filename: str) -> None:
         """
@@ -274,8 +292,15 @@ class ImageProcessor:
                        filename=filename,
                        extension=Path(filename).suffix.lower(),
                        supported_formats=list(self.SUPPORTED_FORMATS))
-            raise UnsupportedFormatError(
-                f"Unsupported format for file '{filename}'. " f"Supported formats: {supported_formats}"
+            raise ValidationError(
+                f"Unsupported format for file '{filename}'. Supported formats: {supported_formats}",
+                code="unsupported_format",
+                user_message=f"ファイル '{filename}' の形式はサポートされていません。対応形式: {', '.join(self.SUPPORTED_FORMATS)}",
+                details={
+                    "filename": filename,
+                    "extension": Path(filename).suffix.lower(),
+                    "supported_formats": list(self.SUPPORTED_FORMATS),
+                }
             )
 
         # Try to open and validate the image
@@ -291,8 +316,15 @@ class ImageProcessor:
                                filename=filename,
                                detected_format=image.format,
                                supported_formats=["JPEG", "HEIC"])
-                    raise UnsupportedFormatError(
-                        f"Detected format '{image.format}' is not supported. " f"Supported formats: JPEG, HEIC"
+                    raise ValidationError(
+                        f"Detected format '{image.format}' is not supported. Supported formats: JPEG, HEIC",
+                        code="invalid_detected_format",
+                        user_message=f"ファイル '{filename}' の形式 '{image.format}' はサポートされていません。",
+                        details={
+                            "filename": filename,
+                            "detected_format": image.format,
+                            "supported_formats": ["JPEG", "HEIC"],
+                        }
                     )
 
             duration = (datetime.now() - start_time).total_seconds()
@@ -306,11 +338,21 @@ class ImageProcessor:
                        format=format_lower,
                        file_size=len(image_data))
 
-        except UnsupportedFormatError:
+        except ValidationError:
             raise
         except Exception as e:
             log_error(e, {"operation": "validate_image", "filename": filename, "file_size": len(image_data)})
-            raise ImageProcessingError(f"Invalid or corrupted image file '{filename}': {e}") from e
+            raise ImageProcessingError(
+                f"Invalid or corrupted image file '{filename}': {e}",
+                code="image_validation_failed",
+                user_message=f"ファイル '{filename}' が破損しているか、無効な画像ファイルです。",
+                details={
+                    "filename": filename,
+                    "file_size": len(image_data),
+                    "operation": "validate_image",
+                },
+                original_exception=e
+            ) from e
 
     def get_validation_info(self, image_data: bytes, filename: str) -> dict:
         """
@@ -442,7 +484,18 @@ class ImageProcessor:
                          "original_file_size": len(image_data),
                          "max_size": max_size,
                          "quality": quality})
-            raise ImageProcessingError(f"Failed to generate thumbnail: {e}") from e
+            raise ImageProcessingError(
+                f"Failed to generate thumbnail: {e}",
+                code="thumbnail_generation_failed",
+                user_message="サムネイル画像の生成に失敗しました。",
+                details={
+                    "original_file_size": len(image_data),
+                    "max_size": max_size,
+                    "quality": quality,
+                    "operation": "generate_thumbnail",
+                },
+                original_exception=e
+            ) from e
 
     def _calculate_thumbnail_size(self, original_size: tuple[int, int], max_size: tuple[int, int]) -> tuple[int, int]:
         """
@@ -546,10 +599,19 @@ class ImageProcessor:
 
             return result
 
-        except (UnsupportedFormatError, ImageProcessingError):
+        except (ValidationError, ImageProcessingError):
             raise
         except Exception as e:
-            raise ImageProcessingError(f"Failed to generate thumbnail with metadata for '{filename}': {e}") from e
+            raise ImageProcessingError(
+                f"Failed to generate thumbnail with metadata for '{filename}': {e}",
+                code="thumbnail_with_metadata_failed",
+                user_message=f"ファイル '{filename}' のサムネイル生成に失敗しました。",
+                details={
+                    "filename": filename,
+                    "operation": "generate_thumbnail_with_metadata",
+                },
+                original_exception=e
+            ) from e
 
     def extract_metadata(self, image_data: bytes, filename: str) -> dict:
         """
@@ -600,10 +662,19 @@ class ImageProcessor:
 
             return metadata
 
-        except (UnsupportedFormatError, ImageProcessingError):
+        except (ValidationError, ImageProcessingError):
             raise
         except Exception as e:
-            raise ImageProcessingError(f"Failed to extract metadata from '{filename}': {e}") from e
+            raise ImageProcessingError(
+                f"Failed to extract metadata from '{filename}': {e}",
+                code="metadata_extraction_failed",
+                user_message=f"ファイル '{filename}' のメタデータ抽出に失敗しました。",
+                details={
+                    "filename": filename,
+                    "operation": "extract_metadata",
+                },
+                original_exception=e
+            ) from e
 
 
 # Global image processor instance

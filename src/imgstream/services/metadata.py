@@ -9,9 +9,10 @@ from pathlib import Path
 from google.cloud.exceptions import NotFound
 
 from ..logging_config import get_logger, log_error, log_performance, log_user_action
+from ..error_handling import DatabaseError, StorageError, ValidationError
 from ..models.database import DatabaseManager, create_database, get_database_manager
 from ..models.photo import PhotoMetadata
-from .storage import StorageError, get_storage_service
+from .storage import get_storage_service
 
 logger = get_logger(__name__)
 
@@ -40,10 +41,8 @@ def shutdown_sync_executor() -> None:
                 _sync_executor = None
 
 
-class MetadataError(Exception):
-    """Raised when metadata operations fail."""
-
-    pass
+# Keep backward compatibility alias
+MetadataError = DatabaseError
 
 
 class MetadataService:

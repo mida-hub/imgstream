@@ -9,14 +9,9 @@ from google.cloud import storage  # type: ignore[attr-defined]
 from google.cloud.exceptions import GoogleCloudError, NotFound
 
 from ..logging_config import get_logger, log_error, log_performance, log_user_action
+from ..error_handling import StorageError
 
 logger = get_logger(__name__)
-
-
-class StorageError(Exception):
-    """Raised when storage operations fail."""
-
-    pass
 
 
 class UploadProgress:
