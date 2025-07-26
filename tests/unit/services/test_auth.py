@@ -520,40 +520,48 @@ class TestErrorHandling:
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
 
-    @patch("src.imgstream.services.auth.logger")
-    def test_logging_on_missing_header(self, mock_logger):
-        """Test that warning is logged when IAP header is missing."""
+    def test_logging_on_missing_header(self):
+        """Test that security event is logged when IAP header is missing."""
         headers = {}
 
-        self.auth_service.parse_iap_header(headers)
+        with patch("src.imgstream.services.auth.log_security_event") as mock_security_log:
+            self.auth_service.parse_iap_header(headers)
+            
+            mock_security_log.assert_called_once_with(
+                "missing_iap_header", 
+                context={"headers_present": []}
+            )
 
-        mock_logger.warning.assert_called_once_with("Cloud IAP JWT header not found")
-
-    @patch("src.imgstream.services.auth.logger")
-    def test_logging_on_jwt_parse_error(self, mock_logger):
-        """Test that error is logged when JWT parsing fails."""
+    def test_logging_on_jwt_parse_error(self):
+        """Test that security event is logged when JWT parsing fails."""
         headers = {"X-Goog-IAP-JWT-Assertion": "invalid.jwt.token"}
 
-        self.auth_service.parse_iap_header(headers)
+        with patch("src.imgstream.services.auth.log_security_event") as mock_security_log:
+            self.auth_service.parse_iap_header(headers)
+            
+            # Verify security event was logged
+            mock_security_log.assert_called_with(
+                "authentication_failure",
+                context={"error": "Failed to decode JWT payload: 'utf-8' codec can't decode byte 0x8f in position 0: invalid start byte"}
+            )
 
-        mock_logger.error.assert_called_once()
-        args, kwargs = mock_logger.error.call_args
-        assert "Failed to parse IAP header" in args[0]
-
-    @patch("src.imgstream.services.auth.logger")
-    def test_logging_on_successful_auth(self, mock_logger):
-        """Test that info is logged on successful authentication."""
+    def test_logging_on_successful_auth(self):
+        """Test that user action is logged on successful authentication."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
 
-        self.auth_service.parse_iap_header(headers)
+        with patch("src.imgstream.services.auth.log_user_action") as mock_user_log:
+            self.auth_service.parse_iap_header(headers)
+            
+            mock_user_log.assert_called_with(
+                "123456789",
+                "authentication_success",
+                email="user@example.com"
+            )
 
-        mock_logger.info.assert_called_once_with("Successfully authenticated user: user@example.com")
-
-    @patch("src.imgstream.services.auth.logger")
-    def test_logging_on_access_denied(self, mock_logger):
-        """Test that warning is logged on access denied."""
+    def test_logging_on_access_denied(self):
+        """Test that security event is logged on access denied."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = self.create_test_jwt(payload)
         headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
@@ -562,18 +570,28 @@ class TestErrorHandling:
 
         # Try to access another user's resource
         other_user_path = "photos/other_at_example_dot_com/original/photo.jpg"
-        self.auth_service.check_resource_access(other_user_path)
+        
+        with patch("src.imgstream.services.auth.log_security_event") as mock_security_log:
+            self.auth_service.check_resource_access(other_user_path)
+            
+            mock_security_log.assert_called_with(
+                "access_denied",
+                user_id="123456789",
+                context={
+                    "user_email": "user@example.com",
+                    "resource_path": other_user_path
+                }
+            )
 
-        mock_logger.warning.assert_called()
-        args, kwargs = mock_logger.warning.call_args_list[-1]
-        assert "Access denied: User user@example.com attempted to access" in args[0]
-
-    @patch("src.imgstream.services.auth.logger")
-    def test_logging_on_clear_authentication(self, mock_logger):
-        """Test that info is logged when authentication is cleared."""
-        self.auth_service.clear_authentication()
-
-        mock_logger.info.assert_called_once_with("Authentication state cleared")
+    def test_logging_on_clear_authentication(self):
+        """Test that user action is logged when authentication is cleared."""
+        with patch("src.imgstream.services.auth.log_user_action") as mock_user_log:
+            self.auth_service.clear_authentication()
+            
+            mock_user_log.assert_called_with(
+                "unknown",
+                "authentication_cleared"
+            )
 
 
 class TestEdgeCases:

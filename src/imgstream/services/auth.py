@@ -43,9 +43,42 @@ class CloudIAPAuthService:
     def __init__(self) -> None:
         """Initialize the Cloud IAP authentication service."""
         self._current_user: UserInfo | None = None
+        self._development_mode = self._is_development_mode()
+        
+        if self._development_mode:
+            logger.info("development_auth_mode_enabled", 
+                       message="Using development authentication mode")
+
+    def _is_development_mode(self) -> bool:
+        """Check if running in development mode."""
+        import os
+        environment = os.getenv("ENVIRONMENT", "development").lower()
+        return environment in ["development", "dev", "local"]
+
+    def _get_development_user(self) -> UserInfo:
+        """Get development user for local testing."""
+        import os
+        dev_email = os.getenv("DEV_USER_EMAIL", "dev@example.com")
+        dev_name = os.getenv("DEV_USER_NAME", "Development User")
+        dev_user_id = os.getenv("DEV_USER_ID", "dev-user-123")
+        
+        return UserInfo(
+            user_id=dev_user_id,
+            email=dev_email,
+            name=dev_name,
+            picture=None
+        )
 
     def parse_iap_header(self, headers: dict[str, str]) -> UserInfo | None:
         """Parse Cloud IAP JWT header to extract user information."""
+        # Development mode: bypass IAP authentication
+        if self._development_mode:
+            dev_user = self._get_development_user()
+            log_user_action(dev_user.user_id, "development_authentication", 
+                          email=dev_user.email, mode="development")
+            return dev_user
+        
+        # Production mode: use Cloud IAP
         jwt_token = headers.get(self.IAP_HEADER_NAME)
 
         if not jwt_token:

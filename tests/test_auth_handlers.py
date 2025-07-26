@@ -26,6 +26,10 @@ class TestAuthHandlers:
         # Mock auth service
         mock_auth_service = MagicMock()
         mock_auth_service.IAP_HEADER_NAME = "X-Goog-IAP-JWT-Assertion"
+        mock_user_info = MagicMock()
+        mock_user_info.email = "test@example.com"
+        mock_user_info.user_id = "test123"
+        mock_auth_service.ensure_authenticated.return_value = mock_user_info
         mock_get_auth_service.return_value = mock_auth_service
 
         # Mock session state

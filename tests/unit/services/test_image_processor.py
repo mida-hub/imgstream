@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image
 
+from src.imgstream.error_handling import ValidationError
 from src.imgstream.services.image_processor import (
     ImageProcessingError,
     ImageProcessor,
@@ -473,7 +474,7 @@ class TestImageProcessorEdgeCases:
         # Create test data smaller than minimum
         test_data = b"x" * 50  # 50 bytes
 
-        with pytest.raises(ImageProcessingError, match="File 'test.jpg' is too small"):
+        with pytest.raises(ValidationError, match="File 'test.jpg' is too small"):
             self.processor.validate_file_size(test_data, "test.jpg")
 
     def test_validate_file_size_too_large(self):
@@ -482,7 +483,7 @@ class TestImageProcessorEdgeCases:
         large_data = MagicMock()
         large_data.__len__ = MagicMock(return_value=60 * 1024 * 1024)  # 60MB
 
-        with pytest.raises(ImageProcessingError, match="File 'test.jpg' is too large"):
+        with pytest.raises(ValidationError, match="File 'test.jpg' is too large"):
             self.processor.validate_file_size(large_data, "test.jpg")
 
     def test_get_validation_info_valid_image(self):
@@ -502,11 +503,8 @@ class TestImageProcessorEdgeCases:
         # Create small invalid data
         small_data = b"x" * 50
 
-        info = self.processor.get_validation_info(small_data, "test.jpg")
-
-        assert info["is_valid"] is False
-        assert info["size_valid"] is False
-        assert any("too small" in error for error in info["errors"])
+        with pytest.raises(ValidationError, match="File 'test.jpg' is too small"):
+            self.processor.get_validation_info(small_data, "test.jpg")
 
     def test_get_validation_info_unsupported_format(self):
         """Test getting validation info for unsupported format."""

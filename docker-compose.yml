@@ -36,6 +36,13 @@ services:
       - STREAMLIT_SERVER_PORT=8501
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
       - STREAMLIT_SERVER_RUN_ON_SAVE=true
+      # Development authentication settings
+      - ENVIRONMENT=development
+      - DEV_USER_EMAIL=developer@example.com
+      - DEV_USER_NAME=Local Developer
+      - DEV_USER_ID=dev-local-001
+      # Disable Cloud IAP requirements for local development
+      - SKIP_IAP_AUTH=true
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests

@@ -35,6 +35,62 @@ graph TB
 - **インフラ管理**: Terraform
 - **デプロイ**: Cloud Run (asia-northeast1)
 
+## Google Cloud Platform 環境設定
+
+### プロジェクト構成
+
+- **Google Cloud Project ID**: `apps-466614`
+- **リージョン**: `asia-northeast1` (東京)
+- **本番環境と開発環境**: 同一プロジェクト内で環境分離
+
+### 環境別リソース構成
+
+#### 共通リソース（本番・開発共通）
+- **Cloud IAP**: 同一設定を使用
+  - OAuth 2.0 設定
+  - 認証ドメイン設定
+  - アクセス制御ポリシー
+
+#### 環境別リソース
+
+**本番環境 (Production)**
+- **Cloud Run サービス**: `imgstream-prod`
+- **GCS バケット**: `apps-466614-imgstream-photos-prod`
+- **環境識別子**: `ENVIRONMENT=production`
+
+**開発環境 (Development)**
+- **Cloud Run サービス**: `imgstream-dev`
+- **GCS バケット**: `apps-466614-imgstream-photos-dev`
+- **環境識別子**: `ENVIRONMENT=development`
+
+### リソース命名規則
+
+```
+# Cloud Run サービス
+imgstream-{environment}
+
+# GCS バケット
+{project-id}-imgstream-photos-{environment}
+
+# 例:
+# 本番: apps-466614-imgstream-photos-prod
+# 開発: apps-466614-imgstream-photos-dev
+```
+
+### 環境変数による設定
+
+各環境で以下の環境変数により動作を制御：
+
+```bash
+# 共通設定
+GOOGLE_CLOUD_PROJECT=apps-466614
+GCS_REGION=asia-northeast1
+
+# 環境別設定
+ENVIRONMENT=production  # または development
+GCS_BUCKET=apps-466614-imgstream-photos-prod  # 環境に応じて変更
+```
+
 ## コンポーネントとインターフェース
 
 ### 1. 認証コンポーネント (AuthService)
@@ -481,56 +537,141 @@ CMD ["streamlit", "run", "src/imgstream/main.py", "--server.port=8080", "--serve
 
 ### Terraform構成
 
+#### 共通変数定義 (terraform/variables.tf)
+
 ```hcl
-# 主要リソース (asia-northeast1 リージョン)
+variable "project_id" {
+  description = "Google Cloud Project ID"
+  type        = string
+  default     = "apps-466614"
+}
+
+variable "region" {
+  description = "Google Cloud Region"
+  type        = string
+  default     = "asia-northeast1"
+}
+
+variable "environment" {
+  description = "Environment (dev or prod)"
+  type        = string
+  validation {
+    condition     = contains(["dev", "prod"], var.environment)
+    error_message = "Environment must be either 'dev' or 'prod'."
+  }
+}
+```
+
+#### 環境別リソース定義
+
+```hcl
+# Cloud Run サービス (環境別)
 resource "google_cloud_run_service" "imgstream" {
-  name     = "imgstream"
-  location = "asia-northeast1"
+  name     = "imgstream-${var.environment}"
+  location = var.region
+  project  = var.project_id
   
   template {
     spec {
       containers {
         image = "gcr.io/${var.project_id}/imgstream:latest"
         env {
+          name  = "GOOGLE_CLOUD_PROJECT"
+          value = var.project_id
+        }
+        env {
           name  = "GCS_REGION"
-          value = "asia-northeast1"
+          value = var.region
+        }
+        env {
+          name  = "ENVIRONMENT"
+          value = var.environment
+        }
+        env {
+          name  = "GCS_BUCKET"
+          value = "${var.project_id}-imgstream-photos-${var.environment}"
         }
       }
     }
   }
 }
 
+# GCS バケット (環境別)
 resource "google_storage_bucket" "imgstream_photos" {
-  name     = "${var.project_id}-imgstream-photos"
-  location = "asia-northeast1"
+  name     = "${var.project_id}-imgstream-photos-${var.environment}"
+  location = var.region
+  project  = var.project_id
   
-  lifecycle_rule {
-    condition {
-      age = 30
+  # ライフサイクルポリシー (本番環境のみ)
+  dynamic "lifecycle_rule" {
+    for_each = var.environment == "prod" ? [1] : []
+    content {
+      condition {
+        age = 30
+      }
+      action {
+        type          = "SetStorageClass"
+        storage_class = "COLDLINE"
+      }
     }
-    action {
-      type          = "SetStorageClass"
-      storage_class = "COLDLINE"
-    }
+  }
+  
+  # バージョニング (本番環境のみ)
+  versioning {
+    enabled = var.environment == "prod"
   }
 }
 
-# その他のリソース:
-# - Cloud IAP 設定
-# - サービスアカウント
-# - Container Registry / Artifact Registry
+# Cloud IAP 設定 (共通)
+resource "google_iap_web_iam_binding" "imgstream_users" {
+  project = var.project_id
+  role    = "roles/iap.httpsResourceAccessor"
+  members = [
+    # 環境に応じてメンバーを設定
+  ]
+}
+
+# サービスアカウント (環境別)
+resource "google_service_account" "imgstream" {
+  account_id   = "imgstream-${var.environment}"
+  display_name = "ImgStream Service Account (${var.environment})"
+  project      = var.project_id
+}
+
+# サービスアカウント権限
+resource "google_storage_bucket_iam_member" "imgstream_storage" {
+  bucket = google_storage_bucket.imgstream_photos.name
+  role   = "roles/storage.admin"
+  member = "serviceAccount:${google_service_account.imgstream.email}"
+}
 ```
 
-### CI/CD パイプライン (.github/workflows/deploy.yml)
+#### 環境別デプロイ設定
+
+```bash
+# 開発環境デプロイ
+terraform workspace select dev || terraform workspace new dev
+terraform apply -var="environment=dev"
+
+# 本番環境デプロイ  
+terraform workspace select prod || terraform workspace new prod
+terraform apply -var="environment=prod"
+```
+
+### CI/CD パイプライン
+
+#### 環境別デプロイワークフロー
+
+**開発環境デプロイ (.github/workflows/deploy-dev.yml)**
 
 ```yaml
-name: Deploy to Cloud Run
+name: Deploy to Development
 
 on:
   push:
-    branches: [main]
+    branches: [develop]
   pull_request:
-    branches: [main]
+    branches: [develop]
 
 jobs:
   test:
@@ -560,10 +701,11 @@ jobs:
       - name: Run tests
         run: uv run pytest
 
-  build-and-deploy:
-    if: github.ref == 'refs/heads/main'
+  deploy-dev:
+    if: github.ref == 'refs/heads/develop'
     needs: test
     runs-on: ubuntu-latest
+    environment: development
     steps:
       - uses: actions/checkout@v4
       
@@ -571,24 +713,112 @@ jobs:
         uses: google-github-actions/setup-gcloud@v1
         with:
           service_account_key: ${{ secrets.GCP_SA_KEY }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          project_id: apps-466614
       
       - name: Configure Docker
         run: gcloud auth configure-docker
       
       - name: Build Docker image
         run: |
-          docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/imgstream:${{ github.sha }} .
-          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/imgstream:${{ github.sha }}
+          docker build -t gcr.io/apps-466614/imgstream:dev-${{ github.sha }} .
+          docker push gcr.io/apps-466614/imgstream:dev-${{ github.sha }}
       
-      - name: Deploy to Cloud Run
+      - name: Deploy to Cloud Run (Development)
         run: |
-          gcloud run deploy imgstream \
-            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/imgstream:${{ github.sha }} \
+          gcloud run deploy imgstream-dev \
+            --image gcr.io/apps-466614/imgstream:dev-${{ github.sha }} \
             --platform managed \
             --region asia-northeast1 \
-            --allow-unauthenticated
+            --set-env-vars ENVIRONMENT=development \
+            --set-env-vars GCS_BUCKET=apps-466614-imgstream-photos-dev \
+            --set-env-vars GOOGLE_CLOUD_PROJECT=apps-466614
 ```
+
+**本番環境デプロイ (.github/workflows/deploy-prod.yml)**
+
+```yaml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+        with:
+          version: "latest"
+      
+      - name: Set up Python
+        run: uv python install 3.11
+      
+      - name: Install dependencies
+        run: uv sync
+      
+      - name: Run linting
+        run: |
+          uv run ruff check .
+          uv run black --check .
+      
+      - name: Run type checking
+        run: uv run mypy src/
+      
+      - name: Run tests
+        run: uv run pytest
+
+  deploy-prod:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: apps-466614
+      
+      - name: Configure Docker
+        run: gcloud auth configure-docker
+      
+      - name: Build Docker image
+        run: |
+          docker build -t gcr.io/apps-466614/imgstream:prod-${{ github.sha }} .
+          docker push gcr.io/apps-466614/imgstream:prod-${{ github.sha }}
+      
+      - name: Deploy to Cloud Run (Production)
+        run: |
+          gcloud run deploy imgstream-prod \
+            --image gcr.io/apps-466614/imgstream:prod-${{ github.sha }} \
+            --platform managed \
+            --region asia-northeast1 \
+            --set-env-vars ENVIRONMENT=production \
+            --set-env-vars GCS_BUCKET=apps-466614-imgstream-photos-prod \
+            --set-env-vars GOOGLE_CLOUD_PROJECT=apps-466614
+```
+
+#### GitHub Secrets 設定
+
+以下のシークレットをGitHubリポジトリに設定：
+
+```
+GCP_SA_KEY: サービスアカウントキー（JSON形式）
+```
+
+#### ブランチ戦略
+
+- **main**: 本番環境デプロイ用
+- **develop**: 開発環境デプロイ用
+- **feature/***: 機能開発用（PRでdevelopにマージ）
 
 ### 開発環境セットアップ
 

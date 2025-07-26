@@ -1,17 +1,20 @@
 """Authentication handlers for imgstream application."""
 
+import os
+
 import streamlit as st
 import structlog
 
 from imgstream.services.auth import AuthenticationError, get_auth_service
 from imgstream.ui.components import render_error_message, render_info_card
+from imgstream.ui.dev_auth import render_dev_auth_ui, setup_dev_auth_middleware
 
 logger = structlog.get_logger()
 
 
 def authenticate_user() -> bool:
     """
-    Authenticate user using Cloud IAP headers.
+    Authenticate user using Cloud IAP headers or development mode.
 
     Returns:
         bool: True if authentication successful, False otherwise
@@ -19,38 +22,32 @@ def authenticate_user() -> bool:
     try:
         auth_service = get_auth_service()
 
-        # In production, headers would come from the request
-        # For development/testing, we can simulate headers or use environment variables
+        # Setup development authentication middleware
+        setup_dev_auth_middleware()
+
+        # Check if running in development mode
+        if _is_development_mode():
+            # Try development authentication first
+            dev_user = render_dev_auth_ui()
+            if dev_user:
+                st.session_state.authenticated = True
+                st.session_state.user_id = dev_user.user_id
+                st.session_state.user_email = dev_user.email
+                st.session_state.user_name = dev_user.name
+                st.session_state.auth_error = None
+                return True
+            else:
+                # Development mode but not authenticated yet
+                st.session_state.authenticated = False
+                st.session_state.auth_error = None
+                return False
+
+        # Production mode: use Cloud IAP headers
         headers = {}
 
         # Try to get IAP header from Streamlit context
         if hasattr(st, "context") and hasattr(st.context, "headers"):
             headers = dict(st.context.headers)
-
-        # For development, check if we have a mock user in secrets
-        if not headers.get(auth_service.IAP_HEADER_NAME) and st.secrets.get("mock_user"):
-            mock_user = st.secrets.get("mock_user", {})
-            if mock_user.get("enabled", False):
-                # Create a mock user for development
-                from imgstream.services.auth import UserInfo
-
-                user_info = UserInfo(
-                    user_id=mock_user.get("user_id", "dev_user_123"),
-                    email=mock_user.get("email", "dev@example.com"),
-                    name=mock_user.get("name", "Development User"),
-                    picture=mock_user.get("picture"),
-                )
-                # Set the mock user directly (for development only)
-                auth_service.set_current_user(user_info)
-
-                st.session_state.authenticated = True
-                st.session_state.user_id = user_info.user_id
-                st.session_state.user_email = user_info.email
-                st.session_state.user_name = user_info.name
-                st.session_state.auth_error = None
-
-                logger.info("mock_authentication_success", user_id=user_info.user_id, email=user_info.email)
-                return True
 
         # Attempt real authentication
         if auth_service.authenticate_request(headers):
@@ -227,3 +224,9 @@ def render_sidebar() -> None:
                 - Contact your administrator if issues persist
                 """
                 )
+
+
+def _is_development_mode() -> bool:
+    """Check if running in development mode."""
+    environment = os.getenv("ENVIRONMENT", "development").lower()
+    return environment in ["development", "dev", "local"]

@@ -3,8 +3,8 @@
 コード品質は下記のコマンドを使ってチェックしてください
 
 ```bash
-uv run pytest
-uv run black
-uv run ruff
-uv run mypy
+ENVIRONMENT=production uv run pytest
+ENVIRONMENT=production uv run black
+ENVIRONMENT=production uv run ruff
+ENVIRONMENT=production uv run mypy
 ```
