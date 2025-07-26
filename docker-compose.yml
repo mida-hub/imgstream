@@ -46,6 +46,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests
+      - ./.streamlit:/app/.streamlit
       - imgstream_tmp:/tmp
     profiles:
       - dev

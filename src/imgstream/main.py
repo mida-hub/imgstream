@@ -119,9 +119,13 @@ def main() -> None:
         render_footer()
 
         # Debug info (only in development)
-        if st.secrets.get("debug", False):
-            with st.expander("Debug Info"):
-                st.write("Session State:", st.session_state)
+        try:
+            if st.secrets.get("debug", False):
+                with st.expander("Debug Info"):
+                    st.write("Session State:", st.session_state)
+        except Exception:
+            # Ignore secrets errors in debug section
+            pass
 
     except Exception as e:
         # Handle critical application errors

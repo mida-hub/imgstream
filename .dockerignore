@@ -74,5 +74,5 @@ Makefile
 docker-compose.yml
 Dockerfile.dev
 
-# Test files (for production image)
-tests/
+# Test files (uncomment for production-only builds)
+# tests/

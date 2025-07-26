@@ -44,13 +44,11 @@ class ErrorDisplayManager:
             show_retry_button: Whether to show retry button
             retry_callback: Function to call when retry is clicked
         """
-        display_container = container if container is not None else st
-
         # Choose appropriate Streamlit alert type based on severity
         alert_type = self._get_alert_type(error_info.severity)
 
-        # Use type: ignore for streamlit context manager
-        with display_container:  # type: ignore
+        # Define the display function
+        def _display_content():
             # Main error message
             if alert_type == "error":
                 st.error(error_info.user_message)
@@ -88,6 +86,13 @@ class ErrorDisplayManager:
             with col2:
                 if st.button("閉じる", key=f"close_{error_info.code}_{error_info.timestamp}"):
                     st.rerun()
+
+        # Use container if provided, otherwise display directly
+        if container is not None:
+            with container:
+                _display_content()
+        else:
+            _display_content()
 
         # Log the error display
         self.logger.info(
@@ -399,6 +404,16 @@ class StreamlitErrorContext:
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
         if exc_type is not None:
+            # Import RerunException for special handling
+            try:
+                from streamlit.runtime.scriptrunner_utils.exceptions import RerunException
+                # RerunException is a normal control flow exception, not an error
+                if isinstance(exc_val, RerunException):
+                    return False  # Let RerunException propagate normally
+            except ImportError:
+                pass  # Streamlit not available
+            
+            # Handle all other exceptions
             error_display_manager.display_exception(
                 exception=exc_val,
                 container=self.container,
