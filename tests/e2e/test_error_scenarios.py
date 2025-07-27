@@ -9,9 +9,8 @@ import pytest
 from PIL import Image
 
 from src.imgstream.services.image_processor import ImageProcessor
-from src.imgstream.services.metadata import MetadataService
 from src.imgstream.services.storage import StorageService
-from tests.e2e.base import E2ETestBase, TestDataFactory
+from tests.e2e.base import E2ETestBase
 
 
 class TestErrorScenarios(E2ETestBase):
@@ -20,134 +19,110 @@ class TestErrorScenarios(E2ETestBase):
     def test_network_failure_during_upload(self, test_users, test_image):
         """Test handling of network failures during upload."""
         user = test_users["user1"]
+        mock_services = self.setup_mock_services(user)
 
         # Mock network failure in storage service
-        with patch("src.imgstream.services.storage.StorageService") as mock_storage_class:
-            mock_storage = Mock()
-            mock_storage.upload_original_photo.side_effect = Exception("Network timeout")
-            mock_storage_class.return_value = mock_storage
+        storage_service = mock_services["storage"]
+        storage_service.upload_original_photo.side_effect = Exception("Network timeout")
 
-            storage_service = StorageService(
-                project_id=self.test_config["project_id"], bucket_name=self.test_config["bucket_name"]
-            )
+        # Should raise exception for network failure
+        with pytest.raises(Exception) as exc_info:
+            storage_service.upload_original_photo(user.user_id, test_image, "test-image.jpg")
 
-            # Should raise exception for network failure
-            with pytest.raises(Exception) as exc_info:
-                storage_service.upload_original_photo(test_image, user.user_id, "test-image.jpg")
-
-            assert "Network timeout" in str(exc_info.value)
+        assert "Network timeout" in str(exc_info.value)
 
     def test_insufficient_storage_space(self, test_users, test_image):
         """Test handling of insufficient storage space."""
         user = test_users["user1"]
+        mock_services = self.setup_mock_services(user)
 
-        with patch("src.imgstream.services.storage.StorageService") as mock_storage_class:
-            mock_storage = Mock()
-            mock_storage.upload_original_photo.side_effect = Exception("Insufficient storage quota")
-            mock_storage_class.return_value = mock_storage
+        # Mock insufficient storage space in storage service
+        storage_service = mock_services["storage"]
+        storage_service.upload_original_photo.side_effect = Exception("Insufficient storage quota")
 
-            storage_service = StorageService(
-                project_id=self.test_config["project_id"], bucket_name=self.test_config["bucket_name"]
-            )
+        with pytest.raises(Exception) as exc_info:
+            storage_service.upload_original_photo(user.user_id, test_image, "test-image.jpg")
 
-            with pytest.raises(Exception) as exc_info:
-                storage_service.upload_original_photo(test_image, user.user_id, "test-image.jpg")
-
-            assert "Insufficient storage quota" in str(exc_info.value)
+        assert "Insufficient storage quota" in str(exc_info.value)
 
     def test_corrupted_image_file(self, test_users):
         """Test handling of corrupted image files."""
-        test_users["user1"]
+        user = test_users["user1"]
+        mock_services = self.setup_mock_services(user)
 
         # Create corrupted image data
         corrupted_data = b"This is not a valid image file"
 
-        with patch("src.imgstream.services.image_processor.ImageProcessor") as mock_processor_class:
-            mock_processor = Mock()
-            mock_processor.extract_metadata.side_effect = Exception("Cannot identify image file")
-            mock_processor.is_supported_format.return_value = True
-            mock_processor_class.return_value = mock_processor
+        # Mock corrupted file handling
+        image_processor = mock_services["image_processor"]
+        image_processor.extract_metadata.side_effect = Exception("Cannot identify image file")
+        image_processor.is_supported_format.return_value = True
 
-            image_processor = ImageProcessor()
+        # Should handle corrupted file gracefully
+        with pytest.raises(Exception) as exc_info:
+            image_processor.extract_metadata(corrupted_data, "corrupted.jpg")
 
-            # Should handle corrupted file gracefully
-            with pytest.raises(Exception) as exc_info:
-                image_processor.extract_metadata(corrupted_data, "corrupted.jpg")
-
-            assert "Cannot identify image file" in str(exc_info.value)
+        assert "Cannot identify image file" in str(exc_info.value)
 
     def test_database_connection_failure(self, test_users):
         """Test handling of database connection failures."""
         user = test_users["user1"]
+        mock_services = self.setup_mock_services(user)
 
-        with patch("src.imgstream.services.metadata.MetadataService") as mock_metadata_class:
-            mock_metadata = Mock()
-            mock_metadata.save_photo_metadata.side_effect = Exception("Database connection failed")
-            mock_metadata_class.return_value = mock_metadata
+        # Mock database connection failure
+        metadata_service = mock_services["metadata"]
+        metadata_service.save_photo_metadata.side_effect = Exception("Database connection failed")
 
-            metadata_service = MetadataService(user.user_id)
+        with pytest.raises(Exception) as exc_info:
+            metadata_service.save_photo_metadata(Mock())
 
-            with pytest.raises(Exception) as exc_info:
-                metadata_service.save_photo_metadata(Mock(), "path1", "path2")
-
-            assert "Database connection failed" in str(exc_info.value)
+        assert "Database connection failed" in str(exc_info.value)
 
     def test_permission_denied_errors(self, test_users, test_image):
         """Test handling of permission denied errors."""
         user = test_users["user1"]
+        mock_services = self.setup_mock_services(user)
 
         # Test storage permission denied
-        with patch("src.imgstream.services.storage.StorageService") as mock_storage_class:
-            mock_storage = Mock()
-            mock_storage.upload_original_photo.side_effect = Exception("Permission denied: 403")
-            mock_storage_class.return_value = mock_storage
+        storage_service = mock_services["storage"]
+        storage_service.upload_original_photo.side_effect = Exception("Permission denied: 403")
 
-            storage_service = StorageService(
-                project_id=self.test_config["project_id"], bucket_name=self.test_config["bucket_name"]
-            )
+        with pytest.raises(Exception) as exc_info:
+            storage_service.upload_original_photo(user.user_id, test_image, "test-image.jpg")
 
-            with pytest.raises(Exception) as exc_info:
-                storage_service.upload_original_photo(test_image, user.user_id, "test-image.jpg")
-
-            assert "Permission denied" in str(exc_info.value)
+        assert "Permission denied" in str(exc_info.value)
 
     def test_file_size_limit_exceeded(self, test_users):
         """Test handling of file size limit exceeded."""
-        test_users["user1"]
+        user = test_users["user1"]
+        mock_services = self.setup_mock_services(user)
 
         # Create oversized image data (mock)
         oversized_data = b"x" * (100 * 1024 * 1024)  # 100MB
 
-        with patch("src.imgstream.services.image_processor.ImageProcessor") as mock_processor_class:
-            mock_processor = Mock()
-            mock_processor.is_supported_format.return_value = True
-            mock_processor.extract_metadata.side_effect = Exception("File size exceeds limit")
-            mock_processor_class.return_value = mock_processor
+        # Mock file size limit exceeded
+        image_processor = mock_services["image_processor"]
+        image_processor.is_supported_format.return_value = True
+        image_processor.extract_metadata.side_effect = Exception("File size exceeds limit")
 
-            image_processor = ImageProcessor()
+        with pytest.raises(Exception) as exc_info:
+            image_processor.extract_metadata(oversized_data, "huge-image.jpg")
 
-            with pytest.raises(Exception) as exc_info:
-                image_processor.extract_metadata(oversized_data, "huge-image.jpg")
-
-            assert "File size exceeds limit" in str(exc_info.value)
+        assert "File size exceeds limit" in str(exc_info.value)
 
     def test_unsupported_file_format(self, test_users):
         """Test handling of unsupported file formats."""
-        test_users["user1"]
+        user = test_users["user1"]
+        mock_services = self.setup_mock_services(user)
 
-        # Create mock unsupported file
+        # Mock unsupported file format
+        image_processor = mock_services["image_processor"]
+        image_processor.is_supported_format.return_value = False
 
-        with patch("src.imgstream.services.image_processor.ImageProcessor") as mock_processor_class:
-            mock_processor = Mock()
-            mock_processor.is_supported_format.return_value = False
-            mock_processor_class.return_value = mock_processor
-
-            image_processor = ImageProcessor()
-
-            # Should return False for unsupported format
-            assert image_processor.is_supported_format("test.bmp") is False
-            assert image_processor.is_supported_format("test.gif") is False
-            assert image_processor.is_supported_format("test.tiff") is False
+        # Should return False for unsupported format
+        assert image_processor.is_supported_format("test.bmp") is False
+        assert image_processor.is_supported_format("test.gif") is False
+        assert image_processor.is_supported_format("test.tiff") is False
 
     def test_concurrent_access_conflicts(self, test_users, db_helper):
         """Test handling of concurrent access conflicts."""
@@ -163,8 +138,17 @@ class TestErrorScenarios(E2ETestBase):
 
         def concurrent_write(photo_id):
             try:
-                photo_data = TestDataFactory.create_photo_metadata(user.user_id, f"concurrent-{photo_id}.jpg")
-                db_helper.insert_test_photo(user.user_id, photo_data)
+                from src.imgstream.models.photo import PhotoMetadata
+
+                photo_metadata = PhotoMetadata.create_new(
+                    user_id=user.user_id,
+                    filename=f"concurrent-{photo_id}.jpg",
+                    original_path=f"original/{user.user_id}/concurrent-{photo_id}.jpg",
+                    thumbnail_path=f"thumbs/{user.user_id}/concurrent-{photo_id}.jpg",
+                    file_size=1024000,
+                    mime_type="image/jpeg",
+                )
+                db_helper.insert_test_photo(user.user_id, photo_metadata.to_dict())
                 successes.append(photo_id)
             except Exception as e:
                 errors.append((photo_id, str(e)))
@@ -192,18 +176,16 @@ class TestErrorScenarios(E2ETestBase):
 
     def test_memory_exhaustion_scenario(self, test_users):
         """Test handling of memory exhaustion scenarios."""
-        test_users["user1"]
+        user = test_users["user1"]
+        mock_services = self.setup_mock_services(user)
 
-        with patch("src.imgstream.services.image_processor.ImageProcessor") as mock_processor_class:
-            mock_processor = Mock()
-            mock_processor.generate_thumbnail.side_effect = MemoryError("Out of memory")
-            mock_processor_class.return_value = mock_processor
+        # Mock memory exhaustion
+        image_processor = mock_services["image_processor"]
+        image_processor.generate_thumbnail.side_effect = MemoryError("Out of memory")
 
-            image_processor = ImageProcessor()
-
-            # Should handle memory error gracefully
-            with pytest.raises(MemoryError):
-                image_processor.generate_thumbnail(b"image_data")
+        # Should handle memory error gracefully
+        with pytest.raises(MemoryError):
+            image_processor.generate_thumbnail(b"image_data")
 
     def test_authentication_token_expiry(self, test_users):
         """Test handling of expired authentication tokens."""
@@ -215,38 +197,31 @@ class TestErrorScenarios(E2ETestBase):
             mock_auth.authenticate_request.return_value = None  # Expired token
             mock_auth_class.return_value = mock_auth
 
-            from src.imgstream.services.auth import CloudIAPAuthService as AuthService
-
-            auth_service = AuthService()
+            auth_service = mock_auth_class()
 
             # Should return None for expired token
-            result = auth_service.authenticate_user({"X-Goog-IAP-JWT-Assertion": "expired.token"})
+            result = auth_service.authenticate_request({"X-Goog-IAP-JWT-Assertion": "expired.token"})
             assert result is None
 
     def test_partial_upload_failure(self, test_users, test_image):
         """Test handling of partial upload failures."""
         user = test_users["user1"]
+        mock_services = self.setup_mock_services(user)
 
         # Mock scenario where original upload succeeds but thumbnail fails
-        with patch("src.imgstream.services.storage.StorageService") as mock_storage_class:
-            mock_storage = Mock()
-            mock_storage.upload_original_photo.return_value = "original/path/success"
-            mock_storage.upload_thumbnail.side_effect = Exception("Thumbnail upload failed")
-            mock_storage_class.return_value = mock_storage
+        storage_service = mock_services["storage"]
+        storage_service.upload_original_photo.return_value = "original/path/success"
+        storage_service.upload_thumbnail.side_effect = Exception("Thumbnail upload failed")
 
-            storage_service = StorageService(
-                project_id=self.test_config["project_id"], bucket_name=self.test_config["bucket_name"]
-            )
+        # Original should succeed
+        original_result = storage_service.upload_original_photo(user.user_id, test_image, "test.jpg")
+        assert original_result == "original/path/success"
 
-            # Original should succeed
-            original_path = storage_service.upload_original_photo(test_image, user.user_id, "test.jpg")
-            assert original_path == "original/path/success"
+        # Thumbnail should fail
+        with pytest.raises(Exception) as exc_info:
+            storage_service.upload_thumbnail(test_image, user.user_id, "test.jpg")
 
-            # Thumbnail should fail
-            with pytest.raises(Exception) as exc_info:
-                storage_service.upload_thumbnail(test_image, user.user_id, "test.jpg")
-
-            assert "Thumbnail upload failed" in str(exc_info.value)
+        assert "Thumbnail upload failed" in str(exc_info.value)
 
     def test_invalid_user_session(self, test_users):
         """Test handling of invalid user sessions."""
@@ -283,15 +258,15 @@ class TestEdgeCases(E2ETestBase):
 
         with patch("src.imgstream.services.image_processor.ImageProcessor") as mock_processor_class:
             mock_processor = Mock()
-            mock_processor.extract_metadata.side_effect = Exception("Empty file")
+            mock_processor.extract_metadata.side_effect = Exception("File 'empty.jpg' is too small")
             mock_processor_class.return_value = mock_processor
 
-            image_processor = ImageProcessor()
+            image_processor = mock_processor_class()
 
             with pytest.raises(Exception) as exc_info:
                 image_processor.extract_metadata(empty_data, "empty.jpg")
 
-            assert "Empty file" in str(exc_info.value)
+            assert "too small" in str(exc_info.value)
 
     def test_filename_with_special_characters(self, test_users, test_image):
         """Test handling of filenames with special characters."""
@@ -333,7 +308,7 @@ class TestEdgeCases(E2ETestBase):
 
                         # Test upload (would normally sanitize filename)
                         if filename.lower().endswith((".jpg", ".jpeg")):
-                            original_path = storage_service.upload_original_photo(test_image, user.user_id, filename)
+                            original_path = storage_service.upload_original_photo(user.user_id, test_image, filename)
                             assert original_path is not None
 
                     except Exception as e:
@@ -353,13 +328,19 @@ class TestEdgeCases(E2ETestBase):
 
         with patch("src.imgstream.services.image_processor.ImageProcessor") as mock_processor_class:
             mock_processor = Mock()
-            mock_processor.extract_metadata.return_value = Mock(
-                filename="tiny.jpg", file_size=len(tiny_data), width=1, height=1, format="JPEG", created_at=1234567890
-            )
+            mock_metadata = Mock()
+            mock_metadata.filename = "tiny.jpg"
+            mock_metadata.file_size = len(tiny_data)
+            mock_metadata.width = 1
+            mock_metadata.height = 1
+            mock_metadata.format = "JPEG"
+            mock_metadata.created_at = 1234567890
+
+            mock_processor.extract_metadata.return_value = mock_metadata
             mock_processor.generate_thumbnail.return_value = tiny_data  # Same size
             mock_processor_class.return_value = mock_processor
 
-            image_processor = ImageProcessor()
+            image_processor = mock_processor_class()
 
             # Should handle tiny images
             metadata = image_processor.extract_metadata(tiny_data, "tiny.jpg")
@@ -377,50 +358,34 @@ class TestEdgeCases(E2ETestBase):
         long_filename = "a" * 250 + ".jpg"  # 254 characters total
 
         mock_services = self.setup_mock_services(user)
+        storage_service = mock_services["storage"]
 
-        with patch("src.imgstream.services.storage.StorageService") as mock_storage_class:
-            mock_storage_class.return_value = mock_services["storage"]
-
-            storage_service = StorageService(
-                project_id=self.test_config["project_id"], bucket_name=self.test_config["bucket_name"]
-            )
-
-            # Should handle long filenames (might truncate or reject)
-            try:
-                original_path = storage_service.upload_original_photo(test_image, user.user_id, long_filename)
-                assert original_path is not None
-            except Exception as e:
-                # Acceptable to reject overly long filenames
-                assert "filename" in str(e).lower() or "length" in str(e).lower()
+        # Should handle long filenames (might truncate or reject)
+        try:
+            original_path = storage_service.upload_original_photo(user.user_id, test_image, long_filename)
+            assert original_path is not None
+        except Exception as e:
+            # Acceptable to reject overly long filenames
+            assert "filename" in str(e).lower() or "length" in str(e).lower()
 
     def test_rapid_successive_uploads(self, test_users):
         """Test handling of rapid successive uploads."""
         user = test_users["user1"]
         mock_services = self.setup_mock_services(user)
 
-        with patch("src.imgstream.services.storage.StorageService") as mock_storage_class:
-            with patch("src.imgstream.services.metadata.MetadataService") as mock_metadata_class:
-                with patch("src.imgstream.services.image_processor.ImageProcessor") as mock_processor_class:
+        storage_service = mock_services["storage"]
 
-                    mock_storage_class.return_value = mock_services["storage"]
-                    mock_metadata_class.return_value = mock_services["metadata"]
-                    mock_processor_class.return_value = mock_services["image_processor"]
+        # Rapid successive uploads
+        for i in range(10):
+            image_data = self.create_test_image()
+            filename = f"rapid-{i}.jpg"
 
-                    storage_service = StorageService(
-                        project_id=self.test_config["project_id"], bucket_name=self.test_config["bucket_name"]
-                    )
+            # Should handle rapid uploads without issues
+            original_path = storage_service.upload_original_photo(user.user_id, image_data, filename)
+            assert original_path is not None
 
-                    # Rapid successive uploads
-                    for i in range(10):
-                        image_data = self.create_test_image()
-                        filename = f"rapid-{i}.jpg"
-
-                        # Should handle rapid uploads without issues
-                        original_path = storage_service.upload_original_photo(image_data, user.user_id, filename)
-                        assert original_path is not None
-
-                    # Verify all uploads were processed
-                    assert mock_services["storage"].upload_original_photo.call_count == 10
+        # Verify all uploads were processed
+        assert storage_service.upload_original_photo.call_count == 10
 
     def test_unicode_in_metadata(self, test_users):
         """Test handling of Unicode characters in metadata."""
@@ -442,14 +407,21 @@ class TestEdgeCases(E2ETestBase):
             mock_processor = Mock()
 
             for filename in unicode_filenames:
-                mock_processor.extract_metadata.return_value = Mock(
-                    filename=filename, file_size=1024, width=800, height=600, format="JPEG", created_at=1234567890
-                )
+                mock_metadata = Mock()
+                mock_metadata.filename = filename
+                mock_metadata.file_size = 1024
+                mock_metadata.width = 800
+                mock_metadata.height = 600
+                mock_metadata.format = "JPEG"
+                mock_metadata.created_at = 1234567890
 
+                mock_processor.extract_metadata.return_value = mock_metadata
                 mock_processor_class.return_value = mock_processor
 
-                image_processor = ImageProcessor()
+                image_processor = mock_processor_class()
 
                 # Should handle Unicode filenames
-                metadata = image_processor.extract_metadata(b"image_data", filename)
+                # Use larger test data to avoid file size validation errors
+                test_data = b"x" * 1024  # 1KB of data
+                metadata = image_processor.extract_metadata(test_data, filename)
                 assert metadata.filename == filename

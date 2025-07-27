@@ -42,13 +42,14 @@ class TestUploadFlow(StreamlitE2ETest):
 
         # Step 5: Save metadata
         from src.imgstream.models.photo import PhotoMetadata
+
         photo_metadata = PhotoMetadata.create_new(
             user_id=user.user_id,
             filename="test-image.jpg",
             original_path=original_path,
             thumbnail_path=thumbnail_path,
             file_size=len(test_image),
-            mime_type="image/jpeg"
+            mime_type="image/jpeg",
         )
         success = metadata_service.save_photo_metadata(photo_metadata)
         assert success is True
@@ -88,13 +89,14 @@ class TestUploadFlow(StreamlitE2ETest):
 
             # Create PhotoMetadata object
             from src.imgstream.models.photo import PhotoMetadata
+
             photo_metadata = PhotoMetadata.create_new(
                 user_id=user.user_id,
                 filename=filename,
                 original_path=original_path,
                 thumbnail_path=thumbnail_path,
                 file_size=len(image_data),
-                mime_type="image/jpeg"
+                mime_type="image/jpeg",
             )
 
             success = metadata_service.save_photo_metadata(photo_metadata)
@@ -263,6 +265,7 @@ class TestUploadFlow(StreamlitE2ETest):
         user = test_users["user1"]
 
         from unittest.mock import MagicMock
+
         mock_session = MagicMock()
         mock_session.authenticated = True
         mock_session.user_id = user.user_id
@@ -271,7 +274,6 @@ class TestUploadFlow(StreamlitE2ETest):
         mock_session.current_page = "upload"
 
         with patch("streamlit.session_state", mock_session):
-
 
             # Mock Streamlit file uploader
             mock_uploaded_file = Mock()
@@ -317,6 +319,7 @@ class TestUploadDataIsolation(E2ETestBase):
 
         # Add photos for user1
         from src.imgstream.models.photo import PhotoMetadata
+
         user1_photos = [
             PhotoMetadata.create_new(
                 user_id=user1.user_id,
@@ -324,7 +327,7 @@ class TestUploadDataIsolation(E2ETestBase):
                 original_path=f"original/{user1.user_id}/user1-photo1.jpg",
                 thumbnail_path=f"thumbs/{user1.user_id}/user1-photo1.jpg",
                 file_size=1024000,
-                mime_type="image/jpeg"
+                mime_type="image/jpeg",
             ),
             PhotoMetadata.create_new(
                 user_id=user1.user_id,
@@ -332,7 +335,7 @@ class TestUploadDataIsolation(E2ETestBase):
                 original_path=f"original/{user1.user_id}/user1-photo2.jpg",
                 thumbnail_path=f"thumbs/{user1.user_id}/user1-photo2.jpg",
                 file_size=1024000,
-                mime_type="image/jpeg"
+                mime_type="image/jpeg",
             ),
         ]
 
@@ -347,7 +350,7 @@ class TestUploadDataIsolation(E2ETestBase):
                 original_path=f"original/{user2.user_id}/user2-photo1.jpg",
                 thumbnail_path=f"thumbs/{user2.user_id}/user2-photo1.jpg",
                 file_size=1024000,
-                mime_type="image/jpeg"
+                mime_type="image/jpeg",
             ),
             PhotoMetadata.create_new(
                 user_id=user2.user_id,
@@ -355,7 +358,7 @@ class TestUploadDataIsolation(E2ETestBase):
                 original_path=f"original/{user2.user_id}/user2-photo2.jpg",
                 thumbnail_path=f"thumbs/{user2.user_id}/user2-photo2.jpg",
                 file_size=1024000,
-                mime_type="image/jpeg"
+                mime_type="image/jpeg",
             ),
             PhotoMetadata.create_new(
                 user_id=user2.user_id,
@@ -363,7 +366,7 @@ class TestUploadDataIsolation(E2ETestBase):
                 original_path=f"original/{user2.user_id}/user2-photo3.jpg",
                 thumbnail_path=f"thumbs/{user2.user_id}/user2-photo3.jpg",
                 file_size=1024000,
-                mime_type="image/jpeg"
+                mime_type="image/jpeg",
             ),
         ]
 
@@ -446,13 +449,14 @@ class TestUploadDataIsolation(E2ETestBase):
 
         # Add data to user1's database
         from src.imgstream.models.photo import PhotoMetadata
+
         user1_photo = PhotoMetadata.create_new(
             user_id=user1.user_id,
             filename="isolated-photo.jpg",
             original_path=f"original/{user1.user_id}/isolated-photo.jpg",
             thumbnail_path=f"thumbs/{user1.user_id}/isolated-photo.jpg",
             file_size=1024000,
-            mime_type="image/jpeg"
+            mime_type="image/jpeg",
         )
         db_helper.insert_test_photo(user1.user_id, user1_photo.to_dict())
 
@@ -470,7 +474,7 @@ class TestUploadDataIsolation(E2ETestBase):
             original_path=f"original/{user2.user_id}/another-isolated-photo.jpg",
             thumbnail_path=f"thumbs/{user2.user_id}/another-isolated-photo.jpg",
             file_size=1024000,
-            mime_type="image/jpeg"
+            mime_type="image/jpeg",
         )
         db_helper.insert_test_photo(user2.user_id, user2_photo.to_dict())
 

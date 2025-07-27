@@ -106,6 +106,7 @@ class TestAuthenticationFlow(StreamlitE2ETest):
             mock_params.return_value = {}
 
             from unittest.mock import MagicMock
+
             mock_session = MagicMock()
             with patch("streamlit.session_state", mock_session):
                 with patch.dict("os.environ", {"REQUEST_HEADERS": str(headers)}):
@@ -188,12 +189,13 @@ class TestAuthenticationFlow(StreamlitE2ETest):
         user = test_users["user1"]
 
         from unittest.mock import MagicMock
+
         mock_session = MagicMock()
         mock_session.authenticated = True
         mock_session.user_id = user.user_id
         mock_session.user_email = user.email
         mock_session.user_name = user.name
-        
+
         with patch("streamlit.session_state", mock_session):
 
             # Test logout
