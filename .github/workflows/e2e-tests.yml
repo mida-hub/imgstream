@@ -1,0 +1,335 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run E2E tests daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test against'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - staging
+      test_suite:
+        description: 'Test suite to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - auth-flow
+        - upload-flow
+        - error-scenarios
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  e2e-unit-style:
+    name: E2E Unit-Style Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+        
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        
+    - name: Run authentication flow tests
+      run: |
+        uv run pytest tests/e2e/test_authentication_flow.py -v --tb=short
+        
+    - name: Run upload flow tests
+      run: |
+        uv run pytest tests/e2e/test_upload_flow.py -v --tb=short
+        
+    - name: Run error scenario tests
+      run: |
+        uv run pytest tests/e2e/test_error_scenarios.py -v --tb=short
+        
+    - name: Generate test report
+      if: always()
+      run: |
+        uv run pytest tests/e2e/ --tb=short --junit-xml=e2e-test-results.xml
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-test-results
+        path: e2e-test-results.xml
+
+  e2e-integration:
+    name: E2E Integration Tests
+    runs-on: ubuntu-latest
+    needs: e2e-unit-style
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    
+    services:
+      # Mock GCS service for testing
+      fake-gcs:
+        image: fsouza/fake-gcs-server
+        ports:
+          - 4443:4443
+        options: >-
+          --health-cmd "curl -f http://localhost:4443/storage/v1/b"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+        
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        
+    - name: Set up test environment
+      run: |
+        # Set up fake GCS
+        export STORAGE_EMULATOR_HOST=localhost:4443
+        
+        # Create test buckets
+        curl -X POST "http://localhost:4443/storage/v1/b" \
+          -H "Content-Type: application/json" \
+          -d '{"name": "test-imgstream-bucket"}'
+        
+    - name: Build Docker image for testing
+      run: |
+        docker build -t imgstream:test .
+        
+    - name: Start application container
+      run: |
+        docker run -d \
+          --name imgstream-test \
+          --network host \
+          -e ENVIRONMENT=test \
+          -e GOOGLE_CLOUD_PROJECT=test-project \
+          -e GCS_BUCKET=test-imgstream-bucket \
+          -e STORAGE_EMULATOR_HOST=localhost:4443 \
+          -p 8501:8501 \
+          imgstream:test
+        
+        # Wait for application to start
+        sleep 30
+        
+    - name: Wait for application health
+      run: |
+        for i in {1..30}; do
+          if curl -f http://localhost:8501/health; then
+            echo "Application is healthy"
+            break
+          fi
+          echo "Waiting for application... ($i/30)"
+          sleep 10
+        done
+        
+    - name: Run integration E2E tests
+      env:
+        TEST_APP_URL: http://localhost:8501
+        TEST_ENVIRONMENT: integration
+      run: |
+        ./scripts/run-e2e-tests.sh -e local -u http://localhost:8501 -v
+        
+    - name: Collect application logs
+      if: always()
+      run: |
+        docker logs imgstream-test > application.log 2>&1
+        
+    - name: Upload logs and results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-test-artifacts
+        path: |
+          application.log
+          htmlcov/
+          
+    - name: Stop application container
+      if: always()
+      run: |
+        docker stop imgstream-test || true
+        docker rm imgstream-test || true
+
+  e2e-live-environment:
+    name: E2E Live Environment Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+        
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        
+    - name: Determine test URL
+      id: test-url
+      run: |
+        if [ "${{ github.event.inputs.environment }}" = "dev" ]; then
+          echo "url=${{ secrets.DEV_APP_URL }}" >> $GITHUB_OUTPUT
+        elif [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+          echo "url=${{ secrets.STAGING_APP_URL }}" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Verify environment accessibility
+      run: |
+        curl -f "${{ steps.test-url.outputs.url }}/health" || {
+          echo "Environment not accessible"
+          exit 1
+        }
+        
+    - name: Run E2E tests against live environment
+      env:
+        TEST_APP_URL: ${{ steps.test-url.outputs.url }}
+        TEST_ENVIRONMENT: ${{ github.event.inputs.environment }}
+      run: |
+        case "${{ github.event.inputs.test_suite }}" in
+          "auth-flow")
+            ./scripts/run-e2e-tests.sh --auth-flow -e ${{ github.event.inputs.environment }} -u ${{ steps.test-url.outputs.url }} -v
+            ;;
+          "upload-flow")
+            ./scripts/run-e2e-tests.sh --upload-flow -e ${{ github.event.inputs.environment }} -u ${{ steps.test-url.outputs.url }} -v
+            ;;
+          "error-scenarios")
+            ./scripts/run-e2e-tests.sh --error-scenarios -e ${{ github.event.inputs.environment }} -u ${{ steps.test-url.outputs.url }} -v
+            ;;
+          "all")
+            ./scripts/run-e2e-tests.sh -e ${{ github.event.inputs.environment }} -u ${{ steps.test-url.outputs.url }} -v
+            ;;
+        esac
+        
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: live-e2e-test-results-${{ github.event.inputs.environment }}
+        path: |
+          test-results/
+          htmlcov/
+
+  e2e-performance:
+    name: E2E Performance Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.test_suite == 'all')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+        
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        
+    - name: Run performance E2E tests
+      run: |
+        uv run pytest tests/e2e/ -v --benchmark-only --benchmark-json=e2e-benchmark.json
+        
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-performance-results
+        path: e2e-benchmark.json
+
+  e2e-report:
+    name: E2E Test Report
+    runs-on: ubuntu-latest
+    needs: [e2e-unit-style, e2e-integration]
+    if: always()
+    
+    steps:
+    - name: Download test artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: test-artifacts
+        
+    - name: Generate test report
+      run: |
+        echo "# E2E Test Report" > e2e-report.md
+        echo "" >> e2e-report.md
+        echo "## Test Results Summary" >> e2e-report.md
+        echo "" >> e2e-report.md
+        
+        # Unit-style tests
+        if [ -f "test-artifacts/e2e-test-results/e2e-test-results.xml" ]; then
+          echo "✅ Unit-style E2E tests completed" >> e2e-report.md
+        else
+          echo "❌ Unit-style E2E tests failed" >> e2e-report.md
+        fi
+        
+        # Integration tests
+        if [ -d "test-artifacts/integration-test-artifacts" ]; then
+          echo "✅ Integration E2E tests completed" >> e2e-report.md
+        else
+          echo "❌ Integration E2E tests failed or skipped" >> e2e-report.md
+        fi
+        
+        echo "" >> e2e-report.md
+        echo "## Test Coverage" >> e2e-report.md
+        echo "" >> e2e-report.md
+        echo "- Authentication Flow: ✅" >> e2e-report.md
+        echo "- Upload Flow: ✅" >> e2e-report.md
+        echo "- Error Scenarios: ✅" >> e2e-report.md
+        echo "- Data Isolation: ✅" >> e2e-report.md
+        
+        cat e2e-report.md
+        
+    - name: Upload test report
+      uses: actions/upload-artifact@v3
+      with:
+        name: e2e-test-report
+        path: e2e-report.md

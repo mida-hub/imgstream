@@ -1,6 +1,7 @@
 """Performance tests for image processing functionality."""
 
 import io
+
 import pytest
 from PIL import Image
 
@@ -37,7 +38,7 @@ class TestImageProcessingPerformance:
         """Benchmark metadata extraction performance."""
         result = benchmark(image_processor.extract_metadata, sample_image_data, "test.jpg")
         assert result is not None
-        assert result.filename == "test.jpg"
+        assert result["filename"] == "test.jpg"
 
     def test_generate_thumbnail_performance(self, benchmark, image_processor, sample_image_data):
         """Benchmark thumbnail generation performance."""
@@ -53,6 +54,7 @@ class TestImageProcessingPerformance:
 
     def test_multiple_thumbnails_performance(self, benchmark, image_processor, sample_image_data):
         """Benchmark generating multiple thumbnails."""
+
         def generate_multiple_thumbnails():
             results = []
             for _ in range(5):
@@ -69,8 +71,9 @@ class TestImageProcessingPerformance:
     @pytest.mark.slow
     def test_memory_usage_during_processing(self, image_processor, large_image_data):
         """Test memory usage during image processing."""
-        import psutil
         import os
+
+        import psutil
 
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss
@@ -89,7 +92,6 @@ class TestImageProcessingPerformance:
     def test_concurrent_processing_performance(self, benchmark, image_processor, sample_image_data):
         """Benchmark concurrent image processing."""
         import concurrent.futures
-        import threading
 
         def process_image():
             return image_processor.generate_thumbnail(sample_image_data)

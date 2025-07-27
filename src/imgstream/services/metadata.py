@@ -8,8 +8,8 @@ from pathlib import Path
 
 from google.cloud.exceptions import NotFound
 
+from ..error_handling import DatabaseError, StorageError
 from ..logging_config import get_logger, log_error, log_performance, log_user_action
-from ..error_handling import DatabaseError, StorageError, ValidationError
 from ..models.database import DatabaseManager, create_database, get_database_manager
 from ..models.photo import PhotoMetadata
 from .storage import get_storage_service
@@ -80,10 +80,12 @@ class MetadataService:
         self._sync_pending = False
         self._sync_enabled = True
 
-        logger.info("metadata_service_initialized", 
-                   user_id=user_id,
-                   local_db_path=str(self.local_db_path),
-                   gcs_db_path=self.gcs_db_path)
+        logger.info(
+            "metadata_service_initialized",
+            user_id=user_id,
+            local_db_path=str(self.local_db_path),
+            gcs_db_path=self.gcs_db_path,
+        )
 
     @property
     def db_manager(self) -> DatabaseManager:
@@ -105,21 +107,17 @@ class MetadataService:
         try:
             # Check if local database already exists
             if self.local_db_path.exists():
-                logger.debug("local_database_exists", 
-                           user_id=self.user_id,
-                           path=str(self.local_db_path))
+                logger.debug("local_database_exists", user_id=self.user_id, path=str(self.local_db_path))
                 return False
 
             # Try to download from GCS
             if self._download_from_gcs():
-                log_user_action(self.user_id, "database_downloaded_from_gcs", 
-                              gcs_path=self.gcs_db_path)
+                log_user_action(self.user_id, "database_downloaded_from_gcs", gcs_path=self.gcs_db_path)
                 return True
             else:
                 # Create new database
                 self._create_new_database()
-                log_user_action(self.user_id, "new_database_created", 
-                              local_path=str(self.local_db_path))
+                log_user_action(self.user_id, "new_database_created", local_path=str(self.local_db_path))
                 return False
 
         except Exception as e:
@@ -156,17 +154,13 @@ class MetadataService:
             return True
 
         except NotFound:
-            logger.debug("gcs_database_not_found", 
-                       user_id=self.user_id,
-                       gcs_path=self.gcs_db_path)
+            logger.debug("gcs_database_not_found", user_id=self.user_id, gcs_path=self.gcs_db_path)
             return False
         except Exception as e:
             # Clean up partial download
             if self.local_db_path.exists():
                 self.local_db_path.unlink()
-            log_error(e, {"operation": "download_from_gcs", 
-                         "user_id": self.user_id,
-                         "gcs_path": self.gcs_db_path})
+            log_error(e, {"operation": "download_from_gcs", "user_id": self.user_id, "gcs_path": self.gcs_db_path})
             raise MetadataError(f"Failed to download database from GCS: {e}") from e
 
     def _gcs_database_exists(self) -> bool:
@@ -189,17 +183,15 @@ class MetadataService:
             # Create database with schema
             create_database(str(self.local_db_path))
 
-            logger.info("new_database_created", 
-                       user_id=self.user_id,
-                       local_path=str(self.local_db_path))
+            logger.info("new_database_created", user_id=self.user_id, local_path=str(self.local_db_path))
 
         except Exception as e:
             # Clean up on failure
             if self.local_db_path.exists():
                 self.local_db_path.unlink()
-            log_error(e, {"operation": "create_new_database", 
-                         "user_id": self.user_id,
-                         "local_path": str(self.local_db_path)})
+            log_error(
+                e, {"operation": "create_new_database", "user_id": self.user_id, "local_path": str(self.local_db_path)}
+            )
             raise MetadataError(f"Failed to create new database: {e}") from e
 
     def _verify_database_integrity(self) -> None:
@@ -237,15 +229,13 @@ class MetadataService:
             # Upload to GCS
             result = self.storage_service.upload_original_photo(self.user_id, db_data, "metadata.db")
 
-            log_user_action(self.user_id, "database_uploaded_to_gcs", 
-                           gcs_path=result['gcs_path'],
-                           file_size=len(db_data))
+            log_user_action(
+                self.user_id, "database_uploaded_to_gcs", gcs_path=result["gcs_path"], file_size=len(db_data)
+            )
             return True
 
         except Exception as e:
-            log_error(e, {"operation": "upload_to_gcs", 
-                         "user_id": self.user_id,
-                         "local_path": str(self.local_db_path)})
+            log_error(e, {"operation": "upload_to_gcs", "user_id": self.user_id, "local_path": str(self.local_db_path)})
             raise MetadataError(f"Failed to upload database to GCS: {e}") from e
 
     def disable_async_sync(self) -> None:
@@ -287,9 +277,7 @@ class MetadataService:
                         table_info = db.get_table_info()
                         info["table_info"] = table_info
                 except Exception as e:
-                    logger.warning("table_info_failed", 
-                                 user_id=self.user_id,
-                                 error=str(e))
+                    logger.warning("table_info_failed", user_id=self.user_id, error=str(e))
                     info["table_info"] = None
 
             return info
@@ -310,13 +298,13 @@ class MetadataService:
 
             if self.local_db_path.exists():
                 self.local_db_path.unlink()
-                log_user_action(self.user_id, "local_database_cleaned_up", 
-                              local_path=str(self.local_db_path))
+                log_user_action(self.user_id, "local_database_cleaned_up", local_path=str(self.local_db_path))
 
         except Exception as e:
-            log_error(e, {"operation": "cleanup_local_database", 
-                         "user_id": self.user_id,
-                         "local_path": str(self.local_db_path)})
+            log_error(
+                e,
+                {"operation": "cleanup_local_database", "user_id": self.user_id, "local_path": str(self.local_db_path)},
+            )
 
     # Async Sync Methods
 
@@ -374,8 +362,7 @@ class MetadataService:
                 self._sync_pending = False
                 if success:
                     self._last_sync_time = datetime.now(UTC)
-                    log_performance("async_sync_to_gcs", duration, 
-                                  user_id=self.user_id, success=True)
+                    log_performance("async_sync_to_gcs", duration, user_id=self.user_id, success=True)
                     log_user_action(self.user_id, "async_sync_completed")
                 else:
                     logger.warning("async_sync_failed", user_id=self.user_id)
@@ -426,9 +413,7 @@ class MetadataService:
 
             time.sleep(0.1)
 
-        logger.warning("sync_completion_timeout", 
-                     user_id=self.user_id,
-                     timeout_seconds=timeout)
+        logger.warning("sync_completion_timeout", user_id=self.user_id, timeout_seconds=timeout)
         return False
 
     def __enter__(self) -> "MetadataService":
@@ -489,9 +474,12 @@ class MetadataService:
                             photo_metadata.id,
                         ),
                     )
-                    log_user_action(self.user_id, "photo_metadata_updated", 
-                                   photo_id=photo_metadata.id,
-                                   filename=photo_metadata.filename)
+                    log_user_action(
+                        self.user_id,
+                        "photo_metadata_updated",
+                        photo_id=photo_metadata.id,
+                        filename=photo_metadata.filename,
+                    )
                 else:
                     # Insert new record
                     db.execute_query(
@@ -511,19 +499,27 @@ class MetadataService:
                             photo_metadata.mime_type,
                         ),
                     )
-                    log_user_action(self.user_id, "photo_metadata_saved", 
-                                   photo_id=photo_metadata.id,
-                                   filename=photo_metadata.filename,
-                                   file_size=photo_metadata.file_size)
+                    log_user_action(
+                        self.user_id,
+                        "photo_metadata_saved",
+                        photo_id=photo_metadata.id,
+                        filename=photo_metadata.filename,
+                        file_size=photo_metadata.file_size,
+                    )
 
             # Trigger async sync after successful save
             self.trigger_async_sync()
 
         except Exception as e:
-            log_error(e, {"operation": "save_photo_metadata", 
-                         "user_id": self.user_id,
-                         "photo_id": photo_metadata.id,
-                         "filename": photo_metadata.filename})
+            log_error(
+                e,
+                {
+                    "operation": "save_photo_metadata",
+                    "user_id": self.user_id,
+                    "photo_id": photo_metadata.id,
+                    "filename": photo_metadata.filename,
+                },
+            )
             raise MetadataError(f"Failed to save photo metadata: {e}") from e
 
     def get_photo_by_id(self, photo_id: str) -> PhotoMetadata | None:
@@ -567,9 +563,7 @@ class MetadataService:
                 )
 
         except Exception as e:
-            log_error(e, {"operation": "get_photo_by_id", 
-                         "user_id": self.user_id,
-                         "photo_id": photo_id})
+            log_error(e, {"operation": "get_photo_by_id", "user_id": self.user_id, "photo_id": photo_id})
             raise MetadataError(f"Failed to get photo by ID: {e}") from e
 
     def get_photos_by_date(self, limit: int = 50, offset: int = 0) -> list[PhotoMetadata]:
@@ -616,24 +610,21 @@ class MetadataService:
                         )
                     )
 
-                log_performance("get_photos_by_date", 0, 
-                              user_id=self.user_id,
-                              photos_count=len(photos),
-                              limit=limit,
-                              offset=offset)
-                
-                logger.info("photos_retrieved_by_date", 
-                          user_id=self.user_id,
-                          photos_count=len(photos),
-                          limit=limit,
-                          offset=offset)
+                log_performance(
+                    "get_photos_by_date", 0, user_id=self.user_id, photos_count=len(photos), limit=limit, offset=offset
+                )
+
+                logger.info(
+                    "photos_retrieved_by_date",
+                    user_id=self.user_id,
+                    photos_count=len(photos),
+                    limit=limit,
+                    offset=offset,
+                )
                 return photos
 
         except Exception as e:
-            log_error(e, {"operation": "get_photos_by_date", 
-                         "user_id": self.user_id,
-                         "limit": limit,
-                         "offset": offset})
+            log_error(e, {"operation": "get_photos_by_date", "user_id": self.user_id, "limit": limit, "offset": offset})
             raise MetadataError(f"Failed to get photos by date: {e}") from e
 
     def get_photos_count(self) -> int:

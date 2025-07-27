@@ -48,7 +48,7 @@ class ErrorDisplayManager:
         alert_type = self._get_alert_type(error_info.severity)
 
         # Define the display function
-        def _display_content():
+        def _display_content() -> None:
             # Main error message
             if alert_type == "error":
                 st.error(error_info.user_message)
@@ -407,12 +407,13 @@ class StreamlitErrorContext:
             # Import RerunException for special handling
             try:
                 from streamlit.runtime.scriptrunner_utils.exceptions import RerunException
+
                 # RerunException is a normal control flow exception, not an error
                 if isinstance(exc_val, RerunException):
                     return False  # Let RerunException propagate normally
             except ImportError:
                 pass  # Streamlit not available
-            
+
             # Handle all other exceptions
             error_display_manager.display_exception(
                 exception=exc_val,

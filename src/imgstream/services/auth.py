@@ -5,8 +5,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from ..logging_config import get_logger, log_error, log_security_event, log_user_action
 from ..error_handling import AuthenticationError, AuthorizationError
+from ..logging_config import get_logger, log_error, log_security_event, log_user_action
 
 logger = get_logger(__name__)
 
@@ -44,40 +44,35 @@ class CloudIAPAuthService:
         """Initialize the Cloud IAP authentication service."""
         self._current_user: UserInfo | None = None
         self._development_mode = self._is_development_mode()
-        
+
         if self._development_mode:
-            logger.info("development_auth_mode_enabled", 
-                       message="Using development authentication mode")
+            logger.info("development_auth_mode_enabled", message="Using development authentication mode")
 
     def _is_development_mode(self) -> bool:
         """Check if running in development mode."""
         import os
+
         environment = os.getenv("ENVIRONMENT", "development").lower()
         return environment in ["development", "dev", "local"]
 
     def _get_development_user(self) -> UserInfo:
         """Get development user for local testing."""
         import os
+
         dev_email = os.getenv("DEV_USER_EMAIL", "dev@example.com")
         dev_name = os.getenv("DEV_USER_NAME", "Development User")
         dev_user_id = os.getenv("DEV_USER_ID", "dev-user-123")
-        
-        return UserInfo(
-            user_id=dev_user_id,
-            email=dev_email,
-            name=dev_name,
-            picture=None
-        )
+
+        return UserInfo(user_id=dev_user_id, email=dev_email, name=dev_name, picture=None)
 
     def parse_iap_header(self, headers: dict[str, str]) -> UserInfo | None:
         """Parse Cloud IAP JWT header to extract user information."""
         # Development mode: bypass IAP authentication
         if self._development_mode:
             dev_user = self._get_development_user()
-            log_user_action(dev_user.user_id, "development_authentication", 
-                          email=dev_user.email, mode="development")
+            log_user_action(dev_user.user_id, "development_authentication", email=dev_user.email, mode="development")
             return dev_user
-        
+
         # Production mode: use Cloud IAP
         jwt_token = headers.get(self.IAP_HEADER_NAME)
 
@@ -193,7 +188,7 @@ class CloudIAPAuthService:
             raise AuthenticationError(
                 "User is not authenticated",
                 code="user_not_authenticated",
-                details={"operation": "ensure_authenticated"}
+                details={"operation": "ensure_authenticated"},
             )
         return self._current_user  # type: ignore
 
@@ -218,26 +213,32 @@ class CloudIAPAuthService:
         if user_storage_prefix:
             storage_prefix_clean = user_storage_prefix.rstrip("/")
             if resource_path == storage_prefix_clean or resource_path.startswith(storage_prefix_clean + "/"):
-                logger.debug("resource_access_granted", 
-                           user_id=self.get_user_id(), 
-                           resource_path=resource_path,
-                           access_type="storage")
+                logger.debug(
+                    "resource_access_granted",
+                    user_id=self.get_user_id(),
+                    resource_path=resource_path,
+                    access_type="storage",
+                )
                 return True
 
         # Check database path access
         if user_db_prefix:
             db_dir = user_db_prefix.rsplit("/", 1)[0]
             if resource_path == db_dir or resource_path.startswith(db_dir + "/") or resource_path == user_db_prefix:
-                logger.debug("resource_access_granted", 
-                           user_id=self.get_user_id(), 
-                           resource_path=resource_path,
-                           access_type="database")
+                logger.debug(
+                    "resource_access_granted",
+                    user_id=self.get_user_id(),
+                    resource_path=resource_path,
+                    access_type="database",
+                )
                 return True
 
         user_email = self.get_user_email()
-        log_security_event("access_denied", 
-                          user_id=self.get_user_id(),
-                          context={"user_email": user_email, "resource_path": resource_path})
+        log_security_event(
+            "access_denied",
+            user_id=self.get_user_id(),
+            context={"user_email": user_email, "resource_path": resource_path},
+        )
         return False
 
     def get_user_resource_paths(self) -> dict[str, str]:
@@ -284,7 +285,7 @@ class CloudIAPAuthService:
                     "resource_path": resource_path,
                     "user_id": self.get_user_id(),
                     "user_email": self.get_user_email(),
-                }
+                },
             )
 
     def require_authentication(self) -> None:

@@ -17,7 +17,7 @@ try:
     from streamlit.runtime.scriptrunner_utils.exceptions import RerunException
 except ImportError:
     # Fallback if Streamlit is not available
-    RerunException = None
+    RerunException = type(None)  # type: ignore
 
 logger = get_logger(__name__)
 

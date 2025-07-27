@@ -4,7 +4,7 @@
 
 ```bash
 ENVIRONMENT=production uv run pytest
-ENVIRONMENT=production uv run black
-ENVIRONMENT=production uv run ruff
-ENVIRONMENT=production uv run mypy
+uv run black
+uv run ruff
+uv run mypy
 ```

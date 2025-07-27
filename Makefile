@@ -137,3 +137,23 @@ health-check: ## Check application health
 	else \
 		echo "Error: URL is required. Usage: make health-check URL=https://your-app-url"; \
 	fi
+
+# E2E Testing commands
+test-e2e: ## Run all E2E tests
+	./scripts/run-e2e-tests.sh
+
+test-e2e-auth: ## Run authentication flow E2E tests
+	./scripts/run-e2e-tests.sh --auth-flow -v
+
+test-e2e-upload: ## Run upload flow E2E tests
+	./scripts/run-e2e-tests.sh --upload-flow -v
+
+test-e2e-errors: ## Run error scenario E2E tests
+	./scripts/run-e2e-tests.sh --error-scenarios -v
+
+test-e2e-dev: ## Run E2E tests against development environment
+	@if [ -z "$(DEV_URL)" ]; then echo "Error: DEV_URL is required. Usage: make test-e2e-dev DEV_URL=https://dev-app-url"; exit 1; fi
+	./scripts/run-e2e-tests.sh -e dev -u $(DEV_URL) -v
+
+test-e2e-coverage: ## Run E2E tests with coverage
+	./scripts/run-e2e-tests.sh -c -r html

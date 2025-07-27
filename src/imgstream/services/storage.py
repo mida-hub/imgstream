@@ -8,8 +8,8 @@ from pathlib import Path
 from google.cloud import storage  # type: ignore[attr-defined]
 from google.cloud.exceptions import GoogleCloudError, NotFound
 
-from ..logging_config import get_logger, log_error, log_performance, log_user_action
 from ..error_handling import StorageError
+from ..logging_config import get_logger
 
 logger = get_logger(__name__)
 
@@ -93,11 +93,13 @@ class StorageService:
         try:
             self.client = storage.Client(project=self.project_id)
             self.bucket = self.client.bucket(self.bucket_name)
-            logger.info("storage_service_initialized", 
-                       bucket_name=self.bucket_name,
-                       region=self.region,
-                       project_id=self.project_id,
-                       storage_class=self.storage_class)
+            logger.info(
+                "storage_service_initialized",
+                bucket_name=self.bucket_name,
+                region=self.region,
+                project_id=self.project_id,
+                storage_class=self.storage_class,
+            )
         except Exception as e:
             raise StorageError(f"Failed to initialize GCS client: {e}") from e
 

@@ -8,7 +8,7 @@ import streamlit as st
 
 from imgstream.logging_config import configure_structured_logging, get_logger
 from imgstream.ui.auth_handlers import authenticate_user, render_sidebar
-from imgstream.ui.components import render_error_message, render_footer, render_header
+from imgstream.ui.components import render_footer, render_header
 from imgstream.ui.error_display import error_context, get_error_display_manager
 from imgstream.ui.pages.gallery import render_gallery_page
 from imgstream.ui.pages.home import render_home_page
@@ -65,10 +65,8 @@ def render_main_content() -> None:
             render_settings_page()
         else:
             # Handle unknown page with better error message
-            error_display.display_error_message(
-                f"ページ '{current_page}' が見つかりません。"
-            )
-            
+            error_display.display_warning_message(f"ページ '{current_page}' が見つかりません。")
+
             # Provide navigation back to home
             if st.button("🏠 ホームに戻る", use_container_width=True, type="primary"):
                 st.session_state.current_page = "home"
@@ -123,19 +121,15 @@ def main() -> None:
             if st.secrets.get("debug", False):
                 with st.expander("Debug Info"):
                     st.write("Session State:", st.session_state)
-        except Exception:
+        except Exception as e:
             # Ignore secrets errors in debug section
-            pass
+            logger.debug("debug_section_error", error=str(e))
 
     except Exception as e:
         # Handle critical application errors
         logger.error("critical_application_error", error=str(e))
-        error_display.display_exception(
-            e,
-            context={"operation": "main_application"},
-            show_details=True
-        )
-        
+        error_display.display_exception(e, context={"operation": "main_application"}, show_details=True)
+
         # Provide basic recovery options
         if st.button("🔄 アプリケーションを再起動", type="primary"):
             st.rerun()
