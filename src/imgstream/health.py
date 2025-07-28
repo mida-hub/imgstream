@@ -1,14 +1,16 @@
 """
-Health check endpoints for imgstream application.
+Enhanced health check functionality for ImgStream application.
 
-This module provides health check functionality for monitoring and deployment.
+This module provides comprehensive health checks for all application components
+including database, storage, authentication, external dependencies, and monitoring integration.
 """
 
 import json
 import os
 import time
-from typing import Any
-
+import logging
+from typing import Dict, Any, List
+from datetime import datetime
 import duckdb
 import streamlit as st
 
