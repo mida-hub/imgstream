@@ -44,12 +44,12 @@ ImgStream は、スケーラビリティ、セキュリティ、保守性を考�
 - Leverage Cloud Functions for event-driven processing
 - Minimize operational overhead
 
-### 2. API-Driven Design
+### 2. Component-Based Design
 
-- RESTful API design with OpenAPI specifications
-- Consistent error handling and response formats
-- Versioned APIs for backward compatibility
-- Comprehensive API documentation
+- Modular UI components for reusability
+- Separation of concerns between UI and business logic
+- Service layer abstraction for external dependencies
+- Consistent error handling across components
 
 ### 3. Security by Design
 
@@ -78,43 +78,32 @@ ImgStream は、スケーラビリティ、セキュリティ、保守性を考�
 graph TB
     subgraph "Client Layer"
         WEB[Web Browser]
-        MOBILE[Mobile App]
-        API_CLIENT[API Client]
     end
 
     subgraph "Edge Layer"
-        CDN[Cloud CDN]
         LB[Load Balancer]
-        WAF[Web Application Firewall]
-    end
-
-    subgraph "Security Layer"
         IAP[Identity-Aware Proxy]
-        JWT[JWT Validation]
     end
 
     subgraph "Application Layer"
         CR[Cloud Run Service]
-        subgraph "Application Components"
-            STREAMLIT[Streamlit Frontend]
-            API[FastAPI Backend]
-            AUTH[Auth Service]
-            STORAGE_SVC[Storage Service]
-            IMG_PROC[Image Processing]
+        subgraph "Streamlit Application"
+            MAIN[Main App]
+            UI[UI Components]
+            PAGES[Page Components]
+            SERVICES[Service Layer]
         end
     end
 
     subgraph "Data Layer"
         GCS[Cloud Storage]
         DB[(DuckDB)]
-        CACHE[Redis Cache]
     end
 
     subgraph "Platform Services"
         MONITORING[Cloud Monitoring]
         LOGGING[Cloud Logging]
         SECRET[Secret Manager]
-        IAM[Identity & Access Management]
     end
 
     subgraph "CI/CD Pipeline"
@@ -124,30 +113,21 @@ graph TB
         REGISTRY[Container Registry]
     end
 
-    WEB --> CDN
-    MOBILE --> CDN
-    API_CLIENT --> CDN
+    WEB --> LB
+    LB --> IAP
+    IAP --> CR
 
-    CDN --> LB
-    LB --> WAF
-    WAF --> IAP
-    IAP --> JWT
-    JWT --> CR
+    CR --> MAIN
+    MAIN --> UI
+    MAIN --> PAGES
+    PAGES --> SERVICES
 
-    CR --> STREAMLIT
-    CR --> API
-    API --> AUTH
-    API --> STORAGE_SVC
-    API --> IMG_PROC
-
-    STORAGE_SVC --> GCS
-    API --> DB
-    API --> CACHE
+    SERVICES --> GCS
+    SERVICES --> DB
 
     CR --> MONITORING
     CR --> LOGGING
-    AUTH --> SECRET
-    CR --> IAM
+    SERVICES --> SECRET
 
     GITHUB --> ACTIONS
     ACTIONS --> BUILD
@@ -157,135 +137,186 @@ graph TB
 
 ## 🔧 Component Architecture
 
-### Frontend Components
+### Streamlit Application Architecture
 
-#### Streamlit Application
+ImgStreamは単一のStreamlitアプリケーションとして構築されており、フロントエンドとバックエンドが統合されたモノリシック構造を採用しています。
 
-- **Purpose**: Web-based user interface
-- **Technology**: Python Streamlit framework
-- **Responsibilities**:
-  - User interface rendering
-  - File upload handling
-  - Authentication integration
-  - Real-time updates
+#### Application Structure
 
 ```python
-# Streamlit App Structure
+# Actual Application Structure
 src/imgstream/
-├── main.py              # Main application entry point
-├── pages/               # Page components
-│   ├── upload.py       # Photo upload page
-│   ├── gallery.py      # Photo gallery page
-│   └── profile.py      # User profile page
-├── components/          # Reusable UI components
-│   ├── auth.py         # Authentication components
-│   ├── upload.py       # Upload components
-│   └── gallery.py      # Gallery components
-└── utils/              # Utility functions
-    ├── session.py      # Session management
-    └── helpers.py      # Helper functions
-```
-
-### Backend Components
-
-#### API Service Layer
-
-- **Purpose**: RESTful API endpoints
-- **Technology**: FastAPI framework
-- **Responsibilities**:
-  - Request/response handling
-  - Business logic orchestration
-  - Data validation
-  - Error handling
-
-```python
-# API Service Structure
-src/imgstream/api/
-├── main.py             # FastAPI application
-├── routers/            # API route handlers
-│   ├── photos.py       # Photo management endpoints
-│   ├── users.py        # User management endpoints
-│   └── health.py       # Health check endpoints
-├── models/             # Pydantic data models
-│   ├── photo.py        # Photo data models
-│   └── user.py         # User data models
-├── services/           # Business logic services
-│   ├── photo_service.py
-│   └── user_service.py
-└── middleware/         # Custom middleware
-    ├── auth.py         # Authentication middleware
-    └── logging.py      # Logging middleware
+├── main.py                    # Main Streamlit application entry point
+├── ui/                        # UI layer
+│   ├── pages/                # Page components
+│   │   ├── home.py          # Home page
+│   │   ├── upload.py        # Photo upload page
+│   │   ├── gallery.py       # Photo gallery page
+│   │   └── settings.py      # Settings page
+│   ├── components.py         # Reusable UI components
+│   ├── auth_handlers.py      # Authentication UI handlers
+│   ├── upload_handlers.py    # Upload UI handlers
+│   ├── error_display.py      # Error display components
+│   └── dev_auth.py          # Development authentication
+├── services/                  # Business logic layer
+│   ├── auth.py              # Authentication service
+│   ├── storage.py           # Cloud Storage service
+│   ├── metadata.py          # Metadata management service
+│   └── image_processor.py   # Image processing service
+├── models/                   # Data models
+│   ├── database.py          # Database management
+│   ├── photo.py             # Photo data model
+│   └── schema.py            # Database schema
+├── error_handling.py         # Error handling utilities
+├── logging_config.py         # Logging configuration
+├── monitoring.py             # Monitoring and metrics
+└── health.py                # Health check functionality
 ```
 
 #### Core Services
 
-##### Authentication Service
+##### Authentication Service (`services/auth.py`)
 
 ```python
-class AuthService:
-    """Handles user authentication and authorization."""
+class CloudIAPAuthService:
+    """Handles Google Cloud IAP authentication."""
 
-    def validate_iap_token(self, token: str) -> User:
-        """Validate IAP JWT token and extract user info."""
+    def parse_iap_header(self, headers: dict) -> UserInfo | None:
+        """Parse IAP JWT token from request headers."""
 
-    def get_current_user(self, request: Request) -> User:
-        """Get current authenticated user."""
+    def authenticate_request(self, headers: dict) -> UserInfo | None:
+        """Authenticate user from request headers."""
 
-    def check_permissions(self, user: User, resource: str, action: str) -> bool:
-        """Check user permissions for resource access."""
+    def get_user_storage_path(self) -> str:
+        """Get user-specific storage path."""
+
+    def clear_authentication(self) -> None:
+        """Clear authentication state."""
 ```
 
-##### Storage Service
+##### Storage Service (`services/storage.py`)
 
 ```python
 class StorageService:
-    """Handles file storage operations."""
+    """Handles Google Cloud Storage operations."""
 
-    def upload_file(self, file: UploadFile, user_id: str) -> StorageResult:
-        """Upload file to cloud storage."""
+    def upload_original_photo(self, file_data: bytes, filename: str, content_type: str) -> dict:
+        """Upload original photo to cloud storage."""
 
-    def generate_signed_url(self, file_path: str, expiration: int) -> str:
+    def upload_thumbnail(self, thumbnail_data: bytes, filename: str) -> dict:
+        """Upload thumbnail to cloud storage."""
+
+    def get_signed_url(self, file_path: str, expiration: int = 3600) -> str:
         """Generate signed URL for file access."""
 
     def delete_file(self, file_path: str) -> bool:
         """Delete file from storage."""
 ```
 
-##### Image Processing Service
+##### Image Processing Service (`services/image_processor.py`)
 
 ```python
-class ImageProcessingService:
+class ImageProcessor:
     """Handles image processing operations."""
 
-    def generate_thumbnail(self, image_path: str, size: tuple) -> str:
+    def validate_image(self, file_data: bytes, filename: str) -> dict:
+        """Validate image file and extract basic info."""
+
+    def generate_thumbnail(self, image_data: bytes, size: tuple = (400, 400)) -> bytes:
         """Generate thumbnail for image."""
 
-    def extract_metadata(self, image_path: str) -> dict:
+    def extract_metadata(self, image_data: bytes) -> dict:
         """Extract EXIF metadata from image."""
 
-    def optimize_image(self, image_path: str, quality: int) -> str:
-        """Optimize image for web delivery."""
+    def is_supported_format(self, filename: str) -> bool:
+        """Check if image format is supported."""
+```
+
+##### Metadata Service (`services/metadata.py`)
+
+```python
+class MetadataService:
+    """Handles photo metadata and database operations."""
+
+    def save_photo_metadata(self, photo: PhotoMetadata) -> PhotoMetadata:
+        """Save photo metadata to database."""
+
+    def get_photos_by_date(self, start_date: datetime, end_date: datetime) -> list[PhotoMetadata]:
+        """Get photos within date range."""
+
+    def delete_photo_metadata(self, photo_id: str) -> bool:
+        """Delete photo metadata from database."""
+
+    def search_photos(self, query: str) -> list[PhotoMetadata]:
+        """Search photos by filename or metadata."""
+```
+
+#### UI Layer
+
+##### Main Application (`main.py`)
+
+```python
+def main() -> None:
+    """Main Streamlit application entry point."""
+    # Configure Streamlit page
+    st.set_page_config(page_title="imgstream - Photo Management", page_icon="📸")
+    
+    # Initialize session state
+    initialize_session_state()
+    
+    # Handle authentication
+    authenticate_user()
+    
+    # Render application layout
+    render_header()
+    render_sidebar()
+    render_main_content()
+    render_footer()
+```
+
+##### Page Components (`ui/pages/`)
+
+- **Home Page**: Welcome screen and navigation
+- **Upload Page**: Photo upload interface with drag-and-drop
+- **Gallery Page**: Photo gallery with pagination and filtering
+- **Settings Page**: User preferences and configuration
+
+##### UI Components (`ui/components.py`)
+
+```python
+def render_header() -> None:
+    """Render application header."""
+
+def render_sidebar() -> None:
+    """Render navigation sidebar."""
+
+def render_error_message(message: str, details: str = None) -> None:
+    """Render error message component."""
+
+def format_file_size(size_bytes: int) -> str:
+    """Format file size for display."""
 ```
 
 ### Data Access Layer
 
-#### Database Service
+#### Database Management (`models/database.py`)
 
 ```python
-class DatabaseService:
-    """Handles database operations."""
+class DatabaseManager:
+    """Handles DuckDB database operations."""
 
-    def __init__(self):
-        self.connection = duckdb.connect(config.database.path)
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        self.connection = None
 
-    def create_photo(self, photo_data: PhotoCreate) -> Photo:
-        """Create new photo record."""
+    def connect(self) -> None:
+        """Establish database connection."""
 
-    def get_photos(self, user_id: str, filters: PhotoFilters) -> List[Photo]:
-        """Get user's photos with filtering."""
+    def initialize_schema(self) -> None:
+        """Initialize database schema."""
 
-    def update_photo(self, photo_id: str, updates: PhotoUpdate) -> Photo:
-        """Update photo metadata."""
+    def execute_query(self, query: str, params: tuple = None) -> list:
+        """Execute SQL query and return results."""
 ```
 
 ## 💾 Data Architecture
@@ -295,25 +326,22 @@ class DatabaseService:
 ```mermaid
 sequenceDiagram
     participant User
-    participant Frontend
-    participant API
+    participant Streamlit
     participant Auth
     participant Storage
     participant Database
     participant ImageProc
 
-    User->>Frontend: Upload Photo
-    Frontend->>API: POST /photos
-    API->>Auth: Validate Token
-    Auth-->>API: User Info
-    API->>Storage: Upload File
-    Storage-->>API: File URL
-    API->>ImageProc: Process Image
-    ImageProc-->>API: Thumbnail URL
-    API->>Database: Save Metadata
-    Database-->>API: Photo Record
-    API-->>Frontend: Photo Response
-    Frontend-->>User: Upload Success
+    User->>Streamlit: Upload Photo
+    Streamlit->>Auth: Validate User
+    Auth-->>Streamlit: User Info
+    Streamlit->>ImageProc: Validate & Process Image
+    ImageProc-->>Streamlit: Processed Image Data
+    Streamlit->>Storage: Upload Original & Thumbnail
+    Storage-->>Streamlit: Storage URLs
+    Streamlit->>Database: Save Metadata
+    Database-->>Streamlit: Photo Record
+    Streamlit-->>User: Upload Success
 ```
 
 ### Data Models
@@ -662,14 +690,13 @@ production:
 
 ### Core Technologies
 
-| Layer         | Technology           | Purpose                      |
-| ------------- | -------------------- | ---------------------------- |
-| **Frontend**  | Streamlit            | Web application framework    |
-| **Backend**   | FastAPI              | REST API framework           |
-| **Language**  | Python 3.11          | Primary programming language |
-| **Database**  | DuckDB               | Embedded analytics database  |
-| **Storage**   | Google Cloud Storage | Object storage               |
-| **Container** | Docker               | Application containerization |
+| Layer           | Technology           | Purpose                      |
+| --------------- | -------------------- | ---------------------------- |
+| **Application** | Streamlit            | Web application framework    |
+| **Language**    | Python 3.11          | Primary programming language |
+| **Database**    | DuckDB               | Embedded analytics database  |
+| **Storage**     | Google Cloud Storage | Object storage               |
+| **Container**   | Docker               | Application containerization |
 
 ### Cloud Platform
 
@@ -706,26 +733,26 @@ production:
 
 ## 🔄 Future Architecture Considerations
 
-### Microservices Evolution
+### Application Evolution
 
-- **Service Decomposition**: Split into focused microservices
-- **Event-Driven Architecture**: Implement event sourcing
-- **API Gateway**: Centralized API management
-- **Service Mesh**: Advanced traffic management
+- **Enhanced UI**: More interactive components and real-time updates
+- **Performance Optimization**: Caching and lazy loading improvements
+- **Mobile Support**: Responsive design enhancements
+- **Offline Capabilities**: Progressive Web App features
 
 ### Advanced Features
 
 - **Machine Learning**: Automated image tagging and search
-- **Real-time Processing**: WebSocket support for live updates
-- **Multi-tenancy**: Support for multiple organizations
-- **Global Distribution**: Multi-region deployment
+- **Batch Processing**: Background image processing
+- **Advanced Search**: Full-text search and filtering
+- **User Management**: Multi-user support and permissions
 
 ### Technology Upgrades
 
-- **Kubernetes**: Migration to GKE for advanced orchestration
-- **GraphQL**: Enhanced API flexibility
-- **Streaming**: Real-time data processing
-- **Edge Computing**: Closer data processing to users
+- **Database Migration**: Consider PostgreSQL for advanced features
+- **Caching Layer**: Redis for improved performance
+- **CDN Integration**: Better static asset delivery
+- **Monitoring Enhancement**: Advanced observability features
 
 ---
 

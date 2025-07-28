@@ -25,11 +25,9 @@ ImgStreamは、Python、Streamlit、Google Cloud Platformで構築された現�
 - [設定](#設定)
 - [デプロイメント](#デプロイメント)
 - [監視](#監視)
-- [APIドキュメント](#apiドキュメント)
 - [開発](#開発)
 - [テスト](#テスト)
 - [トラブルシューティング](#トラブルシューティング)
-- [貢献](#貢献)
 - [ライセンス](#ライセンス)
 
 ## 🏃‍♂️ クイックスタート
@@ -299,38 +297,7 @@ Automatic alerts for:
 ENVIRONMENT=production ./scripts/setup-monitoring.sh
 ```
 
-## 📚 API Documentation
 
-### Health Check Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Comprehensive health check |
-| `/health?format=json` | GET | Health status in JSON format |
-| `/ready` | GET | Readiness probe for Kubernetes |
-
-### Photo Management Endpoints
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/upload` | POST | Upload photo with metadata |
-| `/photos` | GET | List user's photos |
-| `/photos/{id}` | GET | Get photo details |
-| `/photos/{id}` | DELETE | Delete photo |
-| `/photos/{id}/thumbnail` | GET | Get photo thumbnail |
-
-### Authentication
-
-All API endpoints require authentication:
-
-- **Development**: No authentication required
-- **Staging/Production**: Google Cloud IAP authentication
-
-Example authenticated request:
-```bash
-curl -H "Authorization: Bearer $IAP_TOKEN" \
-     https://imgstream.example.com/api/photos
-```
 
 ## 🛠️ Development
 
@@ -514,26 +481,7 @@ gcloud run services describe imgstream-production --region=us-central1
    - Check existing documentation in `docs/`
    - Review troubleshooting guide in `docs/TROUBLESHOOTING.md`
 
-## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Setup
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
-
-### Code Standards
-
-- Follow PEP 8 style guidelines
-- Add type hints to all functions
-- Write comprehensive tests
-- Update documentation for new features
-- Use conventional commit messages
 
 ## 📄 License
 
@@ -545,13 +493,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Google Cloud Platform](https://cloud.google.com/) for cloud infrastructure
 - [FastAPI](https://fastapi.tiangolo.com/) for API framework
 - [DuckDB](https://duckdb.org/) for embedded analytics
-
-## 📞 Support
-
-- **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/your-org/imgstream/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/imgstream/discussions)
-- **Security**: Report security issues to security@example.com
 
 ---
 
