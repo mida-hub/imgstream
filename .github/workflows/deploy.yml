@@ -2,26 +2,26 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy to'
+        description: "Environment to deploy to"
         required: true
-        default: 'dev'
+        default: "dev"
         type: choice
         options:
-        - dev
-        - prod
+          - dev
+          - prod
       force_deploy:
-        description: 'Force deployment even if tests fail'
+        description: "Force deployment even if tests fail"
         required: false
         default: false
         type: boolean
 
 env:
-  REGISTRY: gcr.io
+  REGISTRY: asia-northeast1-docker.pkg.dev
   IMAGE_NAME: imgstream
   PYTHON_VERSION: "3.11"
 
@@ -32,97 +32,97 @@ jobs:
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
       image-digest: ${{ steps.build.outputs.digest }}
-      
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-        
-    - name: Configure Docker for GCR
-      run: gcloud auth configure-docker
-      
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=ref,event=tag
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-          
-    - name: Build and push Docker image
-      id: build
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        platforms: linux/amd64
-        build-args: |
-          BUILDKIT_INLINE_CACHE=1
-          
-    - name: Generate SBOM
-      uses: anchore/sbom-action@v0
-      with:
-        image: ${{ steps.meta.outputs.tags }}
-        format: spdx-json
-        output-file: sbom.spdx.json
-        
-    - name: Upload SBOM
-      uses: actions/upload-artifact@v3
-      with:
-        name: sbom-${{ github.sha }}
-        path: sbom.spdx.json
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ secrets.GCP_PROJECT_ID }}/imgstream-repo/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.meta.outputs.tags }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v3
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.spdx.json
 
   security-scan-image:
     name: Security Scan Docker Image
     runs-on: ubuntu-latest
     needs: build
-    
+
     steps:
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-        
-    - name: Configure Docker for GCR
-      run: gcloud auth configure-docker
-      
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: ${{ needs.build.outputs.image-tag }}
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
-        
-    - name: Run Trivy vulnerability scanner (table format)
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: ${{ needs.build.outputs.image-tag }}
-        format: 'table'
-        exit-code: '1'
-        ignore-unfixed: true
-        vuln-type: 'os,library'
-        severity: 'CRITICAL,HIGH'
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker asia-northeast1-docker.pkg.dev
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.build.outputs.image-tag }}
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: "trivy-results.sarif"
+
+      - name: Run Trivy vulnerability scanner (table format)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.build.outputs.image-tag }}
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+          severity: "CRITICAL,HIGH"
 
   deploy-dev:
     name: Deploy to Development
@@ -130,84 +130,84 @@ jobs:
     needs: [build, security-scan-image]
     if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'dev'
     environment: development
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-        
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
-      
-    - name: Deploy to Cloud Run (Development)
-      run: |
-        gcloud run deploy imgstream-dev \
-          --image=${{ needs.build.outputs.image-tag }} \
-          --platform=managed \
-          --region=us-central1 \
-          --allow-unauthenticated \
-          --memory=2Gi \
-          --cpu=1 \
-          --min-instances=0 \
-          --max-instances=3 \
-          --timeout=300 \
-          --concurrency=80 \
-          --set-env-vars="ENVIRONMENT=dev" \
-          --set-env-vars="GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}" \
-          --set-env-vars="GCS_BUCKET=${{ secrets.GCS_BUCKET_DEV }}" \
-          --project=${{ secrets.GCP_PROJECT_ID }}
-          
-    - name: Get service URL
-      id: url
-      run: |
-        URL=$(gcloud run services describe imgstream-dev --region=us-central1 --format='value(status.url)' --project=${{ secrets.GCP_PROJECT_ID }})
-        echo "service-url=$URL" >> $GITHUB_OUTPUT
-        
-    - name: Health check
-      run: |
-        echo "Waiting for service to be ready..."
-        sleep 30
-        
-        # Health check with retry
-        for i in {1..10}; do
-          if curl -f -s "${{ steps.url.outputs.service-url }}/_stcore/health" > /dev/null; then
-            echo "✅ Health check passed"
-            break
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Deploy to Cloud Run (Development)
+        run: |
+          gcloud run deploy imgstream-dev \
+            --image=${{ needs.build.outputs.image-tag }} \
+            --platform=managed \
+            --region=asia-northeast1 \
+            --allow-unauthenticated \
+            --memory=2Gi \
+            --cpu=1 \
+            --min-instances=0 \
+            --max-instances=3 \
+            --timeout=300 \
+            --concurrency=80 \
+            --set-env-vars="ENVIRONMENT=dev" \
+            --set-env-vars="GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}" \
+            --set-env-vars="GCS_BUCKET=${{ secrets.GCS_BUCKET_DEV }}" \
+            --project=${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Get service URL
+        id: url
+        run: |
+          URL=$(gcloud run services describe imgstream-dev --region=asia-northeast1 --format='value(status.url)' --project=${{ secrets.GCP_PROJECT_ID }})
+          echo "service-url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Health check
+        run: |
+          echo "Waiting for service to be ready..."
+          sleep 30
+
+          # Health check with retry
+          for i in {1..10}; do
+            if curl -f -s "${{ steps.url.outputs.service-url }}/_stcore/health" > /dev/null; then
+              echo "✅ Health check passed"
+              break
+            else
+              echo "⏳ Health check failed, retrying in 30s... (attempt $i/10)"
+              sleep 30
+            fi
+            
+            if [ $i -eq 10 ]; then
+              echo "❌ Health check failed after 10 attempts"
+              exit 1
+            fi
+          done
+
+      - name: Run smoke tests
+        run: |
+          # Basic functionality test
+          response=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.url.outputs.service-url }}")
+          if [ "$response" -eq 200 ]; then
+            echo "✅ Smoke test passed - Service is responding"
           else
-            echo "⏳ Health check failed, retrying in 30s... (attempt $i/10)"
-            sleep 30
-          fi
-          
-          if [ $i -eq 10 ]; then
-            echo "❌ Health check failed after 10 attempts"
+            echo "❌ Smoke test failed - HTTP $response"
             exit 1
           fi
-        done
-        
-    - name: Run smoke tests
-      run: |
-        # Basic functionality test
-        response=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.url.outputs.service-url }}")
-        if [ "$response" -eq 200 ]; then
-          echo "✅ Smoke test passed - Service is responding"
-        else
-          echo "❌ Smoke test failed - HTTP $response"
-          exit 1
-        fi
-        
-    - name: Update deployment status
-      if: always()
-      run: |
-        if [ "${{ job.status }}" == "success" ]; then
-          echo "🚀 Development deployment successful!"
-          echo "Service URL: ${{ steps.url.outputs.service-url }}"
-        else
-          echo "❌ Development deployment failed"
-        fi
+
+      - name: Update deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "🚀 Development deployment successful!"
+            echo "Service URL: ${{ steps.url.outputs.service-url }}"
+          else
+            echo "❌ Development deployment failed"
+          fi
 
   deploy-prod:
     name: Deploy to Production
@@ -215,99 +215,99 @@ jobs:
     needs: [build, security-scan-image, deploy-dev]
     if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.environment == 'prod'
     environment: production
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-        
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
-      
-    - name: Deploy to Cloud Run (Production)
-      run: |
-        gcloud run deploy imgstream-prod \
-          --image=${{ needs.build.outputs.image-tag }} \
-          --platform=managed \
-          --region=us-central1 \
-          --no-allow-unauthenticated \
-          --memory=2Gi \
-          --cpu=1 \
-          --min-instances=1 \
-          --max-instances=10 \
-          --timeout=300 \
-          --concurrency=80 \
-          --set-env-vars="ENVIRONMENT=prod" \
-          --set-env-vars="GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}" \
-          --set-env-vars="GCS_BUCKET=${{ secrets.GCS_BUCKET_PROD }}" \
-          --project=${{ secrets.GCP_PROJECT_ID }}
-          
-    - name: Get service URL
-      id: url
-      run: |
-        URL=$(gcloud run services describe imgstream-prod --region=us-central1 --format='value(status.url)' --project=${{ secrets.GCP_PROJECT_ID }})
-        echo "service-url=$URL" >> $GITHUB_OUTPUT
-        
-    - name: Health check with IAP
-      run: |
-        echo "Waiting for service to be ready..."
-        sleep 30
-        
-        # Health check through load balancer (IAP protected)
-        for i in {1..10}; do
-          # Check if the service responds (302 redirect to IAP is expected)
-          response=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PROD_DOMAIN_URL }}" || echo "000")
-          if [ "$response" -eq 302 ] || [ "$response" -eq 200 ]; then
-            echo "✅ Health check passed - Service is responding (HTTP $response)"
-            break
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Deploy to Cloud Run (Production)
+        run: |
+          gcloud run deploy imgstream-prod \
+            --image=${{ needs.build.outputs.image-tag }} \
+            --platform=managed \
+            --region=asia-northeast1 \
+            --no-allow-unauthenticated \
+            --memory=2Gi \
+            --cpu=1 \
+            --min-instances=1 \
+            --max-instances=10 \
+            --timeout=300 \
+            --concurrency=80 \
+            --set-env-vars="ENVIRONMENT=prod" \
+            --set-env-vars="GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}" \
+            --set-env-vars="GCS_BUCKET=${{ secrets.GCS_BUCKET_PROD }}" \
+            --project=${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Get service URL
+        id: url
+        run: |
+          URL=$(gcloud run services describe imgstream-prod --region=asia-northeast1 --format='value(status.url)' --project=${{ secrets.GCP_PROJECT_ID }})
+          echo "service-url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Health check with IAP
+        run: |
+          echo "Waiting for service to be ready..."
+          sleep 30
+
+          # Health check through load balancer (IAP protected)
+          for i in {1..10}; do
+            # Check if the service responds (302 redirect to IAP is expected)
+            response=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PROD_DOMAIN_URL }}" || echo "000")
+            if [ "$response" -eq 302 ] || [ "$response" -eq 200 ]; then
+              echo "✅ Health check passed - Service is responding (HTTP $response)"
+              break
+            else
+              echo "⏳ Health check failed, retrying in 30s... (attempt $i/10) - HTTP $response"
+              sleep 30
+            fi
+            
+            if [ $i -eq 10 ]; then
+              echo "❌ Health check failed after 10 attempts"
+              exit 1
+            fi
+          done
+
+      - name: Update deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "🚀 Production deployment successful!"
+            echo "Service URL: ${{ secrets.PROD_DOMAIN_URL }}"
           else
-            echo "⏳ Health check failed, retrying in 30s... (attempt $i/10) - HTTP $response"
-            sleep 30
+            echo "❌ Production deployment failed"
           fi
-          
-          if [ $i -eq 10 ]; then
-            echo "❌ Health check failed after 10 attempts"
-            exit 1
-          fi
-        done
-        
-    - name: Update deployment status
-      if: always()
-      run: |
-        if [ "${{ job.status }}" == "success" ]; then
-          echo "🚀 Production deployment successful!"
-          echo "Service URL: ${{ secrets.PROD_DOMAIN_URL }}"
-        else
-          echo "❌ Production deployment failed"
-        fi
-        
-    - name: Create GitHub Release
-      if: startsWith(github.ref, 'refs/tags/v') && success()
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref_name }}
-        release_name: Release ${{ github.ref_name }}
-        body: |
-          ## 🚀 Release ${{ github.ref_name }}
-          
-          ### 📦 Docker Image
-          - Image: `${{ needs.build.outputs.image-tag }}`
-          - Digest: `${{ needs.build.outputs.image-digest }}`
-          
-          ### 🌐 Deployment
-          - Production URL: ${{ secrets.PROD_DOMAIN_URL }}
-          - Deployed at: ${{ github.event.head_commit.timestamp }}
-          
-          ### 📋 Changes
-          See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
-        draft: false
-        prerelease: false
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') && success()
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          body: |
+            ## 🚀 Release ${{ github.ref_name }}
+
+            ### 📦 Docker Image
+            - Image: `${{ needs.build.outputs.image-tag }}`
+            - Digest: `${{ needs.build.outputs.image-digest }}`
+
+            ### 🌐 Deployment
+            - Production URL: ${{ secrets.PROD_DOMAIN_URL }}
+            - Deployed at: ${{ github.event.head_commit.timestamp }}
+
+            ### 📋 Changes
+            See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
+          draft: false
+          prerelease: false
 
   rollback:
     name: Rollback Deployment
@@ -315,38 +315,38 @@ jobs:
     if: failure() && (needs.deploy-dev.result == 'failure' || needs.deploy-prod.result == 'failure')
     needs: [deploy-dev, deploy-prod]
     environment: production
-    
+
     steps:
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-        
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
-      
-    - name: Get previous revision
-      id: previous
-      run: |
-        PREVIOUS_REVISION=$(gcloud run revisions list \
-          --service=imgstream-prod \
-          --region=us-central1 \
-          --limit=2 \
-          --format='value(metadata.name)' \
-          --project=${{ secrets.GCP_PROJECT_ID }} | tail -n 1)
-        echo "revision=$PREVIOUS_REVISION" >> $GITHUB_OUTPUT
-        
-    - name: Rollback to previous revision
-      if: steps.previous.outputs.revision != ''
-      run: |
-        gcloud run services update-traffic imgstream-prod \
-          --to-revisions=${{ steps.previous.outputs.revision }}=100 \
-          --region=us-central1 \
-          --project=${{ secrets.GCP_PROJECT_ID }}
-        echo "🔄 Rolled back to revision: ${{ steps.previous.outputs.revision }}"
-        
-    - name: Notify rollback
-      if: always()
-      run: |
-        echo "⚠️ Deployment failed and rollback was attempted"
-        echo "Please check the logs and investigate the issue"
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Get previous revision
+        id: previous
+        run: |
+          PREVIOUS_REVISION=$(gcloud run revisions list \
+            --service=imgstream-prod \
+            --region=asia-northeast1 \
+            --limit=2 \
+            --format='value(metadata.name)' \
+            --project=${{ secrets.GCP_PROJECT_ID }} | tail -n 1)
+          echo "revision=$PREVIOUS_REVISION" >> $GITHUB_OUTPUT
+
+      - name: Rollback to previous revision
+        if: steps.previous.outputs.revision != ''
+        run: |
+          gcloud run services update-traffic imgstream-prod \
+            --to-revisions=${{ steps.previous.outputs.revision }}=100 \
+            --region=asia-northeast1 \
+            --project=${{ secrets.GCP_PROJECT_ID }}
+          echo "🔄 Rolled back to revision: ${{ steps.previous.outputs.revision }}"
+
+      - name: Notify rollback
+        if: always()
+        run: |
+          echo "⚠️ Deployment failed and rollback was attempted"
+          echo "Please check the logs and investigate the issue"

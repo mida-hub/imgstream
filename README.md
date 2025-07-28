@@ -111,14 +111,14 @@ graph TB
 
 | コンポーネント | 技術 | 目的 |
 |-----------|------------|---------|
-| **フロントエンド** | Streamlit | Webベースのユーザーインターフェース |
-| **バックエンド** | Python/FastAPI | APIサービスとビジネスロジック |
+| **Webアプリケーション** | Streamlit | Webベースのユーザーインターフェース |
+| **ビジネスロジック** | Python Services | 認証、ストレージ、画像処理サービス |
 | **認証** | Google Cloud IAP | アイデンティティとアクセス管理 |
 | **ストレージ** | Google Cloud Storage | 写真とファイルの保存 |
 | **データベース** | DuckDB | メタデータとアプリケーションデータ |
 | **コンテナ** | Docker | アプリケーションのコンテナ化 |
 | **オーケストレーション** | Cloud Run | サーバーレスコンテナプラットフォーム |
-| **CI/CD** | GitHub Actions + Cloud Build | 自動デプロイメントパイプライン |
+| **CI/CD** | GitHub Actions | 自動デプロイメントパイプライン |
 | **監視** | Cloud Monitoring | メトリクス、ログ、アラート |
 
 ### セキュリティアーキテクチャ
@@ -486,13 +486,6 @@ gcloud run services describe imgstream-production --region=us-central1
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [Streamlit](https://streamlit.io/) for the web framework
-- [Google Cloud Platform](https://cloud.google.com/) for cloud infrastructure
-- [FastAPI](https://fastapi.tiangolo.com/) for API framework
-- [DuckDB](https://duckdb.org/) for embedded analytics
 
 ---
 
