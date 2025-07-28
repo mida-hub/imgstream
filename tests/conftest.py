@@ -9,7 +9,6 @@ from pathlib import Path
 import pytest
 
 # Import E2E test fixtures
-from tests.e2e.base import test_users, test_image, db_helper, api_client
 
 
 @pytest.fixture

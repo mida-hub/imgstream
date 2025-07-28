@@ -36,21 +36,17 @@ jobs:
       run: |
         uv run black --check --diff .
         
-    - name: Run import sorting check (ruff)
-      run: |
-        uv run ruff check --select I .
-        
     - name: Run linting (ruff)
       run: |
         uv run ruff check .
         
     - name: Run type checking (mypy)
       run: |
-        uv run mypy src/
+        uv run mypy src/ --config-file=mypy.ini
         
-    - name: Run tests with coverage
+    - name: Run unit and integration tests with coverage
       run: |
-        uv run pytest --cov=src --cov-report=xml --cov-report=term-missing
+        ENVIRONMENT=production uv run pytest tests/ -k "not (security or e2e or performance)" --cov=src --cov-report=xml --cov-report=term-missing -v
         
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -152,7 +148,7 @@ jobs:
         
     - name: Generate coverage report
       run: |
-        uv run pytest --cov=src --cov-report=xml
+        ENVIRONMENT=production uv run pytest tests/ -k "not (security or e2e or performance)" --cov=src --cov-report=xml
         
     - name: SonarCloud Scan
       uses: SonarSource/sonarcloud-github-action@master

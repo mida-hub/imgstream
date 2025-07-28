@@ -7,22 +7,16 @@ This module contains comprehensive performance tests including:
 - Memory usage and response time measurements
 """
 
-import asyncio
 import io
 import os
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from unittest.mock import Mock, patch
 
 import psutil
 import pytest
 from PIL import Image
 
 from src.imgstream.models.photo import PhotoMetadata
-from src.imgstream.services.image_processor import ImageProcessor
-from src.imgstream.services.metadata import MetadataService
-from src.imgstream.services.storage import StorageService
 from tests.e2e.base import E2ETestBase
 
 

@@ -8,7 +8,6 @@ import os
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 import psutil
 
@@ -39,8 +38,8 @@ class PerformanceMonitor:
         """
         self.interval = interval
         self.monitoring = False
-        self.metrics: List[PerformanceMetrics] = []
-        self.monitor_thread: Optional[threading.Thread] = None
+        self.metrics: list[PerformanceMetrics] = []
+        self.monitor_thread: threading.Thread | None = None
         self.process = psutil.Process(os.getpid())
 
         # Initial values for delta calculations
@@ -115,7 +114,7 @@ class PerformanceMonitor:
 
             time.sleep(self.interval)
 
-    def get_summary(self) -> Dict[str, float]:
+    def get_summary(self) -> dict[str, float]:
         """
         Get performance summary statistics.
 
@@ -225,7 +224,7 @@ class LoadTestRunner:
             monitor_interval: Performance monitoring interval in seconds
         """
         self.monitor = PerformanceMonitor(monitor_interval)
-        self.test_results: Dict[str, any] = {}
+        self.test_results: dict[str, any] = {}
 
     def run_test(self, test_name: str, test_function, *args, **kwargs):
         """

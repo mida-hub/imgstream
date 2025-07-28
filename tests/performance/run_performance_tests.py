@@ -29,6 +29,7 @@ def run_image_processing_performance_tests():
 
     # Create test data
     import io
+
     from PIL import Image
 
     # Sample image
@@ -115,7 +116,6 @@ def run_load_performance_tests():
     print("Running load performance tests...")
 
     # Import test dependencies
-    from tests.e2e.base import E2ETestBase
     from tests.performance.test_load_performance import TestLoadPerformance
 
     # Create test instance

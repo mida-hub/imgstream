@@ -8,9 +8,8 @@ including database, storage, authentication, external dependencies, and monitori
 import json
 import os
 import time
-import logging
-from typing import Dict, Any, List
-from datetime import datetime
+from typing import Any
+
 import duckdb
 import streamlit as st
 
@@ -46,21 +45,25 @@ def check_storage_health() -> dict[str, Any]:
 
         # Initialize storage client
         client = storage.Client()
-        
+
         # Get the bucket name from environment
         bucket_name = os.getenv("GCS_BUCKET")
         if not bucket_name:
-            return {"status": "unhealthy", "message": "GCS_BUCKET environment variable not set", "timestamp": time.time()}
+            return {
+                "status": "unhealthy",
+                "message": "GCS_BUCKET environment variable not set",
+                "timestamp": time.time(),
+            }
 
         # Try to access the specific bucket
         bucket = client.bucket(bucket_name)
         bucket.exists()  # This will check if the bucket exists and we have access
 
         return {
-            "status": "healthy", 
-            "message": f"Storage connection successful to bucket: {bucket_name}", 
+            "status": "healthy",
+            "message": f"Storage connection successful to bucket: {bucket_name}",
             "timestamp": time.time(),
-            "bucket": bucket_name
+            "bucket": bucket_name,
         }
     except Exception as e:
         logger.error("storage_health_check_failed", error=str(e))
@@ -74,16 +77,18 @@ def check_environment_health() -> dict[str, Any]:
             "GOOGLE_CLOUD_PROJECT",
             "ENVIRONMENT",
         ]
-        
+
         # Additional required vars for production
         if os.getenv("ENVIRONMENT") == "prod":
-            required_env_vars.extend([
-                "GCS_BUCKET",
-            ])
+            required_env_vars.extend(
+                [
+                    "GCS_BUCKET",
+                ]
+            )
 
         missing_vars = []
         env_info = {}
-        
+
         for var in required_env_vars:
             value = os.getenv(var)
             if not value:
@@ -119,7 +124,7 @@ def get_application_info() -> dict[str, Any]:
         "project_id": os.getenv("GOOGLE_CLOUD_PROJECT", "unknown"),
         "timestamp": time.time(),
         "uptime": time.time() - st.session_state.get("app_start_time", time.time()),
-        "python_version": os.sys.version.split()[0] if hasattr(os, 'sys') else "unknown",
+        "python_version": os.sys.version.split()[0] if hasattr(os, "sys") else "unknown",
         "platform": os.name,
     }
 
@@ -241,14 +246,14 @@ def check_readiness() -> dict[str, Any]:
             "database": check_database_health(),
             "environment": check_environment_health(),
         }
-        
+
         # Only check storage if not in development mode
         if os.getenv("ENVIRONMENT") != "dev":
             checks["storage"] = check_storage_health()
-        
+
         # Determine readiness
         is_ready = all(check["status"] == "healthy" for check in checks.values())
-        
+
         return {
             "status": "ready" if is_ready else "not_ready",
             "timestamp": time.time(),
@@ -286,7 +291,7 @@ def main() -> None:
     """Main function for health check page."""
     # Check if this is a JSON request
     query_params = st.experimental_get_query_params()
-    
+
     # Handle different health check endpoints
     endpoint = query_params.get("endpoint", ["health"])[0]
     format_type = query_params.get("format", ["html"])[0]

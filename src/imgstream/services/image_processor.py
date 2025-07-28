@@ -12,7 +12,7 @@ from ..error_handling import ImageProcessingError, ValidationError
 from ..logging_config import get_logger, log_error, log_performance
 
 try:
-    from pillow_heif import register_heif_opener
+    from pillow_heif import register_heif_opener  # type: ignore[import-untyped]
 
     register_heif_opener()
     HEIF_AVAILABLE = True
