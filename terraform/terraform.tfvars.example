@@ -9,17 +9,46 @@ region     = "us-central1"
 environment = "dev"
 app_name    = "imgstream"
 
+# Container image (will be updated during deployment)
+container_image = "gcr.io/your-gcp-project-id/imgstream:latest"
+
 # Storage configuration
 bucket_location         = "US"
 lifecycle_coldline_days = 30
 lifecycle_archive_days  = 365
 lifecycle_delete_days   = 0  # Set to 0 to never delete, or specify days
 
-# Authentication configuration (for future IAP setup)
+# Cloud Run configuration
+enable_public_access = true   # Set to false for production (use IAP)
+min_instances       = 0      # Set to 1 for production
+max_instances       = 3      # Adjust based on expected load
+cpu_limit          = "1000m"
+memory_limit       = "2Gi"
+
+# IAP configuration (required for production)
+iap_support_email = "admin@example.com"  # Update with actual support email
+enable_iap = false  # Set to true for production
+
+# Security configuration
+enable_security_policy = false  # Set to true for production
+enable_waf_rules = false       # Set to true for production
+rate_limit_requests_per_minute = 100
+session_duration = 3600  # 1 hour
+
+# Authentication configuration
 allowed_domains = [
-  "example.com"
+  # "example.com"  # Uncomment and add your organization's domains
 ]
 
 allowed_users = [
-  "user@example.com"
+  # "user@example.com"  # Uncomment and add specific user emails
 ]
+
+# Custom domain (optional)
+# custom_domain = "imgstream.example.com"
+
+# Geographic restrictions (optional)
+# allowed_countries = ["US", "CA", "JP"]
+
+# Secret management
+create_default_secrets = true

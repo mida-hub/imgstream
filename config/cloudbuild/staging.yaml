@@ -1,0 +1,36 @@
+# Cloud Build trigger configuration for staging environment
+name: imgstream-staging-deploy
+description: "Deploy ImgStream to staging environment"
+
+# Trigger configuration
+github:
+  owner: YOUR_GITHUB_USERNAME
+  name: YOUR_REPO_NAME
+  push:
+    branch: ^develop$
+
+# Build configuration
+filename: cloudbuild.yaml
+
+# Substitutions for staging environment
+substitutions:
+  _ENVIRONMENT: staging
+  _REGION: us-central1
+  _MEMORY_LIMIT: 1Gi
+  _CPU_LIMIT: 1000m
+  _CONCURRENCY: "100"
+  _MAX_INSTANCES: "20"
+  _MIN_INSTANCES: "1"
+  _VERSION: staging-${SHORT_SHA}
+
+# Service account for the build
+serviceAccount: projects/$PROJECT_ID/serviceAccounts/cloudbuild-staging@$PROJECT_ID.iam.gserviceaccount.com
+
+# Build timeout
+timeout: 1200s
+
+# Additional options
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+  substitutionOption: ALLOW_LOOSE

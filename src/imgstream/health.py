@@ -44,11 +44,22 @@ def check_storage_health() -> dict[str, Any]:
 
         # Initialize storage client
         client = storage.Client()
+        
+        # Get the bucket name from environment
+        bucket_name = os.getenv("GCS_BUCKET")
+        if not bucket_name:
+            return {"status": "unhealthy", "message": "GCS_BUCKET environment variable not set", "timestamp": time.time()}
 
-        # Try to list buckets (minimal operation)
-        list(client.list_buckets(max_results=1))
+        # Try to access the specific bucket
+        bucket = client.bucket(bucket_name)
+        bucket.exists()  # This will check if the bucket exists and we have access
 
-        return {"status": "healthy", "message": "Storage connection successful", "timestamp": time.time()}
+        return {
+            "status": "healthy", 
+            "message": f"Storage connection successful to bucket: {bucket_name}", 
+            "timestamp": time.time(),
+            "bucket": bucket_name
+        }
     except Exception as e:
         logger.error("storage_health_check_failed", error=str(e))
         return {"status": "unhealthy", "message": f"Storage connection failed: {str(e)}", "timestamp": time.time()}
@@ -59,26 +70,38 @@ def check_environment_health() -> dict[str, Any]:
     try:
         required_env_vars = [
             "GOOGLE_CLOUD_PROJECT",
+            "ENVIRONMENT",
         ]
+        
+        # Additional required vars for production
+        if os.getenv("ENVIRONMENT") == "prod":
+            required_env_vars.extend([
+                "GCS_BUCKET",
+            ])
 
         missing_vars = []
+        env_info = {}
+        
         for var in required_env_vars:
-            if not os.getenv(var):
+            value = os.getenv(var)
+            if not value:
                 missing_vars.append(var)
+            else:
+                env_info[var.lower()] = value
 
         if missing_vars:
             return {
                 "status": "unhealthy",
                 "message": f"Missing environment variables: {', '.join(missing_vars)}",
                 "timestamp": time.time(),
+                "missing_vars": missing_vars,
             }
 
         return {
             "status": "healthy",
             "message": "Environment configuration is valid",
             "timestamp": time.time(),
-            "environment": os.getenv("ENVIRONMENT", "unknown"),
-            "project_id": os.getenv("GOOGLE_CLOUD_PROJECT", "unknown"),
+            "config": env_info,
         }
     except Exception as e:
         logger.error("environment_health_check_failed", error=str(e))
@@ -94,6 +117,8 @@ def get_application_info() -> dict[str, Any]:
         "project_id": os.getenv("GOOGLE_CLOUD_PROJECT", "unknown"),
         "timestamp": time.time(),
         "uptime": time.time() - st.session_state.get("app_start_time", time.time()),
+        "python_version": os.sys.version.split()[0] if hasattr(os, 'sys') else "unknown",
+        "platform": os.name,
     }
 
 
@@ -206,15 +231,74 @@ def health_check_json() -> str:
     return json.dumps(health_data, indent=2)
 
 
+def check_readiness() -> dict[str, Any]:
+    """Perform readiness check for Kubernetes/Cloud Run."""
+    try:
+        # Quick checks for readiness
+        checks = {
+            "database": check_database_health(),
+            "environment": check_environment_health(),
+        }
+        
+        # Only check storage if not in development mode
+        if os.getenv("ENVIRONMENT") != "dev":
+            checks["storage"] = check_storage_health()
+        
+        # Determine readiness
+        is_ready = all(check["status"] == "healthy" for check in checks.values())
+        
+        return {
+            "status": "ready" if is_ready else "not_ready",
+            "timestamp": time.time(),
+            "checks": checks,
+        }
+    except Exception as e:
+        logger.error("readiness_check_failed", error=str(e))
+        return {
+            "status": "not_ready",
+            "timestamp": time.time(),
+            "error": str(e),
+        }
+
+
+def check_liveness() -> dict[str, Any]:
+    """Perform liveness check for Kubernetes/Cloud Run."""
+    try:
+        # Basic liveness check - just ensure the app is running
+        return {
+            "status": "alive",
+            "timestamp": time.time(),
+            "uptime": time.time() - st.session_state.get("app_start_time", time.time()),
+        }
+    except Exception as e:
+        logger.error("liveness_check_failed", error=str(e))
+        return {
+            "status": "dead",
+            "timestamp": time.time(),
+            "error": str(e),
+        }
+
+
 # For direct access via URL parameters
 def main() -> None:
     """Main function for health check page."""
     # Check if this is a JSON request
     query_params = st.experimental_get_query_params()
+    
+    # Handle different health check endpoints
+    endpoint = query_params.get("endpoint", ["health"])[0]
+    format_type = query_params.get("format", ["html"])[0]
 
-    if query_params.get("format") == ["json"]:
+    if endpoint == "readiness":
+        health_data = check_readiness()
+    elif endpoint == "liveness":
+        health_data = check_liveness()
+    else:
+        health_data = perform_health_check()
+
+    if format_type == "json":
         # Return JSON response
-        st.text(health_check_json())
+        st.text(json.dumps(health_data, indent=2))
     else:
         # Render HTML page
         render_health_page()

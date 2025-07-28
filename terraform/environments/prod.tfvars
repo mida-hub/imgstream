@@ -27,17 +27,17 @@ max_instances       = 10     # Allow scaling up to 10 instances
 cpu_limit          = "1000m"
 memory_limit       = "2Gi"
 
-# Container image (update with actual image)
-container_image = "gcr.io/cloudrun/hello"  # Placeholder
+# Container image (will be updated during deployment)
+container_image = "gcr.io/PROJECT_ID/imgstream:latest"
 
-# Custom domain (optional)
+# Custom domain (optional - configure if you have a domain)
 # custom_domain = "imgstream.example.com"
 
 # Create default secrets
 create_default_secrets = true
 
 # IAP configuration for production
-iap_support_email = "admin@example.com"  # Update with actual support email
+iap_support_email = "admin@example.com"  # TODO: Update with actual support email
 enable_iap = true  # Enable IAP for production
 enable_security_policy = true  # Enable security policy
 enable_waf_rules = true  # Enable WAF rules
