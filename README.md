@@ -12,7 +12,7 @@ ImgStreamは、Python、Streamlit、Google Cloud Platformで構築された現�
 - **クラウドネイティブアーキテクチャ**: 自動スケーリング対応のGoogle Cloud Run構築
 - **エンタープライズ認証**: 本番環境向けGoogle Cloud IAP統合
 - **リアルタイム監視**: Cloud Monitoringによる包括的なメトリクスとアラート
-- **自動化CI/CD**: GitHub ActionsとCloud Buildの統合
+- **自動化CI/CD**: GitHub Actionsによる自動デプロイメント
 - **マルチ環境サポート**: 開発、ステージング、本番環境の設定
 - **セキュリティファースト**: 組み込みセキュリティスキャンとコンプライアンスチェック
 - **パフォーマンス最適化**: 効率的な画像処理とキャッシング
@@ -94,9 +94,7 @@ graph TB
     
     subgraph "CI/CD Pipeline"
         GH[📚 GitHub] --> GA[⚡ GitHub Actions]
-        GA --> CB[🔨 Cloud Build]
-        CB --> GCR[📦 Container Registry]
-        GCR --> CR
+        GA --> CR
     end
     
     subgraph "Monitoring & Alerting"
@@ -254,13 +252,7 @@ git push origin v1.0.0
 ENVIRONMENT=production ./scripts/deploy-cloud-run.sh
 ```
 
-### 3. Cloud Build
 
-```bash
-# Deploy using Cloud Build
-gcloud builds submit --config cloudbuild.yaml \
-  --substitutions _ENVIRONMENT=production
-```
 
 For detailed deployment instructions, see [Deployment Guide](docs/DEPLOYMENT.md).
 
@@ -435,8 +427,8 @@ gcloud auth activate-service-account --key-file=service-account-key.json
 
 **Solution**:
 ```bash
-# Check build logs
-gcloud builds log [BUILD_ID]
+# Check GitHub Actions logs
+# Visit: https://github.com/your-org/imgstream/actions
 
 # Validate configuration
 ./scripts/validate-deployment-config.sh production
