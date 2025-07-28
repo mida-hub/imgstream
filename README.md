@@ -1,82 +1,82 @@
-# ImgStream - Photo Management Application
+# ImgStream - 写真管理アプリケーション
 
 [![Build Status](https://github.com/your-org/imgstream/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/your-org/imgstream/actions)
 [![Security Scan](https://github.com/your-org/imgstream/workflows/Security%20Scan/badge.svg)](https://github.com/your-org/imgstream/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-ImgStream is a modern, cloud-native photo management application built with Python, Streamlit, and Google Cloud Platform. It provides secure photo upload, storage, and management capabilities with enterprise-grade monitoring and deployment automation.
+ImgStreamは、Python、Streamlit、Google Cloud Platformで構築された現代的なクラウドネイティブ写真管理アプリケーションです。エンタープライズグレードの監視とデプロイメント自動化を備えた、安全な写真のアップロード、保存、管理機能を提供します。
 
-## 🚀 Features
+## 🚀 機能
 
-- **Secure Photo Upload & Storage**: Upload photos with automatic thumbnail generation
-- **Cloud-Native Architecture**: Built for Google Cloud Run with auto-scaling
-- **Enterprise Authentication**: Google Cloud IAP integration for production
-- **Real-time Monitoring**: Comprehensive metrics and alerting with Cloud Monitoring
-- **Automated CI/CD**: GitHub Actions and Cloud Build integration
-- **Multi-Environment Support**: Development, staging, and production configurations
-- **Security First**: Built-in security scanning and compliance checks
-- **Performance Optimized**: Efficient image processing and caching
+- **安全な写真アップロード・保存**: 自動サムネイル生成付きの写真アップロード
+- **クラウドネイティブアーキテクチャ**: 自動スケーリング対応のGoogle Cloud Run構築
+- **エンタープライズ認証**: 本番環境向けGoogle Cloud IAP統合
+- **リアルタイム監視**: Cloud Monitoringによる包括的なメトリクスとアラート
+- **自動化CI/CD**: GitHub ActionsとCloud Buildの統合
+- **マルチ環境サポート**: 開発、ステージング、本番環境の設定
+- **セキュリティファースト**: 組み込みセキュリティスキャンとコンプライアンスチェック
+- **パフォーマンス最適化**: 効率的な画像処理とキャッシング
 
-## 📋 Table of Contents
+## 📋 目次
 
-- [Quick Start](#quick-start)
-- [Architecture](#architecture)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Deployment](#deployment)
-- [Monitoring](#monitoring)
-- [API Documentation](#api-documentation)
-- [Development](#development)
-- [Testing](#testing)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+- [クイックスタート](#クイックスタート)
+- [アーキテクチャ](#アーキテクチャ)
+- [インストール](#インストール)
+- [設定](#設定)
+- [デプロイメント](#デプロイメント)
+- [監視](#監視)
+- [APIドキュメント](#apiドキュメント)
+- [開発](#開発)
+- [テスト](#テスト)
+- [トラブルシューティング](#トラブルシューティング)
+- [貢献](#貢献)
+- [ライセンス](#ライセンス)
 
-## 🏃‍♂️ Quick Start
+## 🏃‍♂️ クイックスタート
 
-### Prerequisites
+### 前提条件
 
 - Python 3.11+
-- Google Cloud Platform account
-- Docker (for containerized deployment)
-- uv package manager
+- Google Cloud Platformアカウント
+- Docker（コンテナ化デプロイメント用）
+- uvパッケージマネージャー
 
-### Local Development Setup
+### ローカル開発環境セットアップ
 
-1. **Clone the repository**
+1. **リポジトリのクローン**
    ```bash
    git clone https://github.com/your-org/imgstream.git
    cd imgstream
    ```
 
-2. **Install dependencies**
+2. **依存関係のインストール**
    ```bash
-   # Install uv if not already installed
+   # uvがインストールされていない場合はインストール
    curl -LsSf https://astral.sh/uv/install.sh | sh
    
-   # Install project dependencies
+   # プロジェクトの依存関係をインストール
    uv sync
    ```
 
-3. **Set up environment variables**
+3. **環境変数の設定**
    ```bash
    cp .env.example .env
-   # Edit .env with your configuration
+   # .envファイルを設定に合わせて編集
    ```
 
-4. **Run the application**
+4. **アプリケーションの実行**
    ```bash
    uv run streamlit run src/imgstream/main.py
    ```
 
-5. **Access the application**
-   Open your browser to `http://localhost:8501`
+5. **アプリケーションへのアクセス**
+   ブラウザで `http://localhost:8501` を開く
 
-## 🏗️ Architecture
+## 🏗️ アーキテクチャ
 
-ImgStream follows a modern cloud-native architecture designed for scalability, security, and maintainability.
+ImgStreamは、スケーラビリティ、セキュリティ、保守性を考慮して設計された現代的なクラウドネイティブアーキテクチャに従っています。
 
-### High-Level Architecture
+### 高レベルアーキテクチャ
 
 ```mermaid
 graph TB
@@ -109,21 +109,21 @@ graph TB
     end
 ```
 
-### Component Overview
+### コンポーネント概要
 
-| Component | Technology | Purpose |
+| コンポーネント | 技術 | 目的 |
 |-----------|------------|---------|
-| **Frontend** | Streamlit | Web-based user interface |
-| **Backend** | Python/FastAPI | API services and business logic |
-| **Authentication** | Google Cloud IAP | Identity and access management |
-| **Storage** | Google Cloud Storage | Photo and file storage |
-| **Database** | DuckDB | Metadata and application data |
-| **Container** | Docker | Application containerization |
-| **Orchestration** | Cloud Run | Serverless container platform |
-| **CI/CD** | GitHub Actions + Cloud Build | Automated deployment pipeline |
-| **Monitoring** | Cloud Monitoring | Metrics, logging, and alerting |
+| **フロントエンド** | Streamlit | Webベースのユーザーインターフェース |
+| **バックエンド** | Python/FastAPI | APIサービスとビジネスロジック |
+| **認証** | Google Cloud IAP | アイデンティティとアクセス管理 |
+| **ストレージ** | Google Cloud Storage | 写真とファイルの保存 |
+| **データベース** | DuckDB | メタデータとアプリケーションデータ |
+| **コンテナ** | Docker | アプリケーションのコンテナ化 |
+| **オーケストレーション** | Cloud Run | サーバーレスコンテナプラットフォーム |
+| **CI/CD** | GitHub Actions + Cloud Build | 自動デプロイメントパイプライン |
+| **監視** | Cloud Monitoring | メトリクス、ログ、アラート |
 
-### Security Architecture
+### セキュリティアーキテクチャ
 
 ```mermaid
 graph LR
@@ -146,7 +146,7 @@ graph LR
     end
 ```
 
-## 💻 Installation
+## 💻 インストール
 
 ### Development Environment
 

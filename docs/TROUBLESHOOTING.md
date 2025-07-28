@@ -1,42 +1,42 @@
-# Troubleshooting Guide
+# トラブルシューティングガイド
 
-This comprehensive guide helps you diagnose and resolve common issues with ImgStream.
+この包括的なガイドは、ImgStreamの一般的な問題の診断と解決を支援します。
 
-## 🔍 Quick Diagnosis
+## 🔍 クイック診断
 
-### Health Check Commands
+### ヘルスチェックコマンド
 
 ```bash
-# Check application health
+# アプリケーションの健全性をチェック
 curl https://your-app-url/health
 
-# Check readiness
+# 準備状態をチェック
 curl https://your-app-url/ready
 
-# Check service status
+# サービスステータスをチェック
 gcloud run services describe imgstream-production --region=us-central1
 
-# View recent logs
+# 最近のログを表示
 gcloud logs read "resource.type=cloud_run_revision" --limit=50
 ```
 
-### Monitoring Dashboard
+### 監視ダッシュボード
 
-Access real-time metrics at:
+リアルタイムメトリクスにアクセス:
 `https://console.cloud.google.com/monitoring/dashboards`
 
-## 🚨 Common Issues
+## 🚨 一般的な問題
 
-### 1. Authentication & Authorization
+### 1. 認証・認可
 
-#### Issue: 401 Unauthorized Error
+#### 問題: 401 Unauthorized エラー
 
-**Symptoms:**
-- Users cannot access the application
-- API requests return 401 status
-- "Access denied" messages in logs
+**症状:**
+- ユーザーがアプリケーションにアクセスできない
+- APIリクエストが401ステータスを返す
+- ログに「アクセス拒否」メッセージが表示される
 
-**Diagnosis:**
+**診断:**
 ```bash
 # Check IAP configuration
 gcloud iap web get-iam-policy --resource-type=backend-services \

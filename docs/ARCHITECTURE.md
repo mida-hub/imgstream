@@ -1,39 +1,39 @@
-# ImgStream Architecture Documentation
+# ImgStream アーキテクチャドキュメント
 
-This document provides a comprehensive overview of the ImgStream photo management application architecture, including system design, component interactions, data flow, and deployment patterns.
+このドキュメントは、システム設計、コンポーネント間の相互作用、データフロー、デプロイメントパターンを含む、ImgStream 写真管理アプリケーションのアーキテクチャの包括的な概要を提供します。
 
-## 📋 Table of Contents
+## 📋 目次
 
-- [System Overview](#system-overview)
-- [Architecture Principles](#architecture-principles)
-- [High-Level Architecture](#high-level-architecture)
-- [Component Architecture](#component-architecture)
-- [Data Architecture](#data-architecture)
-- [Security Architecture](#security-architecture)
-- [Deployment Architecture](#deployment-architecture)
-- [Monitoring Architecture](#monitoring-architecture)
-- [Scalability Considerations](#scalability-considerations)
-- [Technology Stack](#technology-stack)
+- [システム概要](#システム概要)
+- [アーキテクチャ原則](#アーキテクチャ原則)
+- [高レベルアーキテクチャ](#高レベルアーキテクチャ)
+- [コンポーネントアーキテクチャ](#コンポーネントアーキテクチャ)
+- [データアーキテクチャ](#データアーキテクチャ)
+- [セキュリティアーキテクチャ](#セキュリティアーキテクチャ)
+- [デプロイメントアーキテクチャ](#デプロイメントアーキテクチャ)
+- [監視アーキテクチャ](#監視アーキテクチャ)
+- [スケーラビリティの考慮事項](#スケーラビリティの考慮事項)
+- [技術スタック](#技術スタック)
 
-## 🌐 System Overview
+## 🌐 システム概要
 
-ImgStream is a cloud-native photo management application designed for scalability, security, and maintainability. The system follows microservices principles with a focus on serverless computing and managed services.
+ImgStream は、スケーラビリティ、セキュリティ、保守性を考慮して設計されたクラウドネイティブ写真管理アプリケーションです。システムは、サーバーレスコンピューティングとマネージドサービスに焦点を当てたマイクロサービス原則に従っています。
 
-### Key Characteristics
+### 主要特性
 
-- **Cloud-Native**: Built for Google Cloud Platform with serverless architecture
-- **Scalable**: Auto-scaling based on demand with no fixed infrastructure
-- **Secure**: Enterprise-grade security with IAP and comprehensive monitoring
-- **Resilient**: Fault-tolerant design with automatic recovery mechanisms
-- **Observable**: Comprehensive monitoring, logging, and alerting
+- **クラウドネイティブ**: サーバーレスアーキテクチャで Google Cloud Platform 向けに構築
+- **スケーラブル**: 固定インフラなしで需要に基づく自動スケーリング
+- **セキュア**: IAP と包括的監視によるエンタープライズグレードセキュリティ
+- **レジリエント**: 自動復旧メカニズムを備えた耐障害性設計
+- **観測可能**: 包括的な監視、ログ、アラート
 
-### Design Goals
+### 設計目標
 
-1. **Simplicity**: Minimize complexity while maintaining functionality
-2. **Performance**: Sub-second response times for common operations
-3. **Reliability**: 99.9% uptime with automatic failover
-4. **Security**: Zero-trust security model with defense in depth
-5. **Cost-Effectiveness**: Pay-per-use model with efficient resource utilization
+1. **シンプルさ**: 機能を維持しながら複雑さを最小化
+2. **パフォーマンス**: 一般的な操作で 1 秒未満の応答時間
+3. **信頼性**: 自動フェイルオーバーで 99.9%の稼働時間
+4. **セキュリティ**: 多層防御によるゼロトラストセキュリティモデル
+5. **コスト効率**: 効率的なリソース利用による従量課金モデル
 
 ## 🏗️ Architecture Principles
 
@@ -81,18 +81,18 @@ graph TB
         MOBILE[Mobile App]
         API_CLIENT[API Client]
     end
-    
+
     subgraph "Edge Layer"
         CDN[Cloud CDN]
         LB[Load Balancer]
         WAF[Web Application Firewall]
     end
-    
+
     subgraph "Security Layer"
         IAP[Identity-Aware Proxy]
         JWT[JWT Validation]
     end
-    
+
     subgraph "Application Layer"
         CR[Cloud Run Service]
         subgraph "Application Components"
@@ -103,52 +103,52 @@ graph TB
             IMG_PROC[Image Processing]
         end
     end
-    
+
     subgraph "Data Layer"
         GCS[Cloud Storage]
         DB[(DuckDB)]
         CACHE[Redis Cache]
     end
-    
+
     subgraph "Platform Services"
         MONITORING[Cloud Monitoring]
         LOGGING[Cloud Logging]
         SECRET[Secret Manager]
         IAM[Identity & Access Management]
     end
-    
+
     subgraph "CI/CD Pipeline"
         GITHUB[GitHub Repository]
         ACTIONS[GitHub Actions]
         BUILD[Cloud Build]
         REGISTRY[Container Registry]
     end
-    
+
     WEB --> CDN
     MOBILE --> CDN
     API_CLIENT --> CDN
-    
+
     CDN --> LB
     LB --> WAF
     WAF --> IAP
     IAP --> JWT
     JWT --> CR
-    
+
     CR --> STREAMLIT
     CR --> API
     API --> AUTH
     API --> STORAGE_SVC
     API --> IMG_PROC
-    
+
     STORAGE_SVC --> GCS
     API --> DB
     API --> CACHE
-    
+
     CR --> MONITORING
     CR --> LOGGING
     AUTH --> SECRET
     CR --> IAM
-    
+
     GITHUB --> ACTIONS
     ACTIONS --> BUILD
     BUILD --> REGISTRY
@@ -160,6 +160,7 @@ graph TB
 ### Frontend Components
 
 #### Streamlit Application
+
 - **Purpose**: Web-based user interface
 - **Technology**: Python Streamlit framework
 - **Responsibilities**:
@@ -188,6 +189,7 @@ src/imgstream/
 ### Backend Components
 
 #### API Service Layer
+
 - **Purpose**: RESTful API endpoints
 - **Technology**: FastAPI framework
 - **Responsibilities**:
@@ -218,46 +220,49 @@ src/imgstream/api/
 #### Core Services
 
 ##### Authentication Service
+
 ```python
 class AuthService:
     """Handles user authentication and authorization."""
-    
+
     def validate_iap_token(self, token: str) -> User:
         """Validate IAP JWT token and extract user info."""
-        
+
     def get_current_user(self, request: Request) -> User:
         """Get current authenticated user."""
-        
+
     def check_permissions(self, user: User, resource: str, action: str) -> bool:
         """Check user permissions for resource access."""
 ```
 
 ##### Storage Service
+
 ```python
 class StorageService:
     """Handles file storage operations."""
-    
+
     def upload_file(self, file: UploadFile, user_id: str) -> StorageResult:
         """Upload file to cloud storage."""
-        
+
     def generate_signed_url(self, file_path: str, expiration: int) -> str:
         """Generate signed URL for file access."""
-        
+
     def delete_file(self, file_path: str) -> bool:
         """Delete file from storage."""
 ```
 
 ##### Image Processing Service
+
 ```python
 class ImageProcessingService:
     """Handles image processing operations."""
-    
+
     def generate_thumbnail(self, image_path: str, size: tuple) -> str:
         """Generate thumbnail for image."""
-        
+
     def extract_metadata(self, image_path: str) -> dict:
         """Extract EXIF metadata from image."""
-        
+
     def optimize_image(self, image_path: str, quality: int) -> str:
         """Optimize image for web delivery."""
 ```
@@ -265,19 +270,20 @@ class ImageProcessingService:
 ### Data Access Layer
 
 #### Database Service
+
 ```python
 class DatabaseService:
     """Handles database operations."""
-    
+
     def __init__(self):
         self.connection = duckdb.connect(config.database.path)
-        
+
     def create_photo(self, photo_data: PhotoCreate) -> Photo:
         """Create new photo record."""
-        
+
     def get_photos(self, user_id: str, filters: PhotoFilters) -> List[Photo]:
         """Get user's photos with filtering."""
-        
+
     def update_photo(self, photo_id: str, updates: PhotoUpdate) -> Photo:
         """Update photo metadata."""
 ```
@@ -295,7 +301,7 @@ sequenceDiagram
     participant Storage
     participant Database
     participant ImageProc
-    
+
     User->>Frontend: Upload Photo
     Frontend->>API: POST /photos
     API->>Auth: Validate Token
@@ -313,6 +319,7 @@ sequenceDiagram
 ### Data Models
 
 #### Photo Entity
+
 ```sql
 CREATE TABLE photos (
     id VARCHAR PRIMARY KEY,
@@ -335,6 +342,7 @@ CREATE TABLE photos (
 ```
 
 #### User Entity
+
 ```sql
 CREATE TABLE users (
     id VARCHAR PRIMARY KEY,
@@ -352,6 +360,7 @@ CREATE TABLE users (
 ### Storage Strategy
 
 #### File Storage (Google Cloud Storage)
+
 ```
 gs://imgstream-{environment}-bucket/
 ├── photos/
@@ -370,6 +379,7 @@ gs://imgstream-{environment}-bucket/
 ```
 
 #### Database Storage (DuckDB)
+
 - **Metadata Storage**: Photo metadata, user information, relationships
 - **Analytics**: Usage statistics, performance metrics
 - **Configuration**: Application settings, feature flags
@@ -385,7 +395,7 @@ sequenceDiagram
     participant IAP
     participant CloudRun
     participant AuthService
-    
+
     User->>Browser: Access Application
     Browser->>IAP: Request with Credentials
     IAP->>IAP: Validate Identity
@@ -400,17 +410,20 @@ sequenceDiagram
 ### Security Layers
 
 #### 1. Network Security
+
 - **Cloud CDN**: DDoS protection and edge caching
 - **Load Balancer**: SSL termination and traffic distribution
 - **VPC**: Network isolation and firewall rules
 
 #### 2. Application Security
+
 - **Identity-Aware Proxy**: User authentication and authorization
 - **JWT Validation**: Token-based security
 - **CSRF Protection**: Cross-site request forgery prevention
 - **Rate Limiting**: API abuse prevention
 
 #### 3. Data Security
+
 - **Encryption at Rest**: All data encrypted in storage
 - **Encryption in Transit**: TLS 1.3 for all communications
 - **Access Controls**: Fine-grained permissions
@@ -425,22 +438,22 @@ graph TB
         BUILD_SA[Cloud Build Service Account]
         GITHUB_SA[GitHub Actions Service Account]
     end
-    
+
     subgraph "Resources"
         GCS[Cloud Storage]
         MONITORING[Cloud Monitoring]
         LOGGING[Cloud Logging]
         SECRET[Secret Manager]
     end
-    
+
     CR_SA --> GCS
     CR_SA --> MONITORING
     CR_SA --> LOGGING
     CR_SA --> SECRET
-    
+
     BUILD_SA --> GCS
     BUILD_SA --> CR_SA
-    
+
     GITHUB_SA --> BUILD_SA
     GITHUB_SA --> GCS
 ```
@@ -456,19 +469,19 @@ graph LR
         DEV_TEST[Local Testing]
         DEV_ENV[Dev Environment]
     end
-    
+
     subgraph "Staging"
         STAGE_DEPLOY[Auto Deploy]
         STAGE_TEST[Integration Tests]
         STAGE_ENV[Staging Environment]
     end
-    
+
     subgraph "Production"
         PROD_APPROVE[Manual Approval]
         PROD_DEPLOY[Production Deploy]
         PROD_ENV[Production Environment]
     end
-    
+
     DEV_CODE --> DEV_TEST
     DEV_TEST --> DEV_ENV
     DEV_ENV --> STAGE_DEPLOY
@@ -528,29 +541,29 @@ graph TB
         LOGS[Structured Logging]
         TRACES[Distributed Tracing]
     end
-    
+
     subgraph "Google Cloud Observability"
         MONITORING[Cloud Monitoring]
         LOGGING[Cloud Logging]
         TRACE[Cloud Trace]
         ERROR[Error Reporting]
     end
-    
+
     subgraph "Alerting & Dashboards"
         ALERTS[Alert Policies]
         DASH[Dashboards]
         NOTIF[Notifications]
     end
-    
+
     APP --> METRICS
     APP --> LOGS
     APP --> TRACES
-    
+
     METRICS --> MONITORING
     LOGS --> LOGGING
     TRACES --> TRACE
     LOGS --> ERROR
-    
+
     MONITORING --> ALERTS
     MONITORING --> DASH
     ALERTS --> NOTIF
@@ -559,18 +572,21 @@ graph TB
 ### Metrics Collection
 
 #### Application Metrics
+
 - Request rate and response times
 - Error rates and types
 - Business metrics (uploads, users)
 - Resource utilization
 
 #### Infrastructure Metrics
+
 - Container CPU and memory usage
 - Storage utilization
 - Network throughput
 - Database performance
 
 #### Custom Metrics
+
 ```python
 from src.imgstream.monitoring import get_metrics_collector
 
@@ -592,6 +608,7 @@ metrics.record_error("storage_error", {"operation": "upload"})
 ### Horizontal Scaling
 
 #### Auto-scaling Configuration
+
 ```yaml
 # Cloud Run scaling configuration
 spec:
@@ -607,6 +624,7 @@ spec:
 ```
 
 #### Performance Optimization
+
 - **Connection Pooling**: Efficient database connections
 - **Caching Strategy**: Redis for frequently accessed data
 - **CDN Integration**: Edge caching for static assets
@@ -615,16 +633,17 @@ spec:
 ### Vertical Scaling
 
 #### Resource Allocation
+
 ```yaml
 # Environment-specific resource limits
 development:
   cpu: "1"
   memory: "512Mi"
-  
+
 staging:
   cpu: "1"
   memory: "1Gi"
-  
+
 production:
   cpu: "2"
   memory: "2Gi"
@@ -633,6 +652,7 @@ production:
 ### Data Scaling
 
 #### Storage Strategy
+
 - **Partitioning**: User-based data partitioning
 - **Archiving**: Automated data lifecycle management
 - **Backup**: Regular automated backups
@@ -642,63 +662,66 @@ production:
 
 ### Core Technologies
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Frontend** | Streamlit | Web application framework |
-| **Backend** | FastAPI | REST API framework |
-| **Language** | Python 3.11 | Primary programming language |
-| **Database** | DuckDB | Embedded analytics database |
-| **Storage** | Google Cloud Storage | Object storage |
-| **Container** | Docker | Application containerization |
+| Layer         | Technology           | Purpose                      |
+| ------------- | -------------------- | ---------------------------- |
+| **Frontend**  | Streamlit            | Web application framework    |
+| **Backend**   | FastAPI              | REST API framework           |
+| **Language**  | Python 3.11          | Primary programming language |
+| **Database**  | DuckDB               | Embedded analytics database  |
+| **Storage**   | Google Cloud Storage | Object storage               |
+| **Container** | Docker               | Application containerization |
 
 ### Cloud Platform
 
-| Service | Purpose |
-|---------|---------|
-| **Cloud Run** | Serverless container platform |
-| **Cloud Build** | CI/CD pipeline |
-| **Cloud Storage** | File storage |
-| **Cloud Monitoring** | Observability |
-| **Cloud Logging** | Log management |
-| **Identity-Aware Proxy** | Authentication |
-| **Secret Manager** | Secrets management |
+| Service                  | Purpose                       |
+| ------------------------ | ----------------------------- |
+| **Cloud Run**            | Serverless container platform |
+| **Cloud Build**          | CI/CD pipeline                |
+| **Cloud Storage**        | File storage                  |
+| **Cloud Monitoring**     | Observability                 |
+| **Cloud Logging**        | Log management                |
+| **Identity-Aware Proxy** | Authentication                |
+| **Secret Manager**       | Secrets management            |
 
 ### Development Tools
 
-| Tool | Purpose |
-|------|---------|
-| **uv** | Python package management |
-| **Black** | Code formatting |
-| **Ruff** | Python linting |
-| **MyPy** | Static type checking |
-| **Pytest** | Testing framework |
-| **Terraform** | Infrastructure as Code |
+| Tool          | Purpose                   |
+| ------------- | ------------------------- |
+| **uv**        | Python package management |
+| **Black**     | Code formatting           |
+| **Ruff**      | Python linting            |
+| **MyPy**      | Static type checking      |
+| **Pytest**    | Testing framework         |
+| **Terraform** | Infrastructure as Code    |
 
 ### Monitoring & Observability
 
-| Tool | Purpose |
-|------|---------|
-| **Cloud Monitoring** | Metrics and alerting |
-| **Cloud Logging** | Centralized logging |
-| **Cloud Trace** | Distributed tracing |
-| **Error Reporting** | Error tracking |
+| Tool                  | Purpose                |
+| --------------------- | ---------------------- |
+| **Cloud Monitoring**  | Metrics and alerting   |
+| **Cloud Logging**     | Centralized logging    |
+| **Cloud Trace**       | Distributed tracing    |
+| **Error Reporting**   | Error tracking         |
 | **Custom Dashboards** | Operational visibility |
 
 ## 🔄 Future Architecture Considerations
 
 ### Microservices Evolution
+
 - **Service Decomposition**: Split into focused microservices
 - **Event-Driven Architecture**: Implement event sourcing
 - **API Gateway**: Centralized API management
 - **Service Mesh**: Advanced traffic management
 
 ### Advanced Features
+
 - **Machine Learning**: Automated image tagging and search
 - **Real-time Processing**: WebSocket support for live updates
 - **Multi-tenancy**: Support for multiple organizations
 - **Global Distribution**: Multi-region deployment
 
 ### Technology Upgrades
+
 - **Kubernetes**: Migration to GKE for advanced orchestration
 - **GraphQL**: Enhanced API flexibility
 - **Streaming**: Real-time data processing

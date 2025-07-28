@@ -1,40 +1,40 @@
-# ImgStream API Specification
+# ImgStream API仕様書
 
-This document provides comprehensive API documentation for the ImgStream photo management application.
+このドキュメントは、ImgStream写真管理アプリケーションの包括的なAPIドキュメントを提供します。
 
-## 📋 Table of Contents
+## 📋 目次
 
-- [Overview](#overview)
-- [Authentication](#authentication)
-- [Base URLs](#base-urls)
-- [Common Headers](#common-headers)
-- [Error Handling](#error-handling)
-- [Rate Limiting](#rate-limiting)
-- [Health Check Endpoints](#health-check-endpoints)
-- [Photo Management Endpoints](#photo-management-endpoints)
-- [User Management Endpoints](#user-management-endpoints)
-- [Data Models](#data-models)
-- [Examples](#examples)
+- [概要](#概要)
+- [認証](#認証)
+- [ベースURL](#ベースurl)
+- [共通ヘッダー](#共通ヘッダー)
+- [エラーハンドリング](#エラーハンドリング)
+- [レート制限](#レート制限)
+- [ヘルスチェックエンドポイント](#ヘルスチェックエンドポイント)
+- [写真管理エンドポイント](#写真管理エンドポイント)
+- [ユーザー管理エンドポイント](#ユーザー管理エンドポイント)
+- [データモデル](#データモデル)
+- [例](#例)
 
-## 🌐 Overview
+## 🌐 概要
 
-The ImgStream API is a RESTful web service that provides photo management capabilities including upload, storage, retrieval, and metadata management. The API is built using FastAPI and follows OpenAPI 3.0 specifications.
+ImgStream APIは、アップロード、保存、取得、メタデータ管理を含む写真管理機能を提供するRESTful Webサービスです。APIはFastAPIを使用して構築され、OpenAPI 3.0仕様に従っています。
 
-### API Version
+### APIバージョン
 
-- **Current Version**: v1
-- **Base Path**: `/api/v1`
-- **Protocol**: HTTPS only
-- **Format**: JSON
+- **現在のバージョン**: v1
+- **ベースパス**: `/api/v1`
+- **プロトコル**: HTTPS のみ
+- **フォーマット**: JSON
 
-### Features
+### 機能
 
-- Secure photo upload and storage
-- Thumbnail generation
-- Metadata management
-- User authentication via Google Cloud IAP
-- Real-time health monitoring
-- Comprehensive error handling
+- 安全な写真のアップロードと保存
+- サムネイル生成
+- メタデータ管理
+- Google Cloud IAPによるユーザー認証
+- リアルタイムヘルス監視
+- 包括的なエラーハンドリング
 
 ## 🔐 Authentication
 

@@ -1,32 +1,32 @@
-# Production Deployment Guide
+# 本番デプロイメントガイド
 
-This guide covers the complete process for deploying imgstream to production on Google Cloud Platform.
+このガイドでは、Google Cloud Platform上でimgstreamを本番環境にデプロイするための完全なプロセスをカバーしています。
 
-## Prerequisites
+## 前提条件
 
-Before starting the production deployment, ensure you have:
+本番デプロイメントを開始する前に、以下を確認してください：
 
-1. **Google Cloud Project**: A GCP project with billing enabled
-2. **Required Permissions**: Owner or Editor role on the GCP project
-3. **Tools Installed**:
-   - `gcloud` CLI (authenticated)
+1. **Google Cloudプロジェクト**: 課金が有効化されたGCPプロジェクト
+2. **必要な権限**: GCPプロジェクトのオーナーまたはエディター権限
+3. **インストール済みツール**:
+   - `gcloud` CLI（認証済み）
    - `terraform` (>= 1.0)
-   - `docker` (for building images)
-   - `git` (for version control)
+   - `docker`（イメージビルド用）
+   - `git`（バージョン管理用）
 
-## Pre-Deployment Checklist
+## デプロイメント前チェックリスト
 
-### 1. Environment Setup
+### 1. 環境セットアップ
 
 ```bash
-# Set your project ID
+# プロジェクトIDを設定
 export PROJECT_ID="your-gcp-project-id"
 
-# Authenticate with Google Cloud
+# Google Cloudで認証
 gcloud auth login
 gcloud config set project $PROJECT_ID
 
-# Enable required APIs
+# 必要なAPIを有効化
 gcloud services enable \
   run.googleapis.com \
   storage.googleapis.com \
@@ -36,18 +36,18 @@ gcloud services enable \
   iap.googleapis.com
 ```
 
-### 2. Configuration Review
+### 2. 設定の確認
 
-1. **Update Production Configuration**:
+1. **本番設定の更新**:
    ```bash
-   # Edit the production Terraform variables
+   # 本番用Terraform変数を編集
    vim terraform/environments/prod.tfvars
    ```
 
-   Key settings to update:
-   - `iap_support_email`: Your support email address
-   - `allowed_domains`: Your organization's domains (optional)
-   - `allowed_users`: Specific user emails (optional)
+   更新すべき主要設定:
+   - `iap_support_email`: サポートメールアドレス
+   - `allowed_domains`: 組織のドメイン（オプション）
+   - `allowed_users`: 特定のユーザーメール（オプション）
    - `custom_domain`: Your custom domain (optional)
 
 2. **Review Security Settings**:

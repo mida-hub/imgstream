@@ -1,45 +1,45 @@
-# Deployment Scripts
+# デプロイメントスクリプト
 
-This directory contains scripts for deploying imgstream to various environments.
+このディレクトリには、imgstreamを様々な環境にデプロイするためのスクリプトが含まれています。
 
-## Scripts Overview
+## スクリプト概要
 
-### Production Deployment
+### 本番デプロイメント
 
-- **`deploy-production.sh`**: Complete production deployment script
-- **`setup-production-secrets.sh`**: Set up secrets and resources for production
-- **`deploy-cloud-run.sh`**: Deploy application to Cloud Run (any environment)
+- **`deploy-production.sh`**: 完全な本番デプロイメントスクリプト
+- **`setup-production-secrets.sh`**: 本番用のシークレットとリソースのセットアップ
+- **`deploy-cloud-run.sh`**: Cloud Runへのアプリケーションデプロイ（全環境対応）
 
-### Development and Testing
+### 開発とテスト
 
-- **`build-image.sh`**: Build Docker image for the application
-- **`run-e2e-tests.sh`**: Run end-to-end tests
+- **`build-image.sh`**: アプリケーション用Dockerイメージのビルド
+- **`run-e2e-tests.sh`**: エンドツーエンドテストの実行
 
-## Quick Start
+## クイックスタート
 
-### 1. Production Deployment
+### 1. 本番デプロイメント
 
 ```bash
-# Set your project ID
+# プロジェクトIDを設定
 export PROJECT_ID="your-gcp-project-id"
 
-# Set up secrets and resources
+# シークレットとリソースをセットアップ
 ./scripts/setup-production-secrets.sh -p $PROJECT_ID
 
-# Build and push image
+# イメージをビルドしてプッシュ
 gcloud builds submit --tag gcr.io/$PROJECT_ID/imgstream:latest
 
-# Deploy to production
+# 本番環境にデプロイ
 ./scripts/deploy-production.sh -p $PROJECT_ID -i gcr.io/$PROJECT_ID/imgstream:latest
 ```
 
-### 2. Development Deployment
+### 2. 開発環境デプロイメント
 
 ```bash
-# Build image
+# イメージをビルド
 ./scripts/build-image.sh
 
-# Deploy to development
+# 開発環境にデプロイ
 ./scripts/deploy-cloud-run.sh -p $PROJECT_ID -e dev -i gcr.io/$PROJECT_ID/imgstream:latest
 ```
 

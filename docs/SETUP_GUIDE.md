@@ -1,39 +1,39 @@
-# ImgStream Setup Guide
+# ImgStream セットアップガイド
 
-This comprehensive guide walks you through setting up ImgStream from development to production deployment.
+この包括的なガイドは、開発から本番デプロイメントまでのImgStreamのセットアップ手順を説明します。
 
-## 📋 Table of Contents
+## 📋 目次
 
-- [Prerequisites](#prerequisites)
-- [Development Setup](#development-setup)
-- [Local Configuration](#local-configuration)
-- [Google Cloud Setup](#google-cloud-setup)
-- [Production Deployment](#production-deployment)
-- [Monitoring Setup](#monitoring-setup)
-- [Troubleshooting](#troubleshooting)
-- [Next Steps](#next-steps)
+- [前提条件](#前提条件)
+- [開発環境セットアップ](#開発環境セットアップ)
+- [ローカル設定](#ローカル設定)
+- [Google Cloudセットアップ](#google-cloudセットアップ)
+- [本番デプロイメント](#本番デプロイメント)
+- [監視セットアップ](#監視セットアップ)
+- [トラブルシューティング](#トラブルシューティング)
+- [次のステップ](#次のステップ)
 
-## 🔧 Prerequisites
+## 🔧 前提条件
 
-### System Requirements
+### システム要件
 
-- **Operating System**: macOS, Linux, or Windows with WSL2
-- **Python**: 3.11 or higher
-- **Memory**: 8GB RAM minimum (16GB recommended)
-- **Storage**: 20GB free disk space
-- **Network**: Stable internet connection
+- **オペレーティングシステム**: macOS、Linux、またはWSL2付きWindows
+- **Python**: 3.11以上
+- **メモリ**: 最低8GB RAM（16GB推奨）
+- **ストレージ**: 20GBの空きディスク容量
+- **ネットワーク**: 安定したインターネット接続
 
-### Required Accounts
+### 必要なアカウント
 
-1. **Google Cloud Platform Account**
-   - Active billing account
-   - Project creation permissions
-   - API access enabled
+1. **Google Cloud Platformアカウント**
+   - アクティブな請求アカウント
+   - プロジェクト作成権限
+   - API アクセス有効
 
-2. **GitHub Account** (for CI/CD)
-   - Repository access
-   - Actions enabled
-   - Secrets management permissions
+2. **GitHubアカウント** (CI/CD用)
+   - リポジトリアクセス
+   - Actions有効
+   - シークレット管理権限
 
 ### Required Tools
 

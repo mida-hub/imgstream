@@ -1,17 +1,17 @@
-# Deployment Automation Guide
+# デプロイメント自動化ガイド
 
-This comprehensive guide covers the deployment automation system for the ImgStream photo management application, including CI/CD pipelines, environment management, monitoring, and rollback procedures.
+この包括的なガイドは、CI/CDパイプライン、環境管理、監視、ロールバック手順を含む、ImgStream写真管理アプリケーションのデプロイメント自動化システムをカバーしています。
 
-## Overview
+## 概要
 
-The deployment automation system provides:
-- **Multi-environment support** (development, staging, production)
-- **Automated CI/CD pipelines** with GitHub Actions and Cloud Build
-- **Environment-specific configurations** with validation
-- **Automated testing** (unit, integration, security)
-- **Deployment monitoring** and health checks
-- **Automatic rollback** capabilities
-- **Security scanning** and compliance checks
+デプロイメント自動化システムは以下を提供します:
+- **マルチ環境サポート** (開発、ステージング、本番)
+- **自動化CI/CDパイプライン** GitHub ActionsとCloud Buildによる
+- **環境固有の設定** 検証機能付き
+- **自動テスト** (ユニット、統合、セキュリティ)
+- **デプロイメント監視** とヘルスチェック
+- **自動ロールバック** 機能
+- **セキュリティスキャン** とコンプライアンスチェック
 
 ## Architecture
 

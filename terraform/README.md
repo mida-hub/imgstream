@@ -1,47 +1,47 @@
-# Imgstream Infrastructure
+# Imgstream インフラストラクチャ
 
-This directory contains Terraform configurations for deploying the imgstream photo management application infrastructure on Google Cloud Platform.
+このディレクトリには、Google Cloud Platform上でimgstream写真管理アプリケーションのインフラストラクチャをデプロイするためのTerraform設定が含まれています。
 
-## Prerequisites
+## 前提条件
 
-1. **Google Cloud SDK**: Install and configure the gcloud CLI
+1. **Google Cloud SDK**: gcloud CLIのインストールと設定
    ```bash
-   # Install gcloud CLI (macOS)
+   # gcloud CLIのインストール (macOS)
    brew install google-cloud-sdk
    
-   # Authenticate
+   # 認証
    gcloud auth login
    gcloud auth application-default login
    ```
 
-2. **Terraform**: Install Terraform (version >= 1.0)
+2. **Terraform**: Terraformのインストール (バージョン >= 1.0)
    ```bash
-   # Install Terraform (macOS)
+   # Terraformのインストール (macOS)
    brew install terraform
    ```
 
-3. **GCP Project**: Create a GCP project and enable billing
+3. **GCPプロジェクト**: GCPプロジェクトの作成と課金の有効化
 
-## Quick Start
+## クイックスタート
 
-### Option 1: Automated Setup with IAP (Recommended for Production)
+### オプション1: IAPを使用した自動セットアップ（本番環境推奨）
 
-1. **Setup Cloud IAP with automated script**
+1. **自動スクリプトでCloud IAPをセットアップ**
    ```bash
-   # Make scripts executable
+   # スクリプトを実行可能にする
    chmod +x scripts/setup-iap.sh scripts/test-iap.sh
    
-   # Setup development environment
+   # 開発環境のセットアップ
    ./scripts/setup-iap.sh -p YOUR_PROJECT_ID -e support@example.com -env dev
    
-   # Setup production with custom domain and access control
+   # カスタムドメインとアクセス制御付きの本番環境セットアップ
    ./scripts/setup-iap.sh -p YOUR_PROJECT_ID -e support@example.com -env prod \
      -d imgstream.example.com -u admin@example.com,user@example.com
    ```
 
-2. **Test IAP configuration**
+2. **IAP設定のテスト**
    ```bash
-   # Test the setup
+   # セットアップのテスト
    ./scripts/test-iap.sh -p YOUR_PROJECT_ID -env prod
    ```
 
