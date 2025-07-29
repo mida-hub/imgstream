@@ -539,17 +539,52 @@ CMD ["python", "-m", "streamlit", "run", "src/imgstream/main.py", "--server.port
 ```hcl
 # Terraform configuration structure
 terraform/
-├── main.tf              # Main configuration
-├── variables.tf         # Input variables
-├── outputs.tf          # Output values
-├── modules/            # Reusable modules
-│   ├── cloud-run/     # Cloud Run module
-│   ├── storage/       # Storage module
-│   └── monitoring/    # Monitoring module
-└── environments/      # Environment-specific configs
-    ├── development/
-    ├── staging/
-    └── production/
+├── main.tf                    # Main configuration with GCS backend
+├── variables.tf               # Input variables
+├── outputs.tf                # Output values
+├── github-oidc.tf            # OIDC authentication setup
+├── backend-dev.tf            # Development backend config
+├── backend-prod.tf           # Production backend config
+├── modules/                  # Reusable modules
+│   ├── cloud-run/           # Cloud Run module
+│   ├── storage/             # Storage module
+│   └── monitoring/          # Monitoring module
+└── environments/            # Environment-specific configs
+    ├── dev.tfvars          # Development variables
+    ├── prod.tfvars         # Production variables
+    └── terraform.tfvars.example  # Example configuration
+```
+
+#### Backend Configuration
+
+Terraformの状態管理にはGoogle Cloud Storageを使用：
+
+```hcl
+# Backend configuration
+terraform {
+  backend "gcs" {
+    bucket = "tfstate-apps-466614"
+    prefix = "imgstream/dev"  # or "imgstream/prod"
+  }
+}
+```
+
+#### OIDC Authentication
+
+GitHub ActionsとGoogle Cloudの認証にはWorkload Identity Federationを使用：
+
+```hcl
+# Workload Identity Pool for GitHub Actions
+resource "google_iam_workload_identity_pool" "github_actions" {
+  workload_identity_pool_id = "github-actions-pool"
+  display_name              = "GitHub Actions Pool"
+}
+
+# Service Account for GitHub Actions
+resource "google_service_account" "github_actions" {
+  account_id   = "github-actions-sa"
+  display_name = "GitHub Actions Service Account"
+}
 ```
 
 ## 📊 Monitoring Architecture

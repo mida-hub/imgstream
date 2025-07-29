@@ -14,7 +14,7 @@
    gcloud auth application-default login
    ```
 
-2. **Terraform**: Terraformのインストール (バージョン >= 1.0)
+2. **Terraform**: Terraformのインストール (バージョン >= 1.12)
    ```bash
    # Terraformのインストール (macOS)
    brew install terraform

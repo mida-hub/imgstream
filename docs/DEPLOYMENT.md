@@ -88,7 +88,8 @@ To run deployment workflows, configure the following secrets in your GitHub repo
 
 | Secret Name | Description | Example |
 |---|---|---|
-| `GCP_SA_KEY` | GCP Service Account Key (JSON format) | `{"type": "service_account", ...}` |
+| `WIF_PROVIDER` | Workload Identity Federation Provider | `projects/123456789/locations/global/workloadIdentityPools/github-actions-pool/providers/github-actions-provider` |
+| `WIF_SERVICE_ACCOUNT` | GitHub Actions Service Account Email | `github-actions-sa@my-project.iam.gserviceaccount.com` |
 | `GCP_PROJECT_ID` | GCP Project ID | `my-imgstream-project` |
 | `GCS_BUCKET_DEV` | Development GCS bucket name | `my-project-imgstream-dev` |
 | `GCS_BUCKET_PROD` | Production GCS bucket name | `my-project-imgstream-prod` |
@@ -100,47 +101,38 @@ To run deployment workflows, configure the following secrets in your GitHub repo
 | `PROD_DOMAIN_URL` | Production custom domain URL | `https://imgstream.example.com` |
 | `SONAR_TOKEN` | SonarCloud token | `sqp_...` |
 
-### Service Account Creation and Setup
+### OIDC Authentication Setup
 
-1. **Create Service Account**
+**重要**: このプロジェクトではセキュリティ向上のためOIDC認証を使用しています。従来のサービスアカウントキーは不要です。
+
+1. **Terraformを使用してOIDC設定を適用**
    ```bash
-   gcloud iam service-accounts create imgstream-deploy \
-     --display-name="ImgStream Deployment Service Account" \
-     --project=YOUR_PROJECT_ID
+   # 環境別の初期化
+   ./scripts/terraform-init.sh dev  # または prod
+   
+   # OIDC設定の自動セットアップ
+   ./scripts/setup-github-oidc.sh
    ```
 
-2. **Grant Required Permissions**
+2. **GitHub Secretsの設定**
+   Terraformの出力から以下の値を取得してGitHub Secretsに設定：
+   
    ```bash
-   # Cloud Run Admin
-   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-     --member="serviceAccount:imgstream-deploy@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
-     --role="roles/run.admin"
-   
-   # Storage Admin
-   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-     --member="serviceAccount:imgstream-deploy@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
-     --role="roles/storage.admin"
-   
-   # Container Registry Admin
-   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-     --member="serviceAccount:imgstream-deploy@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
-     --role="roles/storage.admin"
-   
-   # IAM Service Account User
-   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-     --member="serviceAccount:imgstream-deploy@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
-     --role="roles/iam.serviceAccountUser"
+   # Terraform出力を確認
+   cd terraform
+   terraform output workload_identity_provider
+   terraform output github_actions_service_account_email
    ```
+   
+   GitHub repository Settings > Secrets and variables > Actions で設定：
+   - `WIF_PROVIDER`: Workload Identity Providerの完全名
+   - `WIF_SERVICE_ACCOUNT`: サービスアカウントのメールアドレス
 
-3. **Create Service Account Key**
+3. **従来のサービスアカウントキーの削除**
    ```bash
-   gcloud iam service-accounts keys create key.json \
-     --iam-account=imgstream-deploy@YOUR_PROJECT_ID.iam.gserviceaccount.com
+   # 古いGCP_SA_KEYシークレットを削除
+   # GitHub repository settings で手動削除
    ```
-
-4. **Configure GitHub Secrets**
-   - Go to GitHub repository Settings > Secrets and variables > Actions
-   - Add `GCP_SA_KEY` with the contents of `key.json`
 
 ## Deployment Methods
 

@@ -229,7 +229,9 @@ ImgStream supports multiple deployment methods:
 
 ### 1. GitHub Actions (Recommended)
 
-**重要**: GitHub ActionsではOIDC認証を使用しています。初回設定時は[GitHub OIDC設定ガイド](docs/GITHUB_OIDC_SETUP.md)を参照してください。
+**重要**: GitHub ActionsではOIDC認証を使用しています。初回設定時は以下を参照してください：
+- [GitHub OIDC設定ガイド](docs/GITHUB_OIDC_SETUP.md)
+- [Terraform Backend設定](terraform/README.md#backend設定)
 
 Automated deployment triggered by:
 - **Staging**: Push to `develop` branch
@@ -419,8 +421,9 @@ gsutil iam get gs://your-bucket-name
 # Test bucket access
 gsutil ls gs://your-bucket-name
 
-# Check service account key
-gcloud auth activate-service-account --key-file=service-account-key.json
+# Check OIDC authentication (GitHub Actions)
+# OIDC認証では長期間有効なキーファイルは不要
+# 認証はWorkload Identity Federationで自動処理
 ```
 
 #### 3. Deployment Failures

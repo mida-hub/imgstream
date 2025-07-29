@@ -85,7 +85,7 @@ sudo systemctl start docker
 sudo systemctl enable docker
 ```
 
-#### 4. Terraform (Optional, for Infrastructure as Code)
+#### 4. Terraform (Infrastructure as Code)
 
 ```bash
 # macOS with Homebrew
@@ -95,6 +95,9 @@ brew install terraform
 wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
 echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
 sudo apt update && sudo apt install terraform
+
+# Verify installation (should be >= 1.12)
+terraform version
 ```
 
 ## 💻 Development Setup
@@ -334,25 +337,33 @@ cat deploy-key.json | base64
 rm deploy-key.json
 ```
 
-### 6. Configure Terraform (Optional)
+### 6. Configure Terraform Infrastructure
 
-If using Terraform for infrastructure management:
+Terraformを使用してインフラストラクチャとOIDC認証を設定：
 
 ```bash
-# Initialize Terraform
-cd terraform/
-terraform init
+# Terraformバックエンドの初期化（開発環境）
+./scripts/terraform-init.sh dev
 
-# Create terraform.tfvars
-cat > terraform.tfvars << EOF
+# terraform.tfvarsファイルの作成
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+
+# 必要な変数を設定
+cat >> terraform.tfvars << EOF
 project_id = "$PROJECT_ID"
-region = "us-central1"
+region = "asia-northeast1"
 environment = "development"
+github_repository = "your-username/your-repository-name"
 EOF
 
-# Plan and apply infrastructure
-terraform plan
-terraform apply
+# インフラストラクチャの適用
+terraform plan -var-file=environments/dev.tfvars
+terraform apply -var-file=environments/dev.tfvars
+
+# OIDC設定の自動セットアップ（推奨）
+cd ..
+./scripts/setup-github-oidc.sh
 ```
 
 ## 🚀 Production Deployment
@@ -370,14 +381,25 @@ git checkout -b develop
 git push origin develop
 ```
 
-### 2. Configure GitHub Secrets
+### 2. Configure GitHub Secrets (OIDC Authentication)
 
-Go to your GitHub repository settings and add the following secrets:
+**重要**: このプロジェクトではOIDC認証を使用します。従来のサービスアカウントキーは不要です。
+
+Terraformの出力から必要な値を取得：
+
+```bash
+cd terraform
+terraform output workload_identity_provider
+terraform output github_actions_service_account_email
+```
+
+GitHub repository settings で以下のシークレットを設定：
 
 | Secret Name | Value | Description |
 |-------------|-------|-------------|
-| `GCP_SA_KEY` | Base64 encoded service account key | Deployment authentication |
-| `GOOGLE_CLOUD_PROJECT` | Your project ID | GCP project identifier |
+| `WIF_PROVIDER` | Terraform出力の値 | Workload Identity Federation Provider |
+| `WIF_SERVICE_ACCOUNT` | Terraform出力の値 | GitHub Actions Service Account Email |
+| `GCP_PROJECT_ID` | Your project ID | GCP project identifier |
 | `GCS_BUCKET_DEV` | `$PROJECT_ID-imgstream-dev` | Development storage bucket |
 | `GCS_BUCKET_STAGING` | `$PROJECT_ID-imgstream-staging` | Staging storage bucket |
 | `GCS_BUCKET_PROD` | `$PROJECT_ID-imgstream-prod` | Production storage bucket |

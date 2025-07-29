@@ -25,7 +25,7 @@ GitHub Actions → GitHub OIDC Provider → Google Cloud Workload Identity Feder
 
 以下のツールがインストールされていることを確認してください：
 
-- [Terraform](https://www.terraform.io/downloads.html) >= 1.0
+- [Terraform](https://www.terraform.io/downloads.html) >= 1.12
 - [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) >= 400.0.0
 - Git
 

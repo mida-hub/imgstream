@@ -4,6 +4,11 @@
 
 ## スクリプト概要
 
+### インフラストラクチャ管理
+
+- **`terraform-init.sh`**: 環境別Terraform初期化（GCSバックエンド対応）
+- **`setup-github-oidc.sh`**: GitHub Actions OIDC認証の自動セットアップ
+
 ### 本番デプロイメント
 
 - **`deploy-production.sh`**: 完全な本番デプロイメントスクリプト
@@ -45,11 +50,59 @@ gcloud builds submit --tag gcr.io/$PROJECT_ID/imgstream:latest
 
 ## Script Details
 
-### deploy-production.sh
+### インフラストラクチャ管理スクリプト
+
+#### terraform-init.sh
+
+環境別のTerraform初期化スクリプト（GCSバックエンド対応）。
+
+**Usage:**
+```bash
+./scripts/terraform-init.sh [dev|prod]
+```
+
+**機能:**
+- 前提条件の検証（Terraform、gcloud）
+- Terraformステートバケットの確認・作成
+- 環境別バックエンド設定での初期化
+- ステート保護のためのバケットバージョニング有効化
+
+**例:**
+```bash
+# 開発環境の初期化
+./scripts/terraform-init.sh dev
+
+# 本番環境の初期化
+./scripts/terraform-init.sh prod
+```
+
+#### setup-github-oidc.sh
+
+GitHub Actions OIDC認証とGoogle Cloudの自動セットアップスクリプト。
+
+**Usage:**
+```bash
+./scripts/setup-github-oidc.sh
+```
+
+**機能:**
+- 現在のプロジェクトとGitHubリポジトリの検出
+- Terraform設定ファイルの更新
+- OIDCインフラストラクチャの適用
+- GitHub Secrets設定手順の表示
+
+**前提条件:**
+- Terraform >= 1.12
+- gcloud CLI認証済み
+- GitHubリモートを持つGitリポジトリ
+
+### デプロイメントスクリプト
+
+#### deploy-production.sh
 
 Complete production deployment script that:
 - Validates prerequisites
-- Deploys infrastructure with Terraform
+- Deploys infrastructure with Terraform (using GCS backend)
 - Deploys application to Cloud Run
 - Performs health checks
 - Provides deployment summary
@@ -162,7 +215,7 @@ Before using these scripts, ensure you have:
    ```
 
 2. **Required Tools**:
-   - `terraform` (>= 1.0)
+   - `terraform` (>= 1.12)
    - `docker` (for building images)
    - `curl` (for health checks)
 
@@ -218,9 +271,12 @@ The scripts use these environment variables:
 
 4. **Terraform State Issues**:
    ```bash
-   # Initialize Terraform
+   # Initialize Terraform with environment-specific backend
+   ./scripts/terraform-init.sh dev  # or prod
+   
+   # Or manually initialize
    cd terraform
-   terraform init
+   terraform init -backend-config=backend-dev.tf
    ```
 
 ### Getting Help
