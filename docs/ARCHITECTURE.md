@@ -109,8 +109,7 @@ graph TB
     subgraph "CI/CD Pipeline"
         GITHUB[GitHub Repository]
         ACTIONS[GitHub Actions]
-        BUILD[Cloud Build]
-        REGISTRY[Container Registry]
+        REGISTRY[Artifact Registry]
     end
 
     WEB --> LB
@@ -130,8 +129,7 @@ graph TB
     SERVICES --> SECRET
 
     GITHUB --> ACTIONS
-    ACTIONS --> BUILD
-    BUILD --> REGISTRY
+    ACTIONS --> REGISTRY
     REGISTRY --> CR
 ```
 
@@ -463,7 +461,6 @@ sequenceDiagram
 graph TB
     subgraph "Service Accounts"
         CR_SA[Cloud Run Service Account]
-        BUILD_SA[Cloud Build Service Account]
         GITHUB_SA[GitHub Actions Service Account]
     end
 
@@ -472,6 +469,7 @@ graph TB
         MONITORING[Cloud Monitoring]
         LOGGING[Cloud Logging]
         SECRET[Secret Manager]
+        REGISTRY[Artifact Registry]
     end
 
     CR_SA --> GCS
@@ -479,10 +477,7 @@ graph TB
     CR_SA --> LOGGING
     CR_SA --> SECRET
 
-    BUILD_SA --> GCS
-    BUILD_SA --> CR_SA
-
-    GITHUB_SA --> BUILD_SA
+    GITHUB_SA --> REGISTRY
     GITHUB_SA --> GCS
 ```
 
@@ -703,7 +698,7 @@ production:
 | Service                  | Purpose                       |
 | ------------------------ | ----------------------------- |
 | **Cloud Run**            | Serverless container platform |
-| **Cloud Build**          | CI/CD pipeline                |
+| **Artifact Registry**    | Container image storage       |
 | **Cloud Storage**        | File storage                  |
 | **Cloud Monitoring**     | Observability                 |
 | **Cloud Logging**        | Log management                |
