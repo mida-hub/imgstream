@@ -1,0 +1,286 @@
+name: Terraform
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+      action:
+        description: 'Terraform action'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+env:
+  TF_VERSION: "1.6.0"
+
+permissions:
+  contents: read
+  id-token: write  # Required for OIDC authentication
+  pull-requests: write  # Required for PR comments
+
+jobs:
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive terraform/
+        
+      - name: Terraform Validate (without backend)
+        run: |
+          cd terraform
+          terraform init -backend=false
+          terraform validate
+
+  terraform-plan-dev:
+    name: Terraform Plan (Development)
+    runs-on: ubuntu-latest
+    needs: terraform-validate
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    environment: development
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Initialize Terraform (Development)
+        run: |
+          cd terraform
+          terraform init -backend-config=backend-dev.tf
+          
+      - name: Terraform Plan (Development)
+        id: plan-dev
+        run: |
+          cd terraform
+          terraform plan -var-file=environments/dev.tfvars -var="project_id=${{ secrets.GCP_PROJECT_ID }}" -no-color -out=tfplan-dev
+        continue-on-error: true
+        
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan-dev
+          path: terraform/tfplan-dev
+          
+      - name: Comment PR (Development Plan)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            
+            // Get plan output
+            let planOutput = '';
+            try {
+              planOutput = execSync('cd terraform && terraform show -no-color tfplan-dev', { encoding: 'utf8' });
+            } catch (error) {
+              planOutput = 'Error reading plan output';
+            }
+            
+            const comment = `## 🏗️ Terraform Plan (Development)
+            
+            <details>
+            <summary>Show Plan</summary>
+            
+            \`\`\`
+            ${planOutput}
+            \`\`\`
+            
+            </details>
+            
+            **Plan Status**: ${{ steps.plan-dev.outcome }}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  terraform-apply-dev:
+    name: Terraform Apply (Development)
+    runs-on: ubuntu-latest
+    needs: terraform-plan-dev
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: development
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Initialize Terraform (Development)
+        run: |
+          cd terraform
+          terraform init -backend-config=backend-dev.tf
+          
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v3
+        with:
+          name: tfplan-dev
+          path: terraform/
+          
+      - name: Terraform Apply (Development)
+        run: |
+          cd terraform
+          terraform apply -auto-approve tfplan-dev
+
+  terraform-plan-prod:
+    name: Terraform Plan (Production)
+    runs-on: ubuntu-latest
+    needs: terraform-validate
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'prod'
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Initialize Terraform (Production)
+        run: |
+          cd terraform
+          terraform init -backend-config=backend-prod.tf
+          
+      - name: Terraform Plan (Production)
+        id: plan-prod
+        run: |
+          cd terraform
+          terraform plan -var-file=environments/prod.tfvars -var="project_id=${{ secrets.GCP_PROJECT_ID }}" -no-color -out=tfplan-prod
+          
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: tfplan-prod
+          path: terraform/tfplan-prod
+
+  terraform-apply-prod:
+    name: Terraform Apply (Production)
+    runs-on: ubuntu-latest
+    needs: terraform-plan-prod
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply' && github.event.inputs.environment == 'prod'
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Initialize Terraform (Production)
+        run: |
+          cd terraform
+          terraform init -backend-config=backend-prod.tf
+          
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v3
+        with:
+          name: tfplan-prod
+          path: terraform/
+          
+      - name: Terraform Apply (Production)
+        run: |
+          cd terraform
+          terraform apply -auto-approve tfplan-prod
+
+  terraform-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          
+      - name: Initialize Terraform
+        run: |
+          cd terraform
+          terraform init -backend-config=backend-${{ github.event.inputs.environment }}.tf
+          
+      - name: Terraform Destroy
+        run: |
+          cd terraform
+          terraform destroy -var-file=environments/${{ github.event.inputs.environment }}.tfvars -var="project_id=${{ secrets.GCP_PROJECT_ID }}" -auto-approve

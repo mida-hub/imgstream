@@ -156,3 +156,9 @@ variable "session_duration" {
   type        = number
   default     = 3600  # 1 hour
 }
+
+# GitHub Actions OIDC configuration
+variable "github_repository" {
+  description = "GitHub repository in the format 'owner/repo' for OIDC authentication"
+  type        = string
+}

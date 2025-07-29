@@ -5,31 +5,47 @@ region      = "asia-northeast1"
 
 # Storage configuration for development
 bucket_location         = "ASIA"
-lifecycle_coldline_days = 7   # Shorter lifecycle for dev
-lifecycle_archive_days  = 30  # Shorter lifecycle for dev
-lifecycle_delete_days   = 90  # Auto-delete after 90 days in dev
+lifecycle_coldline_days = 30   # Standard lifecycle for dev
+lifecycle_archive_days  = 365  # Archive after 1 year
+lifecycle_delete_days   = 0    # Never auto-delete in development
 
 # Development-specific settings
-allowed_domains = []
-allowed_users   = []
+allowed_domains = [
+  # Add your organization's domains here for development
+  # "example.com"
+]
+
+allowed_users = [
+  # Add specific user emails here for development
+  # "developer@example.com"
+]
 
 # Cloud Run configuration for development
-enable_public_access = true  # Allow public access for development
-min_instances       = 0     # Scale to zero when not in use
-max_instances       = 3     # Limit max instances for cost control
+enable_public_access = true   # Enable public access for development
+min_instances       = 0      # No minimum instances for cost savings
+max_instances       = 3      # Limit scaling for development
 cpu_limit          = "1000m"
-memory_limit       = "1Gi"
+memory_limit       = "2Gi"
 
-# Container image (update with actual image)
-container_image = "gcr.io/cloudrun/hello"  # Placeholder
+# Container image (will be updated during deployment)
+container_image = "gcr.io/PROJECT_ID/imgstream:latest"
+
+# Custom domain (optional - configure if you have a domain for dev)
+# custom_domain = "imgstream-dev.example.com"
 
 # Create default secrets
 create_default_secrets = true
 
 # IAP configuration for development
-iap_support_email = "developer@example.com"  # Update with actual email
-enable_iap = false  # Disable IAP for development (use public access)
+iap_support_email = "admin@example.com"  # TODO: Update with actual support email
+enable_iap = false  # Disable IAP for development (enable public access)
 enable_security_policy = false  # Disable security policy for development
-enable_waf_rules = false
-rate_limit_requests_per_minute = 1000  # Higher limit for development
-session_duration = 7200  # 2 hours
+enable_waf_rules = false  # Disable WAF rules for development
+rate_limit_requests_per_minute = 1000  # Higher rate limit for development
+session_duration = 3600  # 1 hour
+
+# GitHub Actions OIDC configuration
+github_repository = "your-username/your-repository-name"  # TODO: Replace with actual GitHub repository
+
+# Geographic restrictions (optional)
+# allowed_countries = ["US", "CA", "JP"]  # Uncomment and specify allowed countries

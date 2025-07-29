@@ -46,3 +46,6 @@ session_duration = 3600  # 1 hour
 
 # Geographic restrictions (optional)
 # allowed_countries = ["US", "CA", "JP"]  # Uncomment and specify allowed countries
+
+# GitHub Actions OIDC configuration
+github_repository = "your-username/your-repository-name"  # TODO: Replace with actual GitHub repository

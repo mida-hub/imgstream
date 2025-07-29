@@ -227,13 +227,39 @@
 
 ## 🔧 設定要件
 
+### OIDC認証の設定
+
+このプロジェクトでは、セキュリティ向上のためにGoogle CloudとのOIDC（OpenID Connect）認証を使用しています。従来のサービスアカウントキーの代わりに、Workload Identity Federationを使用します。
+
+#### 初期設定手順
+
+1. **Terraformを使用してOIDC設定を適用**:
+   ```bash
+   # 自動設定スクリプトを実行
+   ./scripts/setup-github-oidc.sh
+   
+   # または手動でTerraformを実行
+   cd terraform
+   terraform init
+   terraform apply
+   ```
+
+2. **GitHub repository secretsを設定**:
+   - Terraformの出力から`WIF_PROVIDER`と`WIF_SERVICE_ACCOUNT`の値を取得
+   - GitHubリポジトリの Settings > Secrets and variables > Actions で設定
+
+3. **権限の確認**:
+   - GitHub Actionsワークフローに`id-token: write`権限が設定されていることを確認
+   - Workload Identity Poolが正しく設定されていることを確認
+
 ### 必要なシークレット
 
 #### 共通
 - `GITHUB_TOKEN`: GitHub API アクセス（自動設定）
 
-#### デプロイ関連
-- `GCP_SA_KEY`: Google Cloud サービスアカウントの認証キー（JSON形式）
+#### デプロイ関連（OIDC認証）
+- `WIF_PROVIDER`: Workload Identity Federation プロバイダーの完全名
+- `WIF_SERVICE_ACCOUNT`: GitHub Actions用サービスアカウントのメールアドレス
 - `GCP_PROJECT_ID`: Google Cloud プロジェクトID
 - `GCS_BUCKET_DEV`: 開発環境用GCSバケット名
 - `GCS_BUCKET_PROD`: 本番環境用GCSバケット名

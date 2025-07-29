@@ -229,6 +229,8 @@ ImgStream supports multiple deployment methods:
 
 ### 1. GitHub Actions (Recommended)
 
+**重要**: GitHub ActionsではOIDC認証を使用しています。初回設定時は[GitHub OIDC設定ガイド](docs/GITHUB_OIDC_SETUP.md)を参照してください。
+
 Automated deployment triggered by:
 - **Staging**: Push to `develop` branch
 - **Production**: Push to `main` branch or create release tag

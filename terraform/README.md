@@ -22,6 +22,38 @@
 
 3. **GCPプロジェクト**: GCPプロジェクトの作成と課金の有効化
 
+## 🏗️ Backend設定
+
+このプロジェクトでは、Terraformの状態管理にGoogle Cloud Storage (GCS)をバックエンドとして使用しています：
+
+- **バケット**: `tfstate-apps-466614`
+- **開発環境**: `gs://tfstate-apps-466614/imgstream/dev/default.tfstate`
+- **本番環境**: `gs://tfstate-apps-466614/imgstream/prod/default.tfstate`
+
+### 環境別の初期化
+
+提供されているスクリプトを使用して環境別に初期化：
+
+```bash
+# 開発環境
+./scripts/terraform-init.sh dev
+
+# 本番環境
+./scripts/terraform-init.sh prod
+```
+
+または手動でバックエンド設定を指定して初期化：
+
+```bash
+# 開発環境
+cd terraform
+terraform init -backend-config=backend-dev.tf
+
+# 本番環境
+cd terraform
+terraform init -backend-config=backend-prod.tf
+```
+
 ## クイックスタート
 
 ### オプション1: IAPを使用した自動セットアップ（本番環境推奨）
