@@ -103,7 +103,7 @@ graph TB
     subgraph "Platform Services"
         MONITORING[Cloud Monitoring]
         LOGGING[Cloud Logging]
-        SECRET[Secret Manager]
+        ENV[Environment Variables]
     end
 
     subgraph "CI/CD Pipeline"
@@ -126,7 +126,7 @@ graph TB
 
     CR --> MONITORING
     CR --> LOGGING
-    SERVICES --> SECRET
+    SERVICES --> ENV
 
     GITHUB --> ACTIONS
     ACTIONS --> REGISTRY
@@ -738,7 +738,7 @@ production:
 | **Cloud Monitoring**     | Observability                 |
 | **Cloud Logging**        | Log management                |
 | **Identity-Aware Proxy** | Authentication                |
-| **Secret Manager**       | Secrets management            |
+| **Environment Variables** | Configuration management      |
 
 ### Development Tools
 

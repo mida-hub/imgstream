@@ -64,7 +64,7 @@ class MetricsCollector:
 
     def __init__(self) -> None:
         self.config = get_config()
-        self.metrics_enabled = self.config.monitoring.metrics_enabled
+        self.metrics_enabled = self.config.get("METRICS_ENABLED", True, bool)
         self.performance_metrics = PerformanceMetrics()
         self._metrics_queue: queue.Queue[MetricData] = queue.Queue()
         self._lock = threading.Lock()
@@ -74,7 +74,7 @@ class MetricsCollector:
         if CLOUD_MONITORING_AVAILABLE and self.metrics_enabled:
             try:
                 self.monitoring_client = monitoring_v3.MetricServiceClient()
-                self.project_name = f"projects/{self.config.app.project_id}"
+                self.project_name = f"projects/{self.config.get_required('GOOGLE_CLOUD_PROJECT')}"
                 logger.info("Cloud Monitoring client initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize Cloud Monitoring client: {e}")
@@ -132,7 +132,7 @@ class MetricsCollector:
             series = monitoring_v3.TimeSeries()
             series.metric.type = metric_type
             series.resource.type = "cloud_run_revision"
-            series.resource.labels["service_name"] = f"imgstream-{self.config.environment}"
+            series.resource.labels["service_name"] = f"imgstream-{self.config.get('ENVIRONMENT', 'development')}"
             series.resource.labels["revision_name"] = "latest"
             series.resource.labels["location"] = "us-central1"
 
@@ -245,7 +245,7 @@ class HealthChecker:
         health_status = {
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
-            "environment": self.config.environment,
+            "environment": self.config.get("ENVIRONMENT", "development"),
             "checks": {},
         }
 
@@ -314,33 +314,20 @@ class HealthChecker:
     def _check_storage(self) -> dict[str, Any]:
         """Check storage connectivity."""
         try:
-            if self.config.storage.type == "gcs":
-                # Import here to avoid circular imports
-                from .storage import get_storage_service
+            # Import here to avoid circular imports
+            from .services.storage import get_storage_service
 
-                storage = get_storage_service()
-                # Test bucket accessibility
-                bucket_exists = storage.bucket_exists()
+            storage = get_storage_service()
+            # Test bucket accessibility
+            bucket_exists = storage.check_bucket_exists()
+            bucket_name = self.config.get("GCS_BUCKET", "unknown")
 
-                return {
-                    "healthy": bucket_exists,
-                    "storage_type": self.config.storage.type,
-                    "bucket": self.config.storage.gcs_bucket,
-                    "details": "GCS bucket accessible" if bucket_exists else "GCS bucket not accessible",
-                }
-            else:
-                # Local storage check
-                import os
-
-                storage_path = self.config.storage.local_path
-                path_exists = os.path.exists(storage_path)
-
-                return {
-                    "healthy": path_exists,
-                    "storage_type": self.config.storage.type,
-                    "path": storage_path,
-                    "details": "Local storage path accessible" if path_exists else "Local storage path not accessible",
-                }
+            return {
+                "healthy": bucket_exists,
+                "storage_type": "gcs",
+                "bucket": bucket_name,
+                "details": "GCS bucket accessible" if bucket_exists else "GCS bucket not accessible",
+            }
         except Exception as e:
             return {"healthy": False, "error": str(e), "details": "Storage check failed"}
 
@@ -352,7 +339,11 @@ class HealthChecker:
 
             validate_config()
 
-            return {"healthy": True, "environment": self.config.environment, "details": "Configuration is valid"}
+            return {
+                "healthy": True,
+                "environment": self.config.get("ENVIRONMENT", "development"),
+                "details": "Configuration is valid",
+            }
         except Exception as e:
             return {"healthy": False, "error": str(e), "details": "Configuration validation failed"}
 
