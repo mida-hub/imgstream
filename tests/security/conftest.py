@@ -45,6 +45,31 @@ def mock_auth_for_security_tests():
         yield mock_auth
 
 
+@pytest.fixture
+def test_users():
+    """Provide test users for security tests."""
+    from tests.e2e.base import MockUser
+    
+    return {
+        "user1": MockUser("test-user-1", "user1@example.com", "Test User 1"),
+        "user2": MockUser("test-user-2", "user2@example.com", "Test User 2"),
+        "admin": MockUser("admin-user", "admin@example.com", "Admin User"),
+    }
+
+
+@pytest.fixture
+def db_helper():
+    """Provide database test helper for security tests."""
+    from tests.e2e.base import DatabaseTestHelper
+    
+    temp_dir = tempfile.mkdtemp()
+    helper = DatabaseTestHelper(temp_dir)
+    yield helper
+    helper.cleanup()
+    import shutil
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+
 @pytest.fixture(autouse=True)
 def security_test_environment():
     """Set up environment for security tests."""
