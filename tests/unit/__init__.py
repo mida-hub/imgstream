@@ -1,1 +1,1 @@
-"""Unit tests for imgstream application."""
+# Unit tests package

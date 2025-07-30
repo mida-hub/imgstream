@@ -76,6 +76,60 @@ class TestCloudIAPAuthService:
         """Set up test fixtures."""
         self.auth_service = CloudIAPAuthService()
 
+    def test_init_development_mode(self):
+        """Test initialization in development mode."""
+        with patch.dict("os.environ", {"ENVIRONMENT": "development"}):
+            service = CloudIAPAuthService()
+            assert service._development_mode is True
+
+    def test_init_production_mode(self):
+        """Test initialization in production mode."""
+        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            service = CloudIAPAuthService()
+            assert service._development_mode is False
+
+    def test_get_development_user_default(self):
+        """Test getting development user with default values."""
+        with patch.dict("os.environ", {}, clear=True):
+            user = self.auth_service._get_development_user()
+            assert user.email == "dev@example.com"
+            assert user.name == "Development User"
+            assert user.user_id == "dev-user-123"
+            assert user.picture is None
+
+    def test_get_development_user_custom(self):
+        """Test getting development user with custom environment variables."""
+        with patch.dict(
+            "os.environ",
+            {"DEV_USER_EMAIL": "custom@test.com", "DEV_USER_NAME": "Custom User", "DEV_USER_ID": "custom-123"},
+        ):
+            user = self.auth_service._get_development_user()
+            assert user.email == "custom@test.com"
+            assert user.name == "Custom User"
+            assert user.user_id == "custom-123"
+
+    def test_parse_iap_header_development_mode(self):
+        """Test parsing IAP header in development mode."""
+        with patch.dict("os.environ", {"ENVIRONMENT": "development"}):
+            service = CloudIAPAuthService()
+            headers = {"X-Goog-IAP-JWT-Assertion": "some-token"}
+
+            user_info = service.parse_iap_header(headers)
+
+            assert user_info is not None
+            assert user_info.email == "dev@example.com"
+            assert user_info.user_id == "dev-user-123"
+
+    def test_parse_iap_header_missing_token_production(self):
+        """Test parsing IAP header with missing token in production mode."""
+        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            service = CloudIAPAuthService()
+            headers = {}
+
+            user_info = service.parse_iap_header(headers)
+
+            assert user_info is None
+
     def create_test_jwt(self, payload: dict) -> str:
         """Create a test JWT token with the given payload."""
         # Create a simple JWT with dummy header and signature

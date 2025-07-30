@@ -47,15 +47,15 @@ class TestAuthenticationSecurity(E2ETestBase):
 
         # Test with completely empty headers
         result = auth_service.authenticate_request({})
-        assert result is None
+        assert result is False
 
         # Test with empty IAP header
         result = auth_service.authenticate_request({"X-Goog-IAP-JWT-Assertion": ""})
-        assert result is None
+        assert result is False
 
         # Test with None IAP header
         result = auth_service.authenticate_request({"X-Goog-IAP-JWT-Assertion": None})
-        assert result is None
+        assert result is False
 
     @pytest.mark.security
     def test_authentication_bypass_malformed_jwt(self):
@@ -74,7 +74,7 @@ class TestAuthenticationSecurity(E2ETestBase):
         for token in malformed_tokens:
             headers = {"X-Goog-IAP-JWT-Assertion": token}
             result = auth_service.authenticate_request(headers)
-            assert result is None, f"Malformed token should be rejected: {token}"
+            assert result is False, f"Malformed token should be rejected: {token}"
 
     @pytest.mark.security
     def test_authentication_bypass_invalid_payload(self):
@@ -95,7 +95,7 @@ class TestAuthenticationSecurity(E2ETestBase):
             token = self.create_invalid_jwt_header(payload)
             headers = {"X-Goog-IAP-JWT-Assertion": token}
             result = auth_service.authenticate_request(headers)
-            assert result is None, f"Invalid payload should be rejected: {payload}"
+            assert result is False, f"Invalid payload should be rejected: {payload}"
 
     @pytest.mark.security
     def test_authentication_bypass_expired_token(self):
@@ -115,7 +115,7 @@ class TestAuthenticationSecurity(E2ETestBase):
         expired_token = self.create_invalid_jwt_header(expired_payload)
         headers = {"X-Goog-IAP-JWT-Assertion": expired_token}
         result = auth_service.authenticate_request(headers)
-        assert result is None, "Expired token should be rejected"
+        assert result is False, "Expired token should be rejected"
 
     @pytest.mark.security
     def test_authentication_bypass_future_token(self):
@@ -135,7 +135,7 @@ class TestAuthenticationSecurity(E2ETestBase):
         future_token = self.create_invalid_jwt_header(future_payload)
         headers = {"X-Goog-IAP-JWT-Assertion": future_token}
         result = auth_service.authenticate_request(headers)
-        assert result is None, "Future token should be rejected"
+        assert result is False, "Future token should be rejected"
 
     @pytest.mark.security
     def test_authentication_bypass_wrong_issuer(self):
@@ -163,7 +163,7 @@ class TestAuthenticationSecurity(E2ETestBase):
             token = self.create_invalid_jwt_header(payload)
             headers = {"X-Goog-IAP-JWT-Assertion": token}
             result = auth_service.authenticate_request(headers)
-            assert result is None, f"Token with wrong issuer should be rejected: {issuer}"
+            assert result is False, f"Token with wrong issuer should be rejected: {issuer}"
 
     @pytest.mark.security
     def test_authentication_bypass_sql_injection_attempts(self):
@@ -192,7 +192,7 @@ class TestAuthenticationSecurity(E2ETestBase):
             headers = {"X-Goog-IAP-JWT-Assertion": token}
 
             # The authentication should either reject the token or handle it safely
-            result = auth_service.authenticate_request(headers)
+            result = auth_service.parse_iap_header(headers)
 
             if result is not None:
                 # If accepted, ensure the malicious content is properly escaped/handled
@@ -228,7 +228,7 @@ class TestAuthenticationSecurity(E2ETestBase):
             headers = {"X-Goog-IAP-JWT-Assertion": token}
 
             # The authentication should either reject the token or handle it safely
-            result = auth_service.authenticate_request(headers)
+            result = auth_service.parse_iap_header(headers)
 
             if result is not None:
                 # If accepted, ensure the malicious content is properly escaped/handled
@@ -266,7 +266,7 @@ class TestAuthenticationSecurity(E2ETestBase):
 
         # The malicious token should be rejected
         result2 = auth_service.authenticate_request(malicious_headers)
-        assert result2 is None, "Malicious token should be rejected"
+        assert result2 is False, "Malicious token should be rejected"
 
     @pytest.mark.security
     def test_concurrent_authentication_safety(self):
@@ -281,7 +281,7 @@ class TestAuthenticationSecurity(E2ETestBase):
             try:
                 user = MockUser(f"user{user_id}", f"user{user_id}@example.com", f"User {user_id}")
                 headers = self.mock_iap_headers(user)
-                result = auth_service.authenticate_request(headers)
+                result = auth_service.parse_iap_header(headers)
                 results.append((user_id, result))
             except Exception as e:
                 errors.append((user_id, str(e)))
@@ -323,7 +323,7 @@ class TestAuthenticationSecurity(E2ETestBase):
             result = auth_service.authenticate_request(headers)
             end_time = time.time()
             valid_times.append(end_time - start_time)
-            assert result is not None
+            assert result is True
 
         # Measure time for invalid authentication
         invalid_headers = {"X-Goog-IAP-JWT-Assertion": "invalid.token.here"}
@@ -334,7 +334,7 @@ class TestAuthenticationSecurity(E2ETestBase):
             result = auth_service.authenticate_request(invalid_headers)
             end_time = time.time()
             invalid_times.append(end_time - start_time)
-            assert result is None
+            assert result is False
 
         # Calculate average times
         avg_valid_time = sum(valid_times) / len(valid_times)
@@ -356,7 +356,7 @@ class TestAuthenticationSecurity(E2ETestBase):
         failed_attempts = 0
         for _i in range(100):  # Simulate 100 rapid attempts
             result = auth_service.authenticate_request(invalid_headers)
-            if result is None:
+            if result is False:
                 failed_attempts += 1
 
         # All attempts should fail for invalid token
@@ -366,7 +366,7 @@ class TestAuthenticationSecurity(E2ETestBase):
         user = MockUser("user123", "test@example.com", "Test User")
         headers = self.mock_iap_headers(user)
         result = auth_service.authenticate_request(headers)
-        assert result is not None, "Valid authentication should work after failed attempts"
+        assert result is True, "Valid authentication should work after failed attempts"
 
     @pytest.mark.security
     def test_authentication_header_injection(self):
@@ -383,7 +383,7 @@ class TestAuthenticationSecurity(E2ETestBase):
 
         for headers in injection_attempts:
             result = auth_service.authenticate_request(headers)
-            assert result is None, f"Header injection should be rejected: {headers}"
+            assert result is False, f"Header injection should be rejected: {headers}"
 
     @pytest.mark.security
     def test_authentication_unicode_normalization(self):
@@ -413,7 +413,7 @@ class TestAuthenticationSecurity(E2ETestBase):
             headers = {"X-Goog-IAP-JWT-Assertion": token}
 
             # The authentication should handle Unicode properly
-            result = auth_service.authenticate_request(headers)
+            result = auth_service.parse_iap_header(headers)
 
             if result is not None:
                 # Ensure the email is properly normalized
