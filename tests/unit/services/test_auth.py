@@ -753,7 +753,7 @@ class TestInputSanitization:
 
         for malicious_input in malicious_inputs:
             sanitized = self.auth_service._sanitize_user_input(malicious_input)
-            
+
             # Check that dangerous SQL patterns are removed
             assert "DROP TABLE" not in sanitized
             assert "DELETE FROM" not in sanitized
@@ -773,7 +773,7 @@ class TestInputSanitization:
 
         for malicious_input in malicious_inputs:
             sanitized = self.auth_service._sanitize_user_input(malicious_input)
-            
+
             # Check that dangerous XSS patterns are removed
             assert "<script>" not in sanitized
             assert "<img" not in sanitized
@@ -784,9 +784,9 @@ class TestInputSanitization:
 
     def test_sanitize_user_input_html_escaping(self):
         """Test that HTML characters are properly escaped."""
-        test_input = "user@example.com<>&\""
+        test_input = 'user@example.com<>&"'
         sanitized = self.auth_service._sanitize_user_input(test_input)
-        
+
         # Check that HTML characters are escaped
         assert "&lt;" in sanitized  # < becomes &lt;
         assert "&gt;" in sanitized  # > becomes &gt;

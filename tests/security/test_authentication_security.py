@@ -296,7 +296,9 @@ class TestAuthenticationSecurity(E2ETestBase):
 
         def authenticate_user(user_id: str):
             try:
-                headers = TestDataFactory.create_iap_headers(f"user{user_id}", f"user{user_id}@example.com", f"User {user_id}")
+                headers = TestDataFactory.create_iap_headers(
+                    f"user{user_id}", f"user{user_id}@example.com", f"User {user_id}"
+                )
                 result = auth_service.parse_iap_header(headers)
                 results.append((user_id, result))
             except Exception as e:

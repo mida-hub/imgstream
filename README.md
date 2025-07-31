@@ -1,6 +1,7 @@
 # ImgStream - 写真管理アプリケーション
 
 [![Build Status](https://github.com/your-org/imgstream/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/your-org/imgstream/actions)
+[![Quality Check](https://github.com/your-org/imgstream/workflows/Quality%20Check/badge.svg)](https://github.com/your-org/imgstream/actions)
 [![Security Scan](https://github.com/your-org/imgstream/workflows/Security%20Scan/badge.svg)](https://github.com/your-org/imgstream/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -331,20 +332,130 @@ ENVIRONMENT=production ./scripts/setup-monitoring.sh
 
 ### Code Quality
 
-The project enforces code quality through:
+The project enforces code quality through automated tools and workflows:
 
-- **Black**: Code formatting
-- **Ruff**: Fast Python linter
-- **MyPy**: Static type checking
+- **Black**: Code formatting and style consistency
+- **Ruff**: Fast Python linter for code quality and potential bugs
+- **MyPy**: Static type checking for type safety
 - **Pytest**: Unit and integration testing
+
+#### Quality Check Workflow
+
+ImgStreamには専用の品質チェックワークフロー（`.github/workflows/quality-check.yml`）が設定されており、以下の場合に自動実行されます：
+
+- **自動トリガー**:
+  - `main`または`develop`ブランチへのプッシュ
+  - プルリクエストの作成・更新
+  - `src/`、`tests/`、設定ファイルの変更時
+
+- **手動実行**:
+  ```bash
+  # GitHub Actionsで手動実行
+  # Repository > Actions > Quality Check > Run workflow
+  ```
+
+#### ローカルでの品質チェック実行
+
+開発中にローカルで品質チェックを実行できます：
+
+```bash
+# 全ての品質チェックを実行（推奨）
+ENVIRONMENT=production uv run pytest
+uv run black src/ tests/
+uv run ruff check src/ tests/
+uv run mypy src/
+
+# または個別に実行
+# 1. コードフォーマットチェック
+uv run black --check --diff src/ tests/
+
+# 2. リンティング
+uv run ruff check src/ tests/
+
+# 3. 型チェック
+uv run mypy src/
+
+# 4. 自動修正（可能な場合）
+uv run black src/ tests/           # フォーマット修正
+uv run ruff check --fix src/ tests/ # 自動修正可能な問題を修正
+```
+
+#### 品質チェックの詳細
+
+| ツール | 目的 | 設定ファイル | 実行対象 |
+|--------|------|-------------|----------|
+| **Black** | コードフォーマット統一 | `pyproject.toml` | `src/`, `tests/` |
+| **Ruff** | リンティング・コード品質 | `pyproject.toml` | `src/`, `tests/` |
+| **MyPy** | 静的型チェック | `pyproject.toml` | `src/` |
+
+#### 品質チェック設定
+
+品質チェックツールの設定は`pyproject.toml`で管理されています：
+
+```toml
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "EM", "EXE", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "NPY", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+```
+
+#### CI/CDでの品質チェック
+
+品質チェックワークフローは以下の特徴を持ちます：
+
+- **マルチバージョンテスト**: Python 3.11、3.12、3.13での並列実行
+- **効率的なキャッシュ**: 依存関係のキャッシュで実行時間短縮
+- **詳細なレポート**: 各チェックの結果と修正方法を表示
+- **失敗時の詳細情報**: エラーの原因と解決方法を提示
+
+#### 品質チェック失敗時の対処
+
+品質チェックが失敗した場合の対処方法：
+
+1. **Black（フォーマット）エラー**:
+   ```bash
+   # 自動修正
+   uv run black src/ tests/
+   ```
+
+2. **Ruff（リンティング）エラー**:
+   ```bash
+   # 自動修正可能な問題を修正
+   uv run ruff check --fix src/ tests/
+   
+   # 手動修正が必要な問題を確認
+   uv run ruff check src/ tests/
+   ```
+
+3. **MyPy（型チェック）エラー**:
+   ```bash
+   # 詳細なエラー情報を確認
+   uv run mypy src/ --show-error-codes
+   
+   # 型アノテーションを追加または修正
+   ```
 
 ### Pre-commit Hooks
 
-Install pre-commit hooks for automatic code quality checks:
+開発効率を向上させるため、pre-commitフックを設定できます：
 
 ```bash
 uv add --dev pre-commit
 uv run pre-commit install
+
+# 全ファイルに対してフックを実行
+uv run pre-commit run --all-files
 ```
 
 ## 🧪 Testing

@@ -41,7 +41,7 @@
 
 ### 2.1 GitHub Actions 品質チェックワークフローの作成
 
-- [ ] 2.1.1 品質チェック専用ワークフローを作成する
+- [x] 2.1.1 品質チェック専用ワークフローを作成する
   - `.github/workflows/quality-check.yml`を作成
   - Black、Ruff、MyPy の自動実行を設定
   - テスト実行とカバレッジ測定を設定

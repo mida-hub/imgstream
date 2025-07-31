@@ -1,0 +1,379 @@
+name: Quality Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:  # Allow manual triggering
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  code-formatting:
+    name: Code Formatting (Black)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+        
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        
+    - name: Run Black formatting check
+      run: |
+        uv run black --check --diff .
+        
+    - name: Upload formatting report
+      if: failure()
+      run: |
+        uv run black --check --diff . > black-report.txt 2>&1 || true
+        
+    - name: Upload Black report
+      uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: black-formatting-report
+        path: black-report.txt
+
+  linting:
+    name: Linting (Ruff)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+        
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        
+    - name: Run Ruff linting
+      run: |
+        uv run ruff check . --output-format=github
+        
+    - name: Generate Ruff report
+      if: always()
+      run: |
+        uv run ruff check . --output-format=json > ruff-report.json || true
+        
+    - name: Upload Ruff report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: ruff-linting-report
+        path: ruff-report.json
+
+  type-checking:
+    name: Type Checking (MyPy)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+        
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        
+    - name: Run MyPy type checking
+      run: |
+        uv run mypy src/ --config-file=mypy.ini
+        
+    - name: Generate MyPy report
+      if: always()
+      run: |
+        uv run mypy src/ --config-file=mypy.ini --txt-report mypy-report --html-report mypy-html-report || true
+        
+    - name: Upload MyPy reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: mypy-type-checking-report
+        path: |
+          mypy-report/
+          mypy-html-report/
+
+  unit-tests:
+    name: Unit Tests with Coverage
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+        
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        
+    - name: Run unit tests with coverage
+      run: |
+        ENVIRONMENT=production uv run pytest tests/unit/ \
+          --cov=src \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-report=term-missing \
+          --cov-fail-under=80 \
+          --junitxml=junit-report.xml \
+          -v
+        
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: coverage-reports
+        path: |
+          coverage.xml
+          htmlcov/
+          junit-report.xml
+          
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: quality-check-coverage
+        fail_ci_if_error: false
+
+  security-tests:
+    name: Security Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+        
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        
+    - name: Run security tests
+      run: |
+        ENVIRONMENT=production uv run pytest tests/security/ \
+          --junitxml=security-junit-report.xml \
+          -v
+        
+    - name: Upload security test reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-test-reports
+        path: security-junit-report.xml
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+        
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        
+    - name: Run integration tests
+      run: |
+        ENVIRONMENT=production uv run pytest tests/ \
+          -k "not (security or e2e or performance)" \
+          --ignore=tests/unit/ \
+          --junitxml=integration-junit-report.xml \
+          -v
+        
+    - name: Upload integration test reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-test-reports
+        path: integration-junit-report.xml
+
+  quality-summary:
+    name: Quality Summary
+    runs-on: ubuntu-latest
+    needs: [code-formatting, linting, type-checking, unit-tests, security-tests, integration-tests]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Generate quality summary
+      run: |
+        echo "# Quality Check Summary" > quality-summary.md
+        echo "" >> quality-summary.md
+        echo "## Job Results" >> quality-summary.md
+        echo "" >> quality-summary.md
+        
+        # Check job results
+        if [ "${{ needs.code-formatting.result }}" = "success" ]; then
+          echo "✅ Code Formatting (Black): PASSED" >> quality-summary.md
+        else
+          echo "❌ Code Formatting (Black): FAILED" >> quality-summary.md
+        fi
+        
+        if [ "${{ needs.linting.result }}" = "success" ]; then
+          echo "✅ Linting (Ruff): PASSED" >> quality-summary.md
+        else
+          echo "❌ Linting (Ruff): FAILED" >> quality-summary.md
+        fi
+        
+        if [ "${{ needs.type-checking.result }}" = "success" ]; then
+          echo "✅ Type Checking (MyPy): PASSED" >> quality-summary.md
+        else
+          echo "❌ Type Checking (MyPy): FAILED" >> quality-summary.md
+        fi
+        
+        if [ "${{ needs.unit-tests.result }}" = "success" ]; then
+          echo "✅ Unit Tests with Coverage: PASSED" >> quality-summary.md
+        else
+          echo "❌ Unit Tests with Coverage: FAILED" >> quality-summary.md
+        fi
+        
+        if [ "${{ needs.security-tests.result }}" = "success" ]; then
+          echo "✅ Security Tests: PASSED" >> quality-summary.md
+        else
+          echo "❌ Security Tests: FAILED" >> quality-summary.md
+        fi
+        
+        if [ "${{ needs.integration-tests.result }}" = "success" ]; then
+          echo "✅ Integration Tests: PASSED" >> quality-summary.md
+        else
+          echo "❌ Integration Tests: FAILED" >> quality-summary.md
+        fi
+        
+        echo "" >> quality-summary.md
+        echo "## Execution Time" >> quality-summary.md
+        echo "- Workflow started: $(date -u)" >> quality-summary.md
+        
+        # Display summary
+        cat quality-summary.md
+        
+    - name: Upload quality summary
+      uses: actions/upload-artifact@v3
+      with:
+        name: quality-summary
+        path: quality-summary.md
+        
+    - name: Comment PR with quality summary
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('quality-summary.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: summary
+          });
+
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [code-formatting, linting, type-checking, unit-tests, security-tests, integration-tests]
+    if: always()
+    
+    steps:
+    - name: Check quality gate
+      run: |
+        echo "Checking quality gate..."
+        
+        # Check if all critical jobs passed
+        if [ "${{ needs.code-formatting.result }}" != "success" ]; then
+          echo "❌ Code formatting check failed"
+          exit 1
+        fi
+        
+        if [ "${{ needs.linting.result }}" != "success" ]; then
+          echo "❌ Linting check failed"
+          exit 1
+        fi
+        
+        if [ "${{ needs.type-checking.result }}" != "success" ]; then
+          echo "❌ Type checking failed"
+          exit 1
+        fi
+        
+        if [ "${{ needs.unit-tests.result }}" != "success" ]; then
+          echo "❌ Unit tests failed"
+          exit 1
+        fi
+        
+        # Security and integration tests are important but not blocking
+        if [ "${{ needs.security-tests.result }}" != "success" ]; then
+          echo "⚠️ Security tests failed (non-blocking)"
+        fi
+        
+        if [ "${{ needs.integration-tests.result }}" != "success" ]; then
+          echo "⚠️ Integration tests failed (non-blocking)"
+        fi
+        
+        echo "✅ Quality gate passed!"

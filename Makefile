@@ -49,7 +49,39 @@ security: ## Run security scans
 benchmark: ## Run performance benchmarks
 	uv run pytest tests/performance/ --benchmark-only
 
-quality: lint format-check type-check ## Run all code quality checks
+quality-check: ## Run all code quality checks (Black, Ruff, MyPy)
+	@echo "🔍 Running code quality checks..."
+	@echo "1. Black (Code Formatting):"
+	uv run black --check --diff src/ tests/
+	@echo "✅ Black: PASSED"
+	@echo ""
+	@echo "2. Ruff (Linting):"
+	uv run ruff check src/ tests/
+	@echo "✅ Ruff: PASSED"
+	@echo ""
+	@echo "3. MyPy (Type Checking):"
+	uv run mypy src/
+	@echo "✅ MyPy: PASSED"
+	@echo ""
+	@echo "🎉 All quality checks completed successfully!"
+
+quality-fix: ## Auto-fix code quality issues where possible
+	@echo "🔧 Auto-fixing code quality issues..."
+	@echo "1. Black (Auto-formatting):"
+	uv run black src/ tests/
+	@echo "2. Ruff (Auto-fixing):"
+	uv run ruff check --fix src/ tests/
+	@echo "✅ Auto-fixes applied!"
+
+quality-production: ## Run quality checks with production environment
+	@echo "🏭 Running production-grade quality checks..."
+	ENVIRONMENT=production uv run pytest
+	uv run black --check --diff src/ tests/
+	uv run ruff check src/ tests/
+	uv run mypy src/
+	@echo "✅ Production quality checks completed!"
+
+quality: lint format-check type-check ## Run all code quality checks (legacy alias)
 
 quality-full: quality security test-cov ## Run comprehensive quality checks including security and coverage
 
