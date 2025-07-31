@@ -17,7 +17,8 @@ import jwt
 import pytest
 
 from src.imgstream.services.auth import CloudIAPAuthService
-from tests.e2e.base import E2ETestBase, MockUser
+from tests.conftest import TestDataFactory
+from tests.e2e.base import E2ETestBase
 
 
 class TestAuthenticationSecurity(E2ETestBase):
@@ -258,8 +259,7 @@ class TestAuthenticationSecurity(E2ETestBase):
         auth_service = CloudIAPAuthService()
 
         # Create a valid user
-        user = MockUser("user123", "test@example.com", "Test User")
-        headers = self.mock_iap_headers(user)
+        headers = TestDataFactory.create_iap_headers("user123", "test@example.com", "Test User")
 
         # Authenticate the user
         result1 = auth_service.authenticate_request(headers)
@@ -296,8 +296,7 @@ class TestAuthenticationSecurity(E2ETestBase):
 
         def authenticate_user(user_id: str):
             try:
-                user = MockUser(f"user{user_id}", f"user{user_id}@example.com", f"User {user_id}")
-                headers = self.mock_iap_headers(user)
+                headers = TestDataFactory.create_iap_headers(f"user{user_id}", f"user{user_id}@example.com", f"User {user_id}")
                 result = auth_service.parse_iap_header(headers)
                 results.append((user_id, result))
             except Exception as e:
@@ -331,8 +330,8 @@ class TestAuthenticationSecurity(E2ETestBase):
         auth_service = CloudIAPAuthService()
 
         # Measure time for valid authentication
-        user = MockUser("user123", "test@example.com", "Test User")
-        headers = self.mock_iap_headers(user)
+        user = TestDataFactory.create_mock_user("user123", "test@example.com", "Test User")
+        headers = TestDataFactory.create_iap_headers(user.user_id, user.email, user.name)
 
         valid_times = []
         for _ in range(10):
@@ -382,8 +381,8 @@ class TestAuthenticationSecurity(E2ETestBase):
         assert failed_attempts == 100, "All invalid authentication attempts should fail"
 
         # Verify that valid authentication still works after failed attempts
-        user = MockUser("user123", "test@example.com", "Test User")
-        headers = self.mock_iap_headers(user)
+        user = TestDataFactory.create_mock_user("user123", "test@example.com", "Test User")
+        headers = TestDataFactory.create_iap_headers(user.user_id, user.email, user.name)
         result = auth_service.authenticate_request(headers)
         assert result is not None, "Valid authentication should work after failed attempts"
 
