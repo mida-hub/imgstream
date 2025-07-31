@@ -250,7 +250,7 @@ class TestCloudIAPAuthService:
 
         result = self.auth_service.authenticate_request(headers)
 
-        assert result is True
+        assert result is not None
         assert self.auth_service.is_authenticated() is True
         assert self.auth_service.get_current_user() is not None
         assert self.auth_service.get_user_id() == "123456789"
@@ -262,7 +262,7 @@ class TestCloudIAPAuthService:
 
         result = self.auth_service.authenticate_request(headers)
 
-        assert result is False
+        assert result is None
         assert self.auth_service.is_authenticated() is False
         assert self.auth_service.get_current_user() is None
         assert self.auth_service.get_user_id() is None
@@ -704,12 +704,12 @@ class TestEdgeCases:
 
         # Authenticate with first user
         result1 = self.auth_service.authenticate_request(headers1)
-        assert result1 is True
+        assert result1 is not None
         assert self.auth_service.get_user_email() == "user1@example.com"
 
         # Authenticate with second user (should replace first)
         result2 = self.auth_service.authenticate_request(headers2)
-        assert result2 is True
+        assert result2 is not None
         assert self.auth_service.get_user_email() == "user2@example.com"
 
     def test_resource_path_edge_cases(self):
@@ -748,7 +748,7 @@ class TestEdgeCases:
         for _ in range(5):
             # Authenticate
             result = self.auth_service.authenticate_request(headers)
-            assert result is True
+            assert result is not None
             assert self.auth_service.is_authenticated() is True
 
             # Clear

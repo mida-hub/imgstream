@@ -203,18 +203,23 @@ class CloudIAPAuthService:
 
         return UserInfo(user_id=sanitized_sub, email=sanitized_email, name=sanitized_name, picture=sanitized_picture)
 
-    def authenticate_request(self, headers: dict[str, str]) -> bool:
-        """Authenticate a request using Cloud IAP headers."""
+    def authenticate_request(self, headers: dict[str, str]) -> UserInfo | None:
+        """
+        Authenticate a request using IAP headers.
+        Args:
+            headers: Request headers containing IAP JWT assertion
+        Returns:
+            UserInfo | None: UserInfo object if authentication successful, None otherwise
+        """
         user_info = self.parse_iap_header(headers)
-
         if user_info:
             self._current_user = user_info
             logger.info("request_authenticated", user_id=user_info.user_id, email=user_info.email)
-            return True
+            return user_info
         else:
             self._current_user = None
             log_security_event("request_authentication_failed")
-            return False
+            return None
 
     def get_current_user(self) -> UserInfo | None:
         """Get the currently authenticated user."""
