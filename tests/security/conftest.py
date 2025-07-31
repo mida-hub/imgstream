@@ -49,7 +49,7 @@ def mock_auth_for_security_tests():
 def test_users():
     """Provide test users for security tests."""
     from tests.e2e.base import MockUser
-    
+
     return {
         "user1": MockUser("test-user-1", "user1@example.com", "Test User 1"),
         "user2": MockUser("test-user-2", "user2@example.com", "Test User 2"),
@@ -61,12 +61,13 @@ def test_users():
 def db_helper():
     """Provide database test helper for security tests."""
     from tests.e2e.base import DatabaseTestHelper
-    
+
     temp_dir = tempfile.mkdtemp()
     helper = DatabaseTestHelper(temp_dir)
     yield helper
     helper.cleanup()
     import shutil
+
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 

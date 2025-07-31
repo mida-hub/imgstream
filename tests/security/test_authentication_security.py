@@ -26,7 +26,7 @@ class TestAuthenticationSecurity(E2ETestBase):
     @pytest.fixture(autouse=True)
     def setup_production_mode(self):
         """Force production mode for security tests."""
-        with patch.dict('os.environ', {'ENVIRONMENT': 'production'}):
+        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
             yield
 
     def create_malicious_jwt(self, payload: dict, secret: str = "fake_secret") -> str:
@@ -104,7 +104,9 @@ class TestAuthenticationSecurity(E2ETestBase):
             assert result is False, f"Invalid payload should be rejected: {payload}"
 
     @pytest.mark.security
-    @pytest.mark.skip(reason="Current implementation doesn't validate token expiration - would be handled by Cloud IAP in production")
+    @pytest.mark.skip(
+        reason="Current implementation doesn't validate token expiration - would be handled by Cloud IAP in production"
+    )
     def test_authentication_bypass_expired_token(self):
         """Test that expired JWT tokens are properly rejected."""
         auth_service = CloudIAPAuthService()
@@ -125,7 +127,9 @@ class TestAuthenticationSecurity(E2ETestBase):
         assert result is False, "Expired token should be rejected"
 
     @pytest.mark.security
-    @pytest.mark.skip(reason="Current implementation doesn't validate token timing - would be handled by Cloud IAP in production")
+    @pytest.mark.skip(
+        reason="Current implementation doesn't validate token timing - would be handled by Cloud IAP in production"
+    )
     def test_authentication_bypass_future_token(self):
         """Test that tokens with future iat (issued at) are rejected."""
         auth_service = CloudIAPAuthService()
@@ -146,7 +150,9 @@ class TestAuthenticationSecurity(E2ETestBase):
         assert result is False, "Future token should be rejected"
 
     @pytest.mark.security
-    @pytest.mark.skip(reason="Current implementation doesn't validate issuer - would be handled by Cloud IAP in production")
+    @pytest.mark.skip(
+        reason="Current implementation doesn't validate issuer - would be handled by Cloud IAP in production"
+    )
     def test_authentication_bypass_wrong_issuer(self):
         """Test that tokens from wrong issuers are rejected."""
         auth_service = CloudIAPAuthService()

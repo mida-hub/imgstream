@@ -62,6 +62,7 @@ def db_helper():
     yield helper
     helper.cleanup()
     import shutil
+
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -78,6 +79,7 @@ def temp_dir():
     temp_dir = tempfile.mkdtemp()
     yield temp_dir
     import shutil
+
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 
@@ -94,7 +96,7 @@ def mock_gcs_bucket():
 def setup_test_env():
     """Set up test environment variables."""
     original_env = os.environ.copy()
-    
+
     # Set test environment variables
     test_env = {
         "ENVIRONMENT": "production",  # Use production mode for E2E tests
@@ -105,11 +107,11 @@ def setup_test_env():
         "DEV_USER_NAME": "Development User",
         "DEV_USER_ID": "dev-user-123",
     }
-    
+
     os.environ.update(test_env)
-    
+
     yield test_env
-    
+
     # Restore original environment
     os.environ.clear()
     os.environ.update(original_env)
@@ -129,7 +131,7 @@ def sample_image_data():
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG", quality=95)
     image_data = buffer.getvalue()
-    
+
     return {
         "filename": "sample.jpg",
         "data": image_data,
@@ -147,9 +149,9 @@ def setup_test_environment():
     # Set production environment for E2E tests
     original_env = os.environ.get("ENVIRONMENT")
     os.environ["ENVIRONMENT"] = "production"
-    
+
     yield
-    
+
     # Restore original environment
     if original_env is not None:
         os.environ["ENVIRONMENT"] = original_env

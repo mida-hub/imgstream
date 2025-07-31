@@ -52,8 +52,21 @@ class CloudIAPAuthService:
         """Check if running in development mode."""
         import os
 
-        environment = os.getenv("ENVIRONMENT", "development").lower()
-        return environment in ["development", "dev", "local"]
+        environment = os.getenv("ENVIRONMENT", "development").lower().strip()
+
+        # List of environment values that indicate development mode
+        dev_environments = ["development", "dev", "local", "test"]
+
+        is_dev = environment in dev_environments
+
+        logger.debug(
+            "environment_mode_check",
+            environment=environment,
+            is_development=is_dev,
+            message=f"Environment mode determined: {'development' if is_dev else 'production'}",
+        )
+
+        return is_dev
 
     def _get_development_user(self) -> UserInfo:
         """Get development user for local testing."""
@@ -62,6 +75,27 @@ class CloudIAPAuthService:
         dev_email = os.getenv("DEV_USER_EMAIL", "dev@example.com")
         dev_name = os.getenv("DEV_USER_NAME", "Development User")
         dev_user_id = os.getenv("DEV_USER_ID", "dev-user-123")
+
+        # Basic validation for development user data
+        if not dev_email or "@" not in dev_email:
+            logger.warning("invalid_dev_user_email", email=dev_email, message="Using default email")
+            dev_email = "dev@example.com"
+
+        if not dev_name or not dev_name.strip():
+            logger.warning("invalid_dev_user_name", name=dev_name, message="Using default name")
+            dev_name = "Development User"
+
+        if not dev_user_id or not dev_user_id.strip():
+            logger.warning("invalid_dev_user_id", user_id=dev_user_id, message="Using default user ID")
+            dev_user_id = "dev-user-123"
+
+        logger.debug(
+            "development_user_created",
+            user_id=dev_user_id,
+            email=dev_email,
+            name=dev_name,
+            message="Development user created successfully",
+        )
 
         return UserInfo(user_id=dev_user_id, email=dev_email, name=dev_name, picture=None)
 
