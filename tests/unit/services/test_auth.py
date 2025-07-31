@@ -780,3 +780,102 @@ class TestEdgeCases:
         assert user_info.email == "user@example.com"
         assert user_info.name == "Test User"
         assert user_info.picture == "https://example.com/photo.jpg"
+
+
+class TestInputSanitization:
+    """Test cases for input sanitization functionality."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.auth_service = CloudIAPAuthService()
+
+    def test_sanitize_user_input_sql_injection(self):
+        """Test that SQL injection patterns are removed."""
+        malicious_inputs = [
+            "'; DROP TABLE users; --",
+            "admin'/**/OR/**/1=1--",
+            "user123'; UNION SELECT * FROM secrets--",
+            "test@example.com'; DELETE FROM photos; --",
+        ]
+
+        for malicious_input in malicious_inputs:
+            sanitized = self.auth_service._sanitize_user_input(malicious_input)
+            
+            # Check that dangerous SQL patterns are removed
+            assert "DROP TABLE" not in sanitized
+            assert "DELETE FROM" not in sanitized
+            assert "UNION SELECT" not in sanitized
+            assert "--" not in sanitized
+            assert "/*" not in sanitized
+            assert "*/" not in sanitized
+
+    def test_sanitize_user_input_xss_attacks(self):
+        """Test that XSS attack patterns are removed."""
+        malicious_inputs = [
+            "<script>alert('xss')</script>@example.com",
+            "<img src=x onerror=alert('xss')>",
+            "javascript:alert('xss')@example.com",
+            "user123<svg onload=alert('xss')>",
+        ]
+
+        for malicious_input in malicious_inputs:
+            sanitized = self.auth_service._sanitize_user_input(malicious_input)
+            
+            # Check that dangerous XSS patterns are removed
+            assert "<script>" not in sanitized
+            assert "<img" not in sanitized
+            assert "javascript:" not in sanitized
+            assert "<svg" not in sanitized
+            assert "onerror" not in sanitized
+            assert "onload" not in sanitized
+
+    def test_sanitize_user_input_html_escaping(self):
+        """Test that HTML characters are properly escaped."""
+        test_input = "user@example.com<>&\""
+        sanitized = self.auth_service._sanitize_user_input(test_input)
+        
+        # Check that HTML characters are escaped
+        assert "&lt;" in sanitized  # < becomes &lt;
+        assert "&gt;" in sanitized  # > becomes &gt;
+        assert "&amp;" in sanitized  # & becomes &amp;
+        assert "&quot;" in sanitized  # " becomes &quot;
+
+    def test_sanitize_user_input_none_and_empty(self):
+        """Test that None and empty values are handled correctly."""
+        assert self.auth_service._sanitize_user_input(None) is None
+        assert self.auth_service._sanitize_user_input("") == ""
+        assert self.auth_service._sanitize_user_input("   ") == "   "
+
+    def test_sanitize_user_input_normal_values(self):
+        """Test that normal values are preserved."""
+        normal_inputs = [
+            "user@example.com",
+            "John Doe",
+            "https://example.com/photo.jpg",
+            "user123",
+        ]
+
+        for normal_input in normal_inputs:
+            sanitized = self.auth_service._sanitize_user_input(normal_input)
+            # Normal inputs should be preserved (though HTML-escaped)
+            assert len(sanitized) > 0
+            assert "user" in sanitized or "John" in sanitized or "example" in sanitized
+
+    def test_extract_user_info_with_malicious_payload(self):
+        """Test that _extract_user_info properly sanitizes malicious payloads."""
+        malicious_payload = {
+            "email": "<script>alert('xss')</script>@example.com",
+            "sub": "'; DROP TABLE users; --",
+            "name": "<img src=x onerror=alert('xss')>",
+            "picture": "javascript:alert('xss')",
+        }
+
+        user_info = self.auth_service._extract_user_info(malicious_payload)
+
+        # Check that all fields are sanitized
+        assert "<script>" not in user_info.email
+        assert "DROP TABLE" not in user_info.user_id
+        assert "--" not in user_info.user_id
+        assert "<img" not in user_info.name
+        assert "onerror" not in user_info.name
+        assert "javascript:" not in user_info.picture

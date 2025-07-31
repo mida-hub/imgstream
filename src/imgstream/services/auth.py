@@ -142,6 +142,43 @@ class CloudIAPAuthService:
         except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as e:
             raise ValueError(f"Failed to decode JWT payload: {e}") from e
 
+    def _sanitize_user_input(self, value: str | None) -> str | None:
+        """Sanitize user input to prevent XSS and injection attacks."""
+        if not value:
+            return value
+
+        # Remove potentially dangerous characters and patterns
+        import html
+        import re
+
+        sanitized = str(value)
+
+        # Remove SQL injection patterns first (before HTML escaping)
+        sql_patterns = [
+            r"(?i)(drop\s+table|delete\s+from|union\s+select|insert\s+into)",
+            r"(?i)(--|\*\/|\/\*)",
+            r"(?i)(or\s+1\s*=\s*1|and\s+1\s*=\s*1)",
+        ]
+
+        for pattern in sql_patterns:
+            sanitized = re.sub(pattern, "", sanitized)
+
+        # Remove XSS patterns (before HTML escaping)
+        xss_patterns = [
+            r"(?i)<script[^>]*>.*?</script>",
+            r"(?i)<img[^>]*onerror[^>]*>",
+            r"(?i)<svg[^>]*onload[^>]*>",
+            r"(?i)javascript:",
+        ]
+
+        for pattern in xss_patterns:
+            sanitized = re.sub(pattern, "", sanitized)
+
+        # HTML escape the value after pattern removal
+        sanitized = html.escape(sanitized)
+
+        return sanitized
+
     def _extract_user_info(self, payload: dict[str, Any]) -> UserInfo:
         """Extract user information from JWT payload."""
         email = payload.get("email")
@@ -152,10 +189,19 @@ class CloudIAPAuthService:
         if not sub:
             raise ValueError("Subject (user ID) not found in JWT payload")
 
-        name = payload.get("name")
-        picture = payload.get("picture")
+        # Sanitize all user inputs to prevent XSS and injection attacks
+        sanitized_email = self._sanitize_user_input(email)
+        sanitized_sub = self._sanitize_user_input(sub)
+        sanitized_name = self._sanitize_user_input(payload.get("name"))
+        sanitized_picture = self._sanitize_user_input(payload.get("picture"))
 
-        return UserInfo(user_id=sub, email=email, name=name, picture=picture)
+        # Ensure required fields are not None after sanitization
+        if not sanitized_email:
+            raise ValueError("Email became invalid after sanitization")
+        if not sanitized_sub:
+            raise ValueError("Subject (user ID) became invalid after sanitization")
+
+        return UserInfo(user_id=sanitized_sub, email=sanitized_email, name=sanitized_name, picture=sanitized_picture)
 
     def authenticate_request(self, headers: dict[str, str]) -> bool:
         """Authenticate a request using Cloud IAP headers."""
