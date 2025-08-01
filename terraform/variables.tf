@@ -78,18 +78,21 @@ variable "custom_domain" {
   default     = ""
 }
 
-variable "secret_env_vars" {
-  description = "Environment variables to store as secrets"
-  type        = map(string)
-  default     = {}
-  sensitive   = true
-}
-
-variable "create_default_secrets" {
-  description = "Create default secrets for the application"
-  type        = bool
-  default     = true
-}
+# Secret-related variables removed as they are not currently used
+# If you need to add secrets in the future, you can uncomment and modify:
+#
+# variable "secret_env_vars" {
+#   description = "Environment variables to store as secrets"
+#   type        = map(string)
+#   default     = {}
+#   sensitive   = true
+# }
+#
+# variable "create_default_secrets" {
+#   description = "Create default secrets for the application"
+#   type        = bool
+#   default     = false
+# }
 
 variable "min_instances" {
   description = "Minimum number of instances"

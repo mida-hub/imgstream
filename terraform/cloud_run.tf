@@ -100,19 +100,21 @@ resource "google_cloud_run_v2_service" "imgstream" {
         value = var.region
       }
 
-      # Secrets from Secret Manager
-      dynamic "env" {
-        for_each = var.secret_env_vars
-        content {
-          name = env.key
-          value_source {
-            secret_key_ref {
-              secret  = google_secret_manager_secret.app_secrets[env.key].secret_id
-              version = "latest"
-            }
-          }
-        }
-      }
+      # Secrets from Secret Manager (currently not used)
+      # If you need to add secrets in the future, uncomment and modify:
+      #
+      # dynamic "env" {
+      #   for_each = var.secret_env_vars
+      #   content {
+      #     name = env.key
+      #     value_source {
+      #       secret_key_ref {
+      #         secret  = google_secret_manager_secret.app_secrets[env.key].secret_id
+      #         version = "latest"
+      #       }
+      #     }
+      #   }
+      # }
 
       # Health check configuration
       startup_probe {

@@ -330,10 +330,12 @@ The Cloud Run service automatically receives:
 
 ### Secrets Management
 
-Secrets are managed via Google Secret Manager:
-- `DB_ENCRYPTION_KEY`: Database encryption key
-- `SESSION_SECRET`: Session secret for Streamlit
-- Custom secrets can be added via `secret_env_vars` variable
+**Note**: ImgStream currently does not use secrets as it relies on:
+- Google Cloud IAP for authentication (no custom session secrets needed)
+- DuckDB without encryption (no database encryption keys needed)
+- Standard Streamlit session management
+
+If you need to add secrets in the future, you can uncomment and modify the relevant sections in `terraform/secrets.tf`.
 
 ### Resource Configuration
 

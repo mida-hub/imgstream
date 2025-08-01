@@ -273,6 +273,7 @@ validate_network_config() {
 # Validate secrets and credentials
 validate_secrets() {
     log_info "Validating secrets and credentials..."
+    log_info "Note: ImgStream currently does not use secrets - using Google Cloud IAP for authentication"
     
     # Check for sensitive files that shouldn't be in version control
     local sensitive_files=(".env" "service-account-key.json" "credentials.json")

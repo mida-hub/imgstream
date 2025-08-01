@@ -33,8 +33,8 @@ container_image = "gcr.io/PROJECT_ID/imgstream:latest"
 # Custom domain (optional - configure if you have a domain for dev)
 # custom_domain = "imgstream-dev.example.com"
 
-# Create default secrets
-create_default_secrets = true
+# Secrets are not currently used by the application
+# create_default_secrets = false
 
 # IAP configuration for development
 iap_support_email = "admin@example.com"  # TODO: Update with actual support email

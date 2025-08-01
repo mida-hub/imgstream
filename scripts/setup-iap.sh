@@ -144,7 +144,7 @@ REQUIRED_APIS=(
     "compute.googleapis.com"
     "run.googleapis.com"
     "storage.googleapis.com"
-    "secretmanager.googleapis.com"
+    # "secretmanager.googleapis.com"  # Not currently used by ImgStream
     "cloudbuild.googleapis.com"
 )
 

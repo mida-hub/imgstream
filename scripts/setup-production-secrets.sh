@@ -1,5 +1,11 @@
 #!/bin/bash
 # Setup production secrets and environment variables for imgstream
+# 
+# NOTE: This script is currently not needed as ImgStream does not use secrets.
+# The application uses Google Cloud IAP for authentication and does not require
+# custom database encryption or session secrets.
+#
+# This script is kept for future use if secrets become necessary.
 
 set -e
 
@@ -90,7 +96,21 @@ fi
 # Display configuration
 echo "=========================================="
 echo "    Production Secrets Setup"
+echo "    (Currently not required)"
 echo "=========================================="
+echo ""
+echo "⚠️  ImgStream currently does not use any secrets."
+echo "   This script is kept for future use if needed."
+echo ""
+echo "   The application uses:"
+echo "   - Google Cloud IAP for authentication"
+echo "   - DuckDB without encryption"
+echo "   - Standard Streamlit session management"
+echo ""
+echo "   If you need to add secrets in the future, uncomment"
+echo "   the relevant sections in terraform/secrets.tf"
+echo ""
+exit 0
 echo "Project ID:      $PROJECT_ID"
 echo "Region:          $REGION"
 echo "Force Update:    $FORCE_UPDATE"
