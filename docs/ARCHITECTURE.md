@@ -55,7 +55,7 @@ ImgStream は、スケーラビリティ、セキュリティ、保守性を考�
 
 - Zero-trust security model
 - Identity-Aware Proxy for authentication
-- Encryption at rest and in transit
+- Google Cloud Storage default encryption and TLS in transit
 - Principle of least privilege for service accounts
 
 ### 4. Observability
@@ -450,7 +450,7 @@ sequenceDiagram
 
 #### 3. Data Security
 
-- **Encryption at Rest**: All data encrypted in storage
+- **Data Encryption**: Google Cloud Storage default encryption (Google-managed keys)
 - **Encryption in Transit**: TLS 1.3 for all communications
 - **Access Controls**: Fine-grained permissions
 - **Audit Logging**: Comprehensive security event logging
@@ -468,18 +468,20 @@ graph TB
         GCS[Cloud Storage]
         MONITORING[Cloud Monitoring]
         LOGGING[Cloud Logging]
-        SECRET[Secret Manager]
+        ENV[Environment Variables]
         REGISTRY[Artifact Registry]
     end
 
     CR_SA --> GCS
     CR_SA --> MONITORING
     CR_SA --> LOGGING
-    CR_SA --> SECRET
+    CR_SA --> ENV
 
     GITHUB_SA --> REGISTRY
     GITHUB_SA --> GCS
 ```
+
+**注意**: ImgStreamは現在Secret Managerを使用していません。設定管理には環境変数を使用し、認証にはGoogle Cloud IAPを利用しています。
 
 ## 🚀 Deployment Architecture
 
@@ -738,7 +740,7 @@ production:
 | **Cloud Monitoring**     | Observability                 |
 | **Cloud Logging**        | Log management                |
 | **Identity-Aware Proxy** | Authentication                |
-| **Environment Variables** | Configuration management      |
+| **Environment Variables** | Configuration management (no secrets) |
 
 ### Development Tools
 
