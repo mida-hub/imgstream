@@ -273,7 +273,7 @@ ENVIRONMENT=production ./scripts/deploy-cloud-run.sh
 
 
 
-For detailed deployment instructions, see [Deployment Guide](docs/DEPLOYMENT.md).
+For detailed deployment instructions, see [Deployment Guide](docs/DEPLOYMENT_GUIDE.md).
 
 ## 📊 Monitoring
 
