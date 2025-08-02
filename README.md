@@ -137,11 +137,25 @@ graph LR
     end
     
     subgraph "Data Security"
-        CR --> ENC[🔐 Encryption at Rest]
+        CR --> GCS_ENC[🔐 GCS Default Encryption]
         CR --> TLS[🔒 TLS in Transit]
         CR --> AUDIT[📝 Audit Logging]
     end
 ```
+
+### セキュリティ実装の詳細
+
+| セキュリティ機能 | 実装方式 | 説明 |
+|-----------------|----------|------|
+| **認証** | Google Cloud IAP | Identity-Aware Proxyによる認証 |
+| **認可** | Role-Based Access | ユーザー別リソースアクセス制御 |
+| **通信暗号化** | TLS 1.3 | HTTPS通信の暗号化 |
+| **データ暗号化** | GCS Default Encryption | Google管理キーによる自動暗号化 |
+| **CSRF保護** | Streamlit Built-in | Cross-Site Request Forgery対策 |
+| **レート制限** | Cloud Armor | API呼び出し頻度制限 |
+| **監査ログ** | Cloud Logging | 全アクセスログの記録 |
+
+**注意**: 現在、アプリケーションレベルでの独自暗号化は実装されていません。データはGoogle Cloud Storageのデフォルト暗号化（Google管理キー）により保護されています。
 
 ## 💻 インストール
 
