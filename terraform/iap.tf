@@ -36,7 +36,6 @@ resource "google_compute_backend_service" "imgstream_backend" {
 
   # IAP configuration
   iap {
-    enabled              = true
     oauth2_client_id     = google_iap_client.project_client[0].client_id
     oauth2_client_secret = google_iap_client.project_client[0].secret
   }

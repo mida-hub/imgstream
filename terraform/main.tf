@@ -10,8 +10,8 @@ terraform {
   
   # Backend configuration for remote state storage
   # Use environment-specific backend config files:
-  # - Development: terraform init -backend-config=backend-dev.tf
-  # - Production: terraform init -backend-config=backend-prod.tf
+  # - Development: terraform init -backend-config=backend-dev.hcl
+  # - Production: terraform init -backend-config=backend-prod.hcl
   backend "gcs" {
     # Configuration will be provided via backend config files
   }

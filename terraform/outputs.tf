@@ -50,13 +50,11 @@ output "cloud_run_service_location" {
   value       = google_cloud_run_v2_service.imgstream.location
 }
 
-output "secret_names" {
-  description = "Names of created secrets"
-  value = merge(
-    { for k, v in google_secret_manager_secret.app_secrets : k => v.secret_id },
-    var.create_default_secrets ? { for k, v in google_secret_manager_secret.default_secrets : k => v.secret_id } : {}
-  )
-}
+# Secret Manager outputs removed as secrets are not currently used
+# output "secret_names" {
+#   description = "Names of created secrets"
+#   value = {}
+# }
 
 output "load_balancer_ip" {
   description = "Static IP address of the load balancer"

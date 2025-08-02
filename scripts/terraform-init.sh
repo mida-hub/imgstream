@@ -58,7 +58,7 @@ if [ ! -f "terraform/main.tf" ]; then
 fi
 
 # Check if backend config file exists
-BACKEND_CONFIG="terraform/backend-${ENVIRONMENT}.tf"
+BACKEND_CONFIG="terraform/backend-${ENVIRONMENT}.hcl"
 if [ ! -f "$BACKEND_CONFIG" ]; then
     print_error "Backend configuration file not found: $BACKEND_CONFIG"
     exit 1
@@ -129,7 +129,9 @@ fi
 # Initialize Terraform with environment-specific backend
 print_status "Initializing Terraform with $ENVIRONMENT backend configuration..."
 
-terraform init -backend-config="backend-${ENVIRONMENT}.tf"
+# Use gcloud access token for authentication
+export GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token)
+terraform init -backend-config="backend-${ENVIRONMENT}.hcl"
 
 if [ $? -eq 0 ]; then
     print_status "Terraform initialized successfully for $ENVIRONMENT environment"
@@ -142,14 +144,14 @@ if [ $? -eq 0 ]; then
     
     # Validate configuration
     print_status "Validating Terraform configuration..."
-    terraform validate
+    GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token) terraform validate
     
     if [ $? -eq 0 ]; then
         print_status "Terraform configuration is valid"
         
         # Show workspace info
         print_header "Workspace Information"
-        terraform workspace show
+        GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token) terraform workspace show
         
         echo ""
         print_status "Terraform is ready for $ENVIRONMENT environment!"

@@ -209,7 +209,7 @@ resource "google_monitoring_alert_policy" "storage_usage" {
     display_name = "GCS bucket usage above threshold"
     
     condition_threshold {
-      filter          = "resource.type=\"gcs_bucket\" AND resource.labels.bucket_name=\"${google_storage_bucket.imgstream_bucket.name}\" AND metric.type=\"storage.googleapis.com/storage/total_bytes\""
+      filter          = "resource.type=\"gcs_bucket\" AND resource.labels.bucket_name=\"${google_storage_bucket.photos.name}\" AND metric.type=\"storage.googleapis.com/storage/total_bytes\""
       duration        = "300s"
       comparison      = "COMPARISON_GREATER_THAN"
       threshold_value = var.storage_alert_threshold_bytes

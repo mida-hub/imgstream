@@ -47,11 +47,11 @@
 ```bash
 # 開発環境
 cd terraform
-terraform init -backend-config=backend-dev.tf
+terraform init -backend-config=backend-dev.hcl
 
 # 本番環境
 cd terraform
-terraform init -backend-config=backend-prod.tf
+terraform init -backend-config=backend-prod.hcl
 ```
 
 ## クイックスタート
