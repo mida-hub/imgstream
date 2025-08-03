@@ -72,12 +72,15 @@ curl http://localhost:8501/health
 
 ### Google Cloud セットアップ
 
-#### 1. プロジェクト作成
+#### 1. プロジェクト作成と認証
 ```bash
-# 認証
+# 1. ユーザー認証
 gcloud auth login
 
-# プロジェクト作成
+# 2. Application Default Credentials設定（Terraform用）
+gcloud auth application-default login
+
+# 3. プロジェクト作成
 export PROJECT_ID="imgstream-$(date +%s)"
 gcloud projects create $PROJECT_ID
 gcloud config set project $PROJECT_ID
@@ -88,6 +91,7 @@ gcloud config set project $PROJECT_ID
 gcloud services enable \
     run.googleapis.com \
     storage.googleapis.com \
+    artifactregistry.googleapis.com \
     monitoring.googleapis.com \
     logging.googleapis.com \
     iap.googleapis.com
@@ -106,11 +110,14 @@ terraform apply -var-file="environments/dev.tfvars" -var="project_id=$PROJECT_ID
 
 #### 4. アプリケーションデプロイ
 ```bash
+# Artifact Registry認証設定
+gcloud auth configure-docker asia-northeast1-docker.pkg.dev
+
 # イメージビルド
 ./scripts/build-image.sh -p $PROJECT_ID -t latest
 
 # デプロイ実行
-./scripts/deploy-cloud-run.sh -p $PROJECT_ID -e dev -i gcr.io/$PROJECT_ID/imgstream:latest
+./scripts/deploy-cloud-run.sh -p $PROJECT_ID -e dev -i asia-northeast1-docker.pkg.dev/$PROJECT_ID/imgstream/imgstream:latest
 ```
 
 ## 🔄 自動デプロイメント（CI/CD）
@@ -164,7 +171,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 ### 3. 本番デプロイ実行
 ```bash
 # 本番デプロイ（手動）
-./scripts/deploy-production.sh -p $PROJECT_ID -i gcr.io/$PROJECT_ID/imgstream:v1.0.0
+./scripts/deploy-production.sh -p $PROJECT_ID -i asia-northeast1-docker.pkg.dev/$PROJECT_ID/imgstream/imgstream:v1.0.0
 
 # または自動デプロイ（GitHub Actions）
 git tag v1.0.0
@@ -218,9 +225,18 @@ Cloud Runデプロイ
 
 #### 1. 認証エラー
 ```bash
-# 再認証
+# ユーザー認証
 gcloud auth login
+
+# Application Default Credentials設定（Terraform/スクリプト用）
 gcloud auth application-default login
+
+# 認証状態確認
+gcloud auth list
+gcloud auth application-default print-access-token
+
+# プロジェクト設定確認
+gcloud config get-value project
 ```
 
 #### 2. API未有効化
@@ -247,7 +263,7 @@ gcloud projects get-iam-policy $PROJECT_ID
 gcloud logs read "resource.type=cloud_run_revision" --limit=50
 
 # Dockerビルドログ（ローカル）
-docker build --progress=plain -t gcr.io/$PROJECT_ID/imgstream:latest .
+docker build --progress=plain -t asia-northeast1-docker.pkg.dev/$PROJECT_ID/imgstream/imgstream:latest .
 
 # サービス状態
 gcloud run services describe imgstream-production --region=us-central1

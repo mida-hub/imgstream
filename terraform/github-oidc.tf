@@ -45,24 +45,27 @@ resource "google_service_account_iam_binding" "github_actions_workload_identity"
 }
 
 # Project-level IAM roles for the service account
+# Note: Only includes roles actually needed by ImgStream application
 resource "google_project_iam_member" "github_actions_roles" {
   for_each = toset([
-    "roles/run.admin",                    # Cloud Run administration
-    "roles/storage.admin",                # Cloud Storage administration
-    "roles/artifactregistry.admin",       # Artifact Registry administration
-    "roles/iam.serviceAccountUser",       # Service account usage
-    "roles/cloudsql.admin",              # Cloud SQL administration (if needed)
-    "roles/secretmanager.admin",         # Secret Manager administration
-    "roles/monitoring.editor",           # Monitoring resources
-    "roles/logging.admin",               # Logging administration
-    "roles/cloudtrace.agent",            # Cloud Trace
-    "roles/clouddebugger.agent",         # Cloud Debugger
+    "roles/run.admin",              # Cloud Run administration
+    "roles/storage.admin",          # Cloud Storage administration
+    "roles/artifactregistry.admin", # Artifact Registry administration
+    "roles/iam.serviceAccountUser", # Service account usage
+    "roles/monitoring.editor",      # Monitoring resources
+    "roles/logging.admin",          # Logging administration
   ])
 
   project = var.project_id
   role    = each.value
   member  = "serviceAccount:${google_service_account.github_actions.email}"
 }
+
+# Removed roles (not needed by ImgStream):
+# - roles/cloudsql.admin: ImgStream uses DuckDB, not Cloud SQL
+# - roles/secretmanager.admin: ImgStream uses environment variables, not Secret Manager
+# - roles/cloudtrace.agent: Not currently implemented
+# - roles/clouddebugger.agent: Not currently implemented
 
 # Output the Workload Identity Provider name for GitHub Actions configuration
 output "workload_identity_provider" {

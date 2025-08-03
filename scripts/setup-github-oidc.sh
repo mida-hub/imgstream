@@ -30,6 +30,25 @@ print_header() {
     echo -e "${BLUE}=== $1 ===${NC}"
 }
 
+# Display authentication setup instructions
+show_auth_instructions() {
+    print_header "Authentication Setup Required"
+    echo ""
+    print_status "To use this script, you need to authenticate with Google Cloud:"
+    echo ""
+    echo "1. Authenticate your user account:"
+    echo "   gcloud auth login"
+    echo ""
+    echo "2. Set up Application Default Credentials:"
+    echo "   gcloud auth application-default login"
+    echo ""
+    echo "3. Set your default project:"
+    echo "   gcloud config set project YOUR_PROJECT_ID"
+    echo ""
+    print_warning "After completing these steps, run this script again."
+    echo ""
+}
+
 # Check if required tools are installed
 check_requirements() {
     print_header "Checking Requirements"
@@ -50,6 +69,26 @@ check_requirements() {
 # Get project information
 get_project_info() {
     print_header "Project Information"
+    
+    # Check if user is authenticated
+    if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | head -n1 > /dev/null 2>&1; then
+        print_error "You are not authenticated with Google Cloud."
+        show_auth_instructions
+        exit 1
+    fi
+    
+    # Check if Application Default Credentials are set
+    if ! gcloud auth application-default print-access-token > /dev/null 2>&1; then
+        print_error "Application Default Credentials are not set."
+        echo ""
+        print_status "Please run the following command to set up Application Default Credentials:"
+        echo "   gcloud auth application-default login"
+        echo ""
+        print_warning "This is required for Terraform to authenticate with Google Cloud."
+        exit 1
+    fi
+    
+    print_status "Google Cloud authentication verified."
     
     # Get current project
     CURRENT_PROJECT=$(gcloud config get-value project 2>/dev/null || echo "")
@@ -111,6 +150,13 @@ update_terraform_vars() {
 # Apply Terraform configuration
 apply_terraform() {
     print_header "Applying Terraform Configuration"
+    
+    # Verify authentication before proceeding
+    if ! gcloud auth application-default print-access-token > /dev/null 2>&1; then
+        print_error "Application Default Credentials are not available."
+        print_error "Please run: gcloud auth application-default login"
+        exit 1
+    fi
     
     cd terraform
     

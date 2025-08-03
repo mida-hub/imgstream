@@ -28,8 +28,7 @@ cpu_limit          = "1000m"
 memory_limit       = "2Gi"
 
 # Container image (will be updated during deployment)
-# Using Artifact Registry format: REGION-docker.pkg.dev/PROJECT_ID/REPOSITORY_NAME/IMAGE_NAME:TAG
-container_image = "asia-northeast1-docker.pkg.dev/PROJECT_ID/imgstream/imgstream:latest"
+container_image = "gcr.io/PROJECT_ID/imgstream:latest"
 
 # Custom domain (optional - configure if you have a domain)
 # custom_domain = "imgstream.example.com"
@@ -49,4 +48,4 @@ session_duration = 3600  # 1 hour
 # allowed_countries = ["US", "CA", "JP"]  # Uncomment and specify allowed countries
 
 # GitHub Actions OIDC configuration
-github_repository = "mida-hub/imgstream"  # TODO: Replace with actual GitHub repository
+github_repository = "your-username/your-repository-name"  # TODO: Replace with actual GitHub repository

@@ -2,7 +2,7 @@
 # Copy this file to terraform.tfvars and customize for your environment
 
 # Required variables
-project_id = "your-gcp-project-id"
+project_id = "apps-466614"
 
 # Environment configuration
 environment = "dev"  # Change to "prod" for production
@@ -33,8 +33,7 @@ cpu_limit          = "1000m"
 memory_limit       = "2Gi"
 
 # Container image (will be updated during deployment)
-# Using Artifact Registry format: REGION-docker.pkg.dev/PROJECT_ID/REPOSITORY_NAME/IMAGE_NAME:TAG
-container_image = "us-central1-docker.pkg.dev/PROJECT_ID/imgstream/imgstream:latest"
+container_image = "gcr.io/PROJECT_ID/imgstream:latest"
 
 # Custom domain (optional - configure if you have a domain)
 # custom_domain = "imgstream.example.com"

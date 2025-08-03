@@ -32,10 +32,10 @@ export PROJECT_ID="your-gcp-project-id"
 ./scripts/setup-production-secrets.sh -p $PROJECT_ID
 
 # イメージをビルドしてプッシュ
-gcloud builds submit --tag gcr.io/$PROJECT_ID/imgstream:latest
+./scripts/build-image.sh -p $PROJECT_ID -t latest --push
 
 # 本番環境にデプロイ
-./scripts/deploy-production.sh -p $PROJECT_ID -i gcr.io/$PROJECT_ID/imgstream:latest
+./scripts/deploy-production.sh -p $PROJECT_ID -i asia-northeast1-docker.pkg.dev/$PROJECT_ID/imgstream/imgstream:latest
 ```
 
 ### 2. 開発環境デプロイメント
@@ -45,7 +45,7 @@ gcloud builds submit --tag gcr.io/$PROJECT_ID/imgstream:latest
 ./scripts/build-image.sh
 
 # 開発環境にデプロイ
-./scripts/deploy-cloud-run.sh -p $PROJECT_ID -e dev -i gcr.io/$PROJECT_ID/imgstream:latest
+./scripts/deploy-cloud-run.sh -p $PROJECT_ID -e dev -i asia-northeast1-docker.pkg.dev/$PROJECT_ID/imgstream/imgstream:latest
 ```
 
 ## Script Details
@@ -125,16 +125,16 @@ Options:
 **Examples:**
 ```bash
 # Standard production deployment
-./scripts/deploy-production.sh -p my-project -i gcr.io/my-project/imgstream:v1.0.0
+./scripts/deploy-production.sh -p my-project -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:v1.0.0
 
 # Dry run to see what would be deployed
-./scripts/deploy-production.sh -p my-project -i gcr.io/my-project/imgstream:latest --dry-run
+./scripts/deploy-production.sh -p my-project -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:latest --dry-run
 
 # Force deployment without confirmation
-./scripts/deploy-production.sh -p my-project -i gcr.io/my-project/imgstream:latest -f
+./scripts/deploy-production.sh -p my-project -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:latest -f
 
 # Skip Terraform (only deploy Cloud Run)
-./scripts/deploy-production.sh -p my-project -i gcr.io/my-project/imgstream:latest --skip-terraform
+./scripts/deploy-production.sh -p my-project -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:latest --skip-terraform
 ```
 
 ### setup-production-secrets.sh
@@ -195,13 +195,13 @@ Options:
 **Examples:**
 ```bash
 # Deploy to development
-./scripts/deploy-cloud-run.sh -p my-project -e dev -i gcr.io/my-project/imgstream:latest
+./scripts/deploy-cloud-run.sh -p my-project -e dev -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:latest
 
 # Deploy to production
-./scripts/deploy-cloud-run.sh -p my-project -e prod -i gcr.io/my-project/imgstream:v1.0.0
+./scripts/deploy-cloud-run.sh -p my-project -e prod -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:v1.0.0
 
 # Dry run
-./scripts/deploy-cloud-run.sh -p my-project -e prod -i gcr.io/my-project/imgstream:latest --dry-run
+./scripts/deploy-cloud-run.sh -p my-project -e prod -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:latest --dry-run
 ```
 
 ## Prerequisites
@@ -260,7 +260,7 @@ The scripts use these environment variables:
 2. **Image Not Found**:
    ```bash
    # Build and push the image first
-   gcloud builds submit --tag gcr.io/$PROJECT_ID/imgstream:latest
+   ./scripts/build-image.sh -p $PROJECT_ID -t latest --push
    ```
 
 3. **API Not Enabled**:

@@ -168,9 +168,12 @@ GitHub Actions用サービスアカウントには以下の権限が付与され
 - `roles/storage.admin`: Cloud Storage管理
 - `roles/artifactregistry.admin`: Artifact Registry管理
 - `roles/iam.serviceAccountUser`: サービスアカウント使用
-- `roles/secretmanager.admin`: Secret Manager管理
 - `roles/monitoring.editor`: モニタリング
 - `roles/logging.admin`: ログ管理
+
+**削除された権限（ImgStreamでは不要）:**
+- `roles/secretmanager.admin`: Secret Managerは使用していない
+- `roles/cloudsql.admin`: Cloud SQLは使用していない（DuckDBを使用）
 
 ## 🧪 テスト
 
