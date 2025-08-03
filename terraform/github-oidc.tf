@@ -25,7 +25,23 @@ resource "google_iam_workload_identity_pool_provider" "github_actions" {
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
+  
+  attribute_condition = "attribute.repository == \"${var.github_repository}\""
 }
+
+# Advanced Security Configuration Examples (commented out):
+# 
+# For additional security, you can add attribute conditions to restrict access
+# to specific branches or environments. Uncomment and modify as needed:
+#
+# 1. Branch-level restriction:
+#    attribute_condition = "attribute.ref == 'refs/heads/main' || attribute.ref == 'refs/heads/develop'"
+#
+# 2. Repository and branch restriction:
+#    attribute_condition = "attribute.repository == 'owner/repo' && attribute.ref == 'refs/heads/main'"
+#
+# 3. Environment-based restriction:
+#    attribute_condition = "attribute.repository == 'owner/repo' && attribute.environment == 'production'"
 
 # Service Account for GitHub Actions
 resource "google_service_account" "github_actions" {
@@ -35,11 +51,13 @@ resource "google_service_account" "github_actions" {
 }
 
 # IAM binding for Workload Identity User
+# Restricts access to specific GitHub repository and branches
 resource "google_service_account_iam_binding" "github_actions_workload_identity" {
   service_account_id = google_service_account.github_actions.name
   role               = "roles/iam.workloadIdentityUser"
 
   members = [
+    # Allow access from the specified repository
     "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github_actions.name}/attribute.repository/${var.github_repository}"
   ]
 }
