@@ -231,3 +231,6 @@ terraform.tfvars.json
 
 # Cloud Build
 cloudbuild-local.yaml
+
+*.bak
+*.backup.*

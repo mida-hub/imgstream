@@ -1,4 +1,4 @@
-# Variables for imgstream infrastructure
+# Variables for ImgStream infrastructure module
 
 variable "project_id" {
   description = "The GCP project ID"
@@ -14,7 +14,6 @@ variable "region" {
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
-  default     = "dev"
 }
 
 variable "app_name" {
@@ -59,11 +58,10 @@ variable "allowed_users" {
   default     = []
 }
 
-# Cloud Run configuration
 variable "container_image" {
   description = "Container image for Cloud Run service"
   type        = string
-  default     = "gcr.io/cloudrun/hello"  # Placeholder image
+  default     = "gcr.io/cloudrun/hello"
 }
 
 variable "enable_public_access" {
@@ -77,22 +75,6 @@ variable "custom_domain" {
   type        = string
   default     = ""
 }
-
-# Secret-related variables removed as they are not currently used
-# If you need to add secrets in the future, you can uncomment and modify:
-#
-# variable "secret_env_vars" {
-#   description = "Environment variables to store as secrets"
-#   type        = map(string)
-#   default     = {}
-#   sensitive   = true
-# }
-#
-# variable "create_default_secrets" {
-#   description = "Create default secrets for the application"
-#   type        = bool
-#   default     = false
-# }
 
 variable "min_instances" {
   description = "Minimum number of instances"
@@ -118,7 +100,6 @@ variable "memory_limit" {
   default     = "2Gi"
 }
 
-# IAP configuration
 variable "iap_support_email" {
   description = "Support email for IAP OAuth consent screen"
   type        = string
@@ -157,16 +138,9 @@ variable "allowed_countries" {
 variable "session_duration" {
   description = "IAP session duration in seconds"
   type        = number
-  default     = 3600  # 1 hour
+  default     = 3600
 }
 
-# GitHub Actions OIDC configuration
-variable "github_repository" {
-  description = "GitHub repository in the format 'owner/repo' for OIDC authentication"
-  type        = string
-}
-
-# Monitoring configuration
 variable "alert_email" {
   description = "Email address for alert notifications"
   type        = string

@@ -1,7 +1,8 @@
 # Production environment configuration
 
-environment = "prod"
-region      = "asia-northeast1"
+# Project configuration
+project_id = "apps-466614"
+region     = "asia-northeast1"
 
 # Storage configuration for production
 bucket_location         = "ASIA"
@@ -33,9 +34,6 @@ container_image = "asia-northeast1-docker.pkg.dev/apps-466614/imgstream/imgstrea
 # Custom domain (optional - configure if you have a domain)
 # custom_domain = "imgstream.example.com"
 
-# Secrets are not currently used by the application
-# create_default_secrets = false
-
 # IAP configuration for production
 iap_support_email              = "rusuden@gmail.com"
 enable_iap                     = true                # Enable IAP for production
@@ -44,8 +42,12 @@ enable_waf_rules               = true                # Enable WAF rules
 rate_limit_requests_per_minute = 100                 # Standard rate limit
 session_duration               = 3600                # 1 hour
 
+# GitHub Actions OIDC configuration is managed in common infrastructure
+
+# Monitoring configuration
+alert_email                   = "rusuden@gmail.com"
+slack_webhook_url             = ""  # Add Slack webhook URL if needed
+storage_alert_threshold_bytes = 85899345920  # 80GB
+
 # Geographic restrictions (optional)
 # allowed_countries = ["US", "CA", "JP"]  # Uncomment and specify allowed countries
-
-# GitHub Actions OIDC configuration
-github_repository = "mida-hub/imgstream"

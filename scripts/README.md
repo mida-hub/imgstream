@@ -12,8 +12,9 @@
 ### 本番デプロイメント
 
 - **`deploy-production.sh`**: 完全な本番デプロイメントスクリプト
-- **`setup-production-secrets.sh`**: 本番用のシークレットとリソースのセットアップ
 - **`deploy-cloud-run.sh`**: Cloud Runへのアプリケーションデプロイ（全環境対応）
+
+**注意**: ImgStreamは現在Google Cloud Secret Managerを使用していません。認証にはGoogle Cloud IAP、設定管理には環境変数を使用しています。
 
 ### 開発とテスト
 
@@ -27,9 +28,6 @@
 ```bash
 # プロジェクトIDを設定
 export PROJECT_ID="your-gcp-project-id"
-
-# シークレットとリソースをセットアップ
-./scripts/setup-production-secrets.sh -p $PROJECT_ID
 
 # イメージをビルドしてプッシュ
 ./scripts/build-image.sh -p $PROJECT_ID -t latest --push
@@ -137,37 +135,7 @@ Options:
 ./scripts/deploy-production.sh -p my-project -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:latest --skip-terraform
 ```
 
-### setup-production-secrets.sh
 
-Sets up secrets and resources needed for production:
-- Enables required Google Cloud APIs
-- Creates secrets in Secret Manager
-- Sets up production GCS bucket
-- Configures IAM permissions
-
-**Usage:**
-```bash
-./scripts/setup-production-secrets.sh -p PROJECT_ID [OPTIONS]
-
-Options:
-  -p PROJECT_ID    GCP project ID (required)
-  -r REGION        GCP region [default: us-central1]
-  -f               Force update existing secrets
-  --dry-run        Show what would be created without executing
-  -h               Show help message
-```
-
-**Examples:**
-```bash
-# Set up production secrets
-./scripts/setup-production-secrets.sh -p my-project
-
-# Dry run to see what would be created
-./scripts/setup-production-secrets.sh -p my-project --dry-run
-
-# Force update existing secrets
-./scripts/setup-production-secrets.sh -p my-project -f
-```
 
 ### deploy-cloud-run.sh
 

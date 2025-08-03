@@ -16,7 +16,7 @@ WORKDIR /app
 # Copy project files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies with development packages
+# Install dependencies using uv.lock as the source of truth (including dev packages)
 RUN uv sync --dev
 
 # Copy source code

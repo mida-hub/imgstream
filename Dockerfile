@@ -17,8 +17,14 @@ WORKDIR /app
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies
-RUN uv sync --frozen --no-dev
+# Copy source code (needed for editable install)
+COPY src/ ./src/
+
+# Debug: Show uv version and files
+RUN uv --version && ls -la
+
+# Install dependencies using uv.lock as the source of truth
+RUN uv sync --no-dev
 
 # Stage 2: Runtime stage
 FROM python:3.11-slim
@@ -35,11 +41,9 @@ RUN groupadd -r imgstream && useradd -r -g imgstream imgstream
 # Set working directory
 WORKDIR /app
 
-# Copy virtual environment from builder stage
+# Copy virtual environment and application code from builder stage
 COPY --from=builder /app/.venv /app/.venv
-
-# Copy application code
-COPY src/ ./src/
+COPY --from=builder /app/src ./src
 
 # Set environment variables
 ENV PATH="/app/.venv/bin:$PATH"

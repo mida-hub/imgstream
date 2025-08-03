@@ -160,6 +160,22 @@ resource "google_service_account" "github_actions" {
 - Workload Identity User権限
 - 必要なGoogle Cloud サービスへの権限
 
+### セキュリティ制限
+
+OIDC認証では以下のセキュリティ制限が適用されます：
+
+#### リポジトリレベルの制限
+- **指定されたGitHubリポジトリからのみアクセス可能**
+- `terraform/variables.tf` の `github_repository` 変数で設定
+- 例: `mida-hub/imgstream` からのみアクセス許可
+
+#### 追加のセキュリティオプション（必要に応じて設定）
+- **ブランチレベルの制限**: `attribute_condition` を使用して特定のブランチからのみアクセス許可
+- **環境ベースの制限**: GitHub Environmentsと連携したアクセス制御
+- **複合条件**: リポジトリ、ブランチ、環境を組み合わせた制限
+
+**注意**: `attribute_condition` を使用する場合は、`attribute_mapping` で定義された属性のみ参照可能です。
+
 ### 権限の詳細
 
 GitHub Actions用サービスアカウントには以下の権限が付与されます：

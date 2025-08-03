@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 PROJECT_ID=""
 IMAGE_NAME="imgstream"
 TAG="latest"
-REGISTRY="gcr.io"
+REGISTRY="asia-northeast1-docker.pkg.dev"
 PUSH=false
 BUILD_ARGS=""
 PLATFORM="linux/amd64"
@@ -40,6 +40,7 @@ usage() {
     echo "Examples:"
     echo "  $0 -p my-project -t v1.0.0 --push"
     echo "  $0 -p my-project --build-arg ENV=prod --push"
+    echo "  $0 -p my-project -r asia-northeast1-docker.pkg.dev --push"
     exit 1
 }
 
@@ -142,21 +143,29 @@ if ! docker info >/dev/null 2>&1; then
     exit 1
 fi
 
-# Configure Docker for GCR if pushing
+# Configure Docker for registry if pushing
 if [[ "$PUSH" == "true" ]]; then
-    print_status "Configuring Docker for Google Container Registry..."
+    print_status "Configuring Docker for container registry..."
     
     # Check if gcloud is installed
     if ! command -v gcloud &> /dev/null; then
-        print_error "gcloud CLI is not installed. Please install it to push to GCR."
+        print_error "gcloud CLI is not installed. Please install it to push to registry."
         exit 1
     fi
     
-    # Configure Docker auth
-    gcloud auth configure-docker --quiet || {
-        print_error "Failed to configure Docker for GCR"
-        exit 1
-    }
+    # Configure Docker auth based on registry
+    if [[ "$REGISTRY" == "gcr.io" ]]; then
+        gcloud auth configure-docker --quiet || {
+            print_error "Failed to configure Docker for GCR"
+            exit 1
+        }
+    else
+        # Assume Artifact Registry
+        gcloud auth configure-docker "${REGISTRY}" --quiet || {
+            print_error "Failed to configure Docker for Artifact Registry"
+            exit 1
+        }
+    fi
     
     # Set project
     gcloud config set project "$PROJECT_ID" || {

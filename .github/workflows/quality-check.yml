@@ -3,8 +3,20 @@ name: Quality Check
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/quality-check.yml'
   pull_request:
     branches: [ main, develop ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/quality-check.yml'
   workflow_dispatch:  # Allow manual triggering
 
 env:
@@ -29,9 +41,18 @@ jobs:
       with:
         version: "latest"
         
+    - name: Cache uv dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+        
     - name: Install dependencies
       run: |
-        uv sync --dev
+        echo "Installing dependencies from uv.lock (including dev dependencies)..."
+        uv sync --dev --all-extras
         
     - name: Run Black formatting check
       run: |
@@ -67,9 +88,18 @@ jobs:
       with:
         version: "latest"
         
+    - name: Cache uv dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+        
     - name: Install dependencies
       run: |
-        uv sync --dev
+        echo "Installing dependencies from uv.lock (including dev dependencies)..."
+        uv sync --dev --all-extras
         
     - name: Run Ruff linting
       run: |
@@ -105,9 +135,18 @@ jobs:
       with:
         version: "latest"
         
+    - name: Cache uv dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+        
     - name: Install dependencies
       run: |
-        uv sync --dev
+        echo "Installing dependencies from uv.lock (including dev dependencies)..."
+        uv sync --dev --all-extras
         
     - name: Run MyPy type checking
       run: |
@@ -145,9 +184,18 @@ jobs:
       with:
         version: "latest"
         
+    - name: Cache uv dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+        
     - name: Install dependencies
       run: |
-        uv sync --dev
+        echo "Installing dependencies from uv.lock (including dev dependencies)..."
+        uv sync --dev --all-extras
         
     - name: Run unit tests with coverage
       run: |
@@ -196,9 +244,18 @@ jobs:
       with:
         version: "latest"
         
+    - name: Cache uv dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+        
     - name: Install dependencies
       run: |
-        uv sync --dev
+        echo "Installing dependencies from uv.lock (including dev dependencies)..."
+        uv sync --dev --all-extras
         
     - name: Run security tests
       run: |
@@ -231,9 +288,18 @@ jobs:
       with:
         version: "latest"
         
+    - name: Cache uv dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock', 'pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+        
     - name: Install dependencies
       run: |
-        uv sync --dev
+        echo "Installing dependencies from uv.lock (including dev dependencies)..."
+        uv sync --dev --all-extras
         
     - name: Run integration tests
       run: |

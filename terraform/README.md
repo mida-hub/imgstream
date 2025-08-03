@@ -1,362 +1,249 @@
-# Imgstream インフラストラクチャ
+# ImgStream Terraform Infrastructure
 
-このディレクトリには、Google Cloud Platform上でimgstream写真管理アプリケーションのインフラストラクチャをデプロイするためのTerraform設定が含まれています。
+This directory contains the Terraform configuration for the ImgStream photo management application infrastructure on Google Cloud Platform.
 
-## 前提条件
+## Directory Structure
 
-1. **Google Cloud SDK**: gcloud CLIのインストールと設定
+```
+terraform/
+├── common/                 # Shared resources (GitHub OIDC) - Deploy once
+│   ├── main.tf
+│   ├── github-oidc.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── terraform.tfvars
+├── modules/
+│   └── imgstream/         # ImgStream application module
+│       ├── main.tf
+│       ├── variables.tf
+│       ├── outputs.tf
+│       ├── storage.tf
+│       ├── cloud_run.tf
+│       ├── artifact_registry.tf
+│       ├── iap.tf
+│       ├── security.tf
+│       └── monitoring.tf
+├── dev/                   # Development environment
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── dev.tfvars
+├── prod/                  # Production environment
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── prod.tfvars
+# Backend configurations are now embedded in main.tf files
+└── README.md
+```
+
+## Architecture Overview
+
+### Common Resources
+- **GitHub OIDC**: Workload Identity Pool and Provider for GitHub Actions authentication
+- **Service Account**: GitHub Actions service account with necessary permissions
+
+### ImgStream Module
+- **Cloud Run**: Containerized application deployment
+- **Cloud Storage**: Photo storage and database backup buckets
+- **Artifact Registry**: Container image repository
+- **IAP (Identity-Aware Proxy)**: Authentication and authorization
+- **Cloud Armor**: Security policies and WAF rules
+- **Monitoring**: Alerts, dashboards, and notification channels
+
+## Usage
+
+### Prerequisites
+
+1. Install Terraform >= 1.12
+2. Install Google Cloud SDK
+3. Authenticate with Google Cloud:
    ```bash
-   # gcloud CLIのインストール (macOS)
-   brew install google-cloud-sdk
-   
-   # 認証
-   gcloud auth login
    gcloud auth application-default login
    ```
+4. Ensure the GCS bucket `apps-466614-terraform-state` exists for state storage
 
-2. **Terraform**: Terraformのインストール (バージョン >= 1.12)
-   ```bash
-   # Terraformのインストール (macOS)
-   brew install terraform
-   ```
+### Deployment Order
 
-3. **GCPプロジェクト**: GCPプロジェクトの作成と課金の有効化
+**IMPORTANT**: Deploy in this order to avoid dependency issues.
 
-## 🏗️ Backend設定
+#### 1. Common Infrastructure (Deploy Once)
 
-このプロジェクトでは、Terraformの状態管理にGoogle Cloud Storage (GCS)をバックエンドとして使用しています：
-
-- **バケット**: `tfstate-apps-466614`
-- **開発環境**: `gs://tfstate-apps-466614/imgstream/dev/default.tfstate`
-- **本番環境**: `gs://tfstate-apps-466614/imgstream/prod/default.tfstate`
-
-### 環境別の初期化
-
-提供されているスクリプトを使用して環境別に初期化：
+Deploy the shared GitHub OIDC resources first:
 
 ```bash
-# 開発環境
-./scripts/terraform-init.sh dev
-
-# 本番環境
-./scripts/terraform-init.sh prod
+cd terraform/common
+terraform init
+terraform plan
+terraform apply
 ```
 
-または手動でバックエンド設定を指定して初期化：
+#### 2. Development Environment
 
 ```bash
-# 開発環境
-cd terraform
-terraform init -backend-config=backend-dev.hcl
-
-# 本番環境
-cd terraform
-terraform init -backend-config=backend-prod.hcl
+cd terraform/dev
+terraform init
+terraform plan -var-file=dev.tfvars
+terraform apply -var-file=dev.tfvars
 ```
 
-## クイックスタート
+#### 3. Production Environment
 
-### オプション1: IAPを使用した自動セットアップ（本番環境推奨）
-
-1. **自動スクリプトでCloud IAPをセットアップ**
-   ```bash
-   # スクリプトを実行可能にする
-   chmod +x scripts/setup-iap.sh scripts/test-iap.sh
-   
-   # 開発環境のセットアップ
-   ./scripts/setup-iap.sh -p YOUR_PROJECT_ID -e support@example.com -env dev
-   
-   # カスタムドメインとアクセス制御付きの本番環境セットアップ
-   ./scripts/setup-iap.sh -p YOUR_PROJECT_ID -e support@example.com -env prod \
-     -d imgstream.example.com -u admin@example.com,user@example.com
-   ```
-
-2. **IAP設定のテスト**
-   ```bash
-   # セットアップのテスト
-   ./scripts/test-iap.sh -p YOUR_PROJECT_ID -env prod
-   ```
-
-### Option 2: Manual Terraform Deployment
-
-1. **Clone and navigate to terraform directory**
-   ```bash
-   cd terraform
-   ```
-
-2. **Configure environment variables**
-   ```bash
-   # Edit terraform/environments/dev.tfvars or prod.tfvars
-   # Update the following required variables:
-   # - iap_support_email
-   # - allowed_users or allowed_domains
-   # - custom_domain (optional)
-   ```
-
-3. **Deploy infrastructure**
-   ```bash
-   # Initialize Terraform
-   terraform init
-   
-   # Plan deployment
-   terraform plan -var-file="environments/prod.tfvars" -var="project_id=YOUR_PROJECT_ID"
-   
-   # Apply deployment
-   terraform apply -var-file="environments/prod.tfvars" -var="project_id=YOUR_PROJECT_ID"
-   ```
-
-## Infrastructure Components
-
-### Storage Buckets
-
-1. **Photos Bucket** (`imgstream-photos-{env}-{suffix}`)
-   - Stores original photos and thumbnails
-   - Lifecycle policy: Standard → Coldline (30 days) → Archive (365 days)
-   - Public read access for signed URLs
-   - CORS enabled for web access
-
-2. **Database Bucket** (`imgstream-database-{env}-{suffix}`)
-   - Stores DuckDB backup files
-   - Versioning enabled
-   - Lifecycle policy: Standard → Coldline (7 days) → Archive (90 days) → Delete (365 days)
-   - Private access only
-
-### Service Accounts
-
-1. **Cloud Run Service Account**
-   - Used by the application for GCS access
-   - Permissions: Storage Object Admin, Logging, Monitoring
-
-2. **Monitoring Service Account**
-   - Used for monitoring and alerting
-   - Permissions: Monitoring Viewer, Logging Viewer, Storage Object Viewer
-
-### Security Features
-
-- Uniform bucket-level access enabled
-- Principle of least privilege for service accounts
-- Required APIs automatically enabled
-- Bucket-level IAM bindings for access control
+```bash
+cd terraform/prod
+terraform init
+terraform plan -var-file=prod.tfvars
+terraform apply -var-file=prod.tfvars
+```
 
 ## Configuration
 
 ### Environment Variables
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `project_id` | GCP project ID | - | Yes |
-| `region` | GCP region | `us-central1` | No |
-| `environment` | Environment name | `dev` | No |
-| `bucket_location` | GCS bucket location | `US` | No |
-| `lifecycle_coldline_days` | Days to Coldline transition | `30` | No |
-| `lifecycle_archive_days` | Days to Archive transition | `365` | No |
-| `lifecycle_delete_days` | Days to deletion (0=never) | `0` | No |
+Each environment has its own `.tfvars` file with environment-specific configurations:
 
-### Environment-Specific Configurations
+- **dev.tfvars**: Development environment settings
+  - Public access enabled
+  - IAP disabled
+  - Minimal instances for cost savings
+  - Relaxed security policies
 
-- **Development** (`environments/dev.tfvars`)
-  - Shorter lifecycle policies for cost optimization
-  - Auto-deletion after 90 days
-  - Relaxed security settings
+- **prod.tfvars**: Production environment settings
+  - IAP enabled for security
+  - Minimum instances for availability
+  - Full security policies enabled
+  - Production-grade monitoring
 
-- **Production** (`environments/prod.tfvars`)
-  - Standard lifecycle policies
-  - No auto-deletion
-  - Strict security settings
+### Key Configuration Options
 
-## Deployment Commands
-
-### Using the Deploy Script
-
-```bash
-# Plan deployment
-./scripts/deploy.sh -p PROJECT_ID -e ENVIRONMENT -a plan
-
-# Apply deployment
-./scripts/deploy.sh -p PROJECT_ID -e ENVIRONMENT -a apply
-
-# Apply with auto-approval
-./scripts/deploy.sh -p PROJECT_ID -e ENVIRONMENT -a apply --auto-approve
-
-# Destroy infrastructure
-./scripts/deploy.sh -p PROJECT_ID -e ENVIRONMENT -a destroy
-```
-
-### Manual Terraform Commands
-
-```bash
-# Initialize
-terraform init
-
-# Plan
-terraform plan -var-file="environments/dev.tfvars" -var="project_id=YOUR_PROJECT_ID"
-
-# Apply
-terraform apply -var-file="environments/dev.tfvars" -var="project_id=YOUR_PROJECT_ID"
-
-# Destroy
-terraform destroy -var-file="environments/dev.tfvars" -var="project_id=YOUR_PROJECT_ID"
-```
+| Variable | Description | Dev Default | Prod Default |
+|----------|-------------|-------------|--------------|
+| `enable_public_access` | Allow public access | `true` | `false` |
+| `enable_iap` | Enable Identity-Aware Proxy | `false` | `true` |
+| `min_instances` | Minimum Cloud Run instances | `0` | `1` |
+| `max_instances` | Maximum Cloud Run instances | `3` | `10` |
+| `enable_security_policy` | Enable Cloud Armor | `false` | `true` |
+| `enable_waf_rules` | Enable WAF rules | `false` | `true` |
 
 ## Outputs
 
-After successful deployment, Terraform will output:
+After successful deployment, Terraform will output important information:
 
-- `photos_bucket_name`: Name of the photos storage bucket
-- `photos_bucket_url`: URL of the photos storage bucket
-- `database_bucket_name`: Name of the database backup bucket
-- `database_bucket_url`: URL of the database backup bucket
-- `service_account_email`: Email of the Cloud Run service account
+- **cloud_run_service_url**: URL of the deployed application
+- **artifact_registry_repository_url**: Container registry URL
+- **photos_bucket_name**: GCS bucket for photo storage
+- **workload_identity_provider**: GitHub Actions OIDC provider
+- **monitoring_dashboard_url**: Link to monitoring dashboard
 
-## Cost Optimization
+## Security Features
 
-### Free Tier Considerations
+### Identity-Aware Proxy (IAP)
+- OAuth-based authentication
+- User and domain-based access control
+- Session management
 
-- **GCS Storage**: 5GB free per month
-- **GCS Operations**: 5,000 Class A operations, 50,000 Class B operations per month
-- **Lifecycle policies**: Automatically move data to cheaper storage classes
+### Cloud Armor Security Policies
+- Rate limiting
+- Geographic restrictions
+- XSS and SQL injection protection
+- Custom security rules
 
-### Lifecycle Policies
+### Storage Security
+- Uniform bucket-level access
+- Service account-based permissions
+- Lifecycle management
+- Versioning for database backups
 
-1. **Photos Bucket**:
-   - Standard storage for first 30 days (frequent access)
-   - Coldline storage after 30 days (monthly access)
-   - Archive storage after 365 days (yearly access)
-   - Optional deletion (disabled by default)
+## Monitoring and Alerting
 
-2. **Database Bucket**:
-   - Standard storage for first 7 days
-   - Coldline storage after 7 days
-   - Archive storage after 90 days
-   - Automatic deletion after 365 days
+### Alert Policies
+- Service availability monitoring
+- High error rate detection
+- Response time monitoring
+- Resource utilization alerts
+- Storage usage monitoring
 
-## Security Best Practices
+### Notification Channels
+- Email notifications
+- Slack integration (optional)
+- Custom webhook support
 
-1. **Bucket Access**:
-   - Uniform bucket-level access enabled
-   - Service account-based access only
-   - No public write access
+### Dashboards
+- Real-time metrics visualization
+- Request rate and error tracking
+- Resource utilization monitoring
+- Storage usage analytics
 
-2. **Service Accounts**:
-   - Principle of least privilege
-   - Separate accounts for different purposes
-   - Regular key rotation (handled by GCP)
+## Maintenance
 
-3. **Monitoring**:
-   - Cloud Logging integration
-   - Cloud Monitoring integration
-   - Audit logs enabled
+### Updating Infrastructure
+
+1. Modify the appropriate `.tfvars` file
+2. Run `terraform plan` to review changes
+3. Run `terraform apply` to apply changes
+
+### Adding New Environments
+
+1. Create a new directory (e.g., `staging/`)
+2. Copy files from `dev/` or `prod/`
+3. Create environment-specific `.tfvars` file
+4. Create backend configuration file
+5. Initialize and apply
+
+### Module Updates
+
+The ImgStream module is versioned and can be updated independently. When updating:
+
+1. Review module changes
+2. Test in development environment first
+3. Apply to production after validation
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Permission Denied**:
-   ```bash
-   # Ensure you're authenticated
-   gcloud auth login
-   gcloud auth application-default login
-   
-   # Check project permissions
-   gcloud projects get-iam-policy PROJECT_ID
-   ```
+1. **Backend initialization fails**
+   - Ensure GCS bucket `apps-466614-terraform-state` exists
+   - Check permissions on the bucket
+   - Verify you have deployed common infrastructure first
 
-2. **Bucket Name Conflicts**:
-   - Bucket names are globally unique
-   - The configuration uses random suffixes to avoid conflicts
-   - If conflicts occur, run `terraform apply` again
+2. **Remote state data source fails**
+   - Ensure common infrastructure has been deployed first
+   - Check that common state exists in GCS bucket
 
-3. **API Not Enabled**:
-   ```bash
-   # Enable required APIs manually
-   gcloud services enable storage.googleapis.com
-   gcloud services enable run.googleapis.com
-   gcloud services enable iap.googleapis.com
-   ```
+3. **IAP setup fails**
+   - Verify OAuth consent screen is configured
+   - Check domain verification
 
-### State Management
+4. **Cloud Run deployment fails**
+   - Verify container image exists in Artifact Registry
+   - Check service account permissions
 
-- Terraform state is stored locally by default
-- For production, consider using remote state storage:
-  ```hcl
-  terraform {
-    backend "gcs" {
-      bucket = "your-terraform-state-bucket"
-      prefix = "imgstream/terraform.tfstate"
-    }
-  }
-  ```
+### Getting Help
 
-## Cloud Run Deployment
+- Check Terraform logs: `terraform apply -debug`
+- Review Google Cloud Console for resource status
+- Validate configuration: `terraform validate`
+- Format code: `terraform fmt -recursive`
 
-### Container Image Build
+## Best Practices
 
-1. **Build for Cloud Run**:
-   ```bash
-   # Build production image
-   docker build -f Dockerfile.cloudrun -t gcr.io/PROJECT_ID/imgstream:latest .
-   
-   # Push to Container Registry
-   docker push gcr.io/PROJECT_ID/imgstream:latest
-   ```
+1. **State Management**
+   - Use remote state storage (GCS)
+   - Enable state locking
+   - Regular state backups
 
-2. **Deploy using script**:
-   ```bash
-   # Make script executable
-   chmod +x scripts/deploy-cloud-run.sh
-   
-   # Deploy to development
-   ./scripts/deploy-cloud-run.sh -p PROJECT_ID -e dev
-   
-   # Deploy to production
-   ./scripts/deploy-cloud-run.sh -p PROJECT_ID -e prod
-   ```
+2. **Security**
+   - Use least-privilege service accounts
+   - Enable audit logging
+   - Regular security reviews
 
-3. **Deploy using Cloud Build**:
-   ```bash
-   # Submit build to Cloud Build
-   gcloud builds submit --config cloudbuild.yaml \
-     --substitutions _ENVIRONMENT=dev,_REGION=us-central1
-   ```
+3. **Cost Optimization**
+   - Use appropriate instance sizing
+   - Implement lifecycle policies
+   - Monitor resource usage
 
-### Environment Variables
-
-The Cloud Run service automatically receives:
-- `ENVIRONMENT`: Environment name (dev/prod)
-- `GCP_PROJECT_ID`: GCP project ID
-- `GCP_REGION`: GCP region
-- `GCS_PHOTOS_BUCKET`: Photos storage bucket name
-- `GCS_DATABASE_BUCKET`: Database backup bucket name
-
-### Secrets Management
-
-**Note**: ImgStream currently does not use secrets as it relies on:
-- Google Cloud IAP for authentication (no custom session secrets needed)
-- DuckDB without encryption (no database encryption keys needed)
-- Standard Streamlit session management
-
-If you need to add secrets in the future, you can uncomment and modify the relevant sections in `terraform/secrets.tf`.
-
-### Resource Configuration
-
-- **Development**: 1 vCPU, 1GB RAM, 0-3 instances
-- **Production**: 1 vCPU, 2GB RAM, 1-10 instances
-- **Timeout**: 5 minutes
-- **Concurrency**: 80 requests per instance
-
-## Next Steps
-
-After deploying the infrastructure:
-
-1. ✅ Deploy storage infrastructure (Task 11.1)
-2. ✅ Deploy Cloud Run service (Task 11.2)
-3. Configure Cloud IAP (Task 11.3)
-4. Set up CI/CD pipeline (Task 12)
-5. Configure monitoring and alerting (Task 14.2)
-
-## Support
-
-For issues or questions:
-1. Check the troubleshooting section above
-2. Review Terraform and GCP documentation
-3. Check application logs in Cloud Logging
+4. **Deployment**
+   - Test in development first
+   - Use infrastructure as code
+   - Implement proper CI/CD pipelines
