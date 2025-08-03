@@ -87,7 +87,6 @@ gcloud config set project $PROJECT_ID
 ```bash
 gcloud services enable \
     run.googleapis.com \
-    cloudbuild.googleapis.com \
     storage.googleapis.com \
     monitoring.googleapis.com \
     logging.googleapis.com \
@@ -239,7 +238,7 @@ gcloud projects get-iam-policy $PROJECT_ID
 #### 4. イメージが見つからない
 ```bash
 # イメージビルド・プッシュ
-gcloud builds submit --tag gcr.io/$PROJECT_ID/imgstream:latest
+./scripts/build-image.sh -p $PROJECT_ID -t latest --push
 ```
 
 ### ログ確認
@@ -247,8 +246,8 @@ gcloud builds submit --tag gcr.io/$PROJECT_ID/imgstream:latest
 # Cloud Runログ
 gcloud logs read "resource.type=cloud_run_revision" --limit=50
 
-# ビルドログ
-gcloud builds log [BUILD_ID]
+# Dockerビルドログ（ローカル）
+docker build --progress=plain -t gcr.io/$PROJECT_ID/imgstream:latest .
 
 # サービス状態
 gcloud run services describe imgstream-production --region=us-central1
