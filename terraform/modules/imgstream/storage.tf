@@ -151,8 +151,12 @@ resource "google_storage_bucket_iam_member" "database_cloud_run_admin" {
   member = "serviceAccount:${google_service_account.cloud_run.email}"
 }
 
-# Public read access for photos bucket (for signed URLs)
+# Optional public read access for photos bucket
+# SECURITY NOTE: This allows public access to all objects in the bucket
+# Default is disabled (false) for better security - photos are served via signed URLs
+# Only enable if you need direct public access to photos (not recommended)
 resource "google_storage_bucket_iam_member" "photos_public_read" {
+  count  = var.enable_public_photo_access ? 1 : 0
   bucket = google_storage_bucket.photos.name
   role   = "roles/storage.legacyObjectReader"
   member = "allUsers"

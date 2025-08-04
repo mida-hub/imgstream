@@ -40,7 +40,7 @@ resource "google_monitoring_alert_policy" "service_availability" {
     display_name = "Service availability below 99%"
     
     condition_threshold {
-      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"imgstream-${var.environment}.*\" AND metric.type=\"run.googleapis.com/request_count\""
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"imgstream-${var.environment}\" AND metric.type=\"run.googleapis.com/request_count\""
       duration        = "300s"
       comparison      = "COMPARISON_LT"
       threshold_value = 0.99
@@ -77,7 +77,7 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
     display_name = "Error rate above 5%"
     
     condition_threshold {
-      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"imgstream-${var.environment}.*\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class!=\"2xx\""
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"imgstream-${var.environment}\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class!=\"2xx\""
       duration        = "300s"
       comparison      = "COMPARISON_GT"
       threshold_value = 0.05
@@ -110,7 +110,7 @@ resource "google_monitoring_alert_policy" "high_response_time" {
     display_name = "95th percentile response time above 2s"
     
     condition_threshold {
-      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"imgstream-${var.environment}.*\" AND metric.type=\"run.googleapis.com/request_latencies\""
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"imgstream-${var.environment}\" AND metric.type=\"run.googleapis.com/request_latencies\""
       duration        = "300s"
       comparison      = "COMPARISON_GT"
       threshold_value = 2000
@@ -143,14 +143,14 @@ resource "google_monitoring_alert_policy" "high_memory_usage" {
     display_name = "Memory utilization above 80%"
     
     condition_threshold {
-      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"imgstream-${var.environment}.*\" AND metric.type=\"run.googleapis.com/container/memory/utilizations\""
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"imgstream-${var.environment}\" AND metric.type=\"run.googleapis.com/container/memory/utilizations\""
       duration        = "300s"
       comparison      = "COMPARISON_GT"
       threshold_value = 0.8
       
       aggregations {
         alignment_period   = "60s"
-        per_series_aligner = "ALIGN_MEAN"
+        per_series_aligner = "ALIGN_DELTA"
         cross_series_reducer = "REDUCE_MEAN"
         group_by_fields    = ["resource.labels.service_name"]
       }
@@ -176,14 +176,14 @@ resource "google_monitoring_alert_policy" "high_cpu_usage" {
     display_name = "CPU utilization above 80%"
     
     condition_threshold {
-      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"imgstream-${var.environment}.*\" AND metric.type=\"run.googleapis.com/container/cpu/utilizations\""
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"imgstream-${var.environment}\" AND metric.type=\"run.googleapis.com/container/cpu/utilizations\""
       duration        = "300s"
       comparison      = "COMPARISON_GT"
       threshold_value = 0.8
       
       aggregations {
         alignment_period   = "60s"
-        per_series_aligner = "ALIGN_MEAN"
+        per_series_aligner = "ALIGN_DELTA"
         cross_series_reducer = "REDUCE_MEAN"
         group_by_fields    = ["resource.labels.service_name"]
       }
@@ -242,7 +242,7 @@ resource "google_monitoring_alert_policy" "instance_scaling" {
     display_name = "Instance count near maximum"
     
     condition_threshold {
-      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"imgstream-${var.environment}.*\" AND metric.type=\"run.googleapis.com/container/instance_count\""
+      filter          = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"imgstream-${var.environment}\" AND metric.type=\"run.googleapis.com/container/instance_count\""
       duration        = "300s"
       comparison      = "COMPARISON_GT"
       threshold_value = var.max_instances * 0.8  # 80% of max instances
@@ -267,6 +267,7 @@ resource "google_monitoring_dashboard" "imgstream_overview" {
   dashboard_json = jsonencode({
     displayName = "ImgStream Overview - ${var.environment}"
     mosaicLayout = {
+      columns = 12
       tiles = [
         {
           width  = 6
@@ -277,7 +278,7 @@ resource "google_monitoring_dashboard" "imgstream_overview" {
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
-                    filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"imgstream-${var.environment}.*\" AND metric.type=\"run.googleapis.com/request_count\""
+                    filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"imgstream-${var.environment}\" AND metric.type=\"run.googleapis.com/request_count\""
                     aggregation = {
                       alignmentPeriod    = "60s"
                       perSeriesAligner   = "ALIGN_RATE"
@@ -306,7 +307,7 @@ resource "google_monitoring_dashboard" "imgstream_overview" {
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
-                    filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=~\"imgstream-${var.environment}.*\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class!=\"2xx\""
+                    filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"imgstream-${var.environment}\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.labels.response_code_class!=\"2xx\""
                     aggregation = {
                       alignmentPeriod    = "60s"
                       perSeriesAligner   = "ALIGN_RATE"

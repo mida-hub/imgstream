@@ -59,9 +59,15 @@ variable "allowed_users" {
 }
 
 variable "container_image" {
-  description = "Container image for Cloud Run service"
+  description = "Container image for Cloud Run service (deprecated - use container_image_tag instead)"
   type        = string
   default     = "gcr.io/cloudrun/hello"
+}
+
+variable "container_image_tag" {
+  description = "Container image tag for the environment (overrides default environment tag)"
+  type        = string
+  default     = null
 }
 
 variable "enable_public_access" {
@@ -157,4 +163,10 @@ variable "storage_alert_threshold_bytes" {
   description = "Storage usage threshold in bytes for alerts"
   type        = number
   default     = 85899345920  # 80GB
+}
+
+variable "enable_public_photo_access" {
+  description = "Enable public read access to photos bucket (less secure but simpler)"
+  type        = bool
+  default     = false  # Secure by default - use signed URLs only
 }

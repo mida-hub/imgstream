@@ -3,12 +3,13 @@
 variable "project_id" {
   description = "The GCP project ID"
   type        = string
+  default     = "apps-466614"
 }
 
 variable "region" {
   description = "The GCP region for resources"
   type        = string
-  default     = "us-central1"
+  default     = "asia-northeast1"
 }
 
 variable "app_name" {
@@ -20,7 +21,7 @@ variable "app_name" {
 variable "bucket_location" {
   description = "Location for GCS buckets"
   type        = string
-  default     = "US"
+  default     = "Asia"
 }
 
 variable "lifecycle_coldline_days" {
@@ -54,9 +55,15 @@ variable "allowed_users" {
 }
 
 variable "container_image" {
-  description = "Container image for Cloud Run service"
+  description = "Container image for Cloud Run service (deprecated - use container_image_tag instead)"
   type        = string
   default     = "gcr.io/cloudrun/hello"
+}
+
+variable "container_image_tag" {
+  description = "Container image tag for the environment (overrides default environment tag)"
+  type        = string
+  default     = null
 }
 
 variable "enable_public_access" {

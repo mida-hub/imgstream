@@ -54,9 +54,15 @@ variable "allowed_users" {
 }
 
 variable "container_image" {
-  description = "Container image for Cloud Run service"
+  description = "Container image for Cloud Run service (deprecated - use container_image_tag instead)"
   type        = string
   default     = "gcr.io/cloudrun/hello"
+}
+
+variable "container_image_tag" {
+  description = "Container image tag for the environment (overrides default environment tag)"
+  type        = string
+  default     = null
 }
 
 variable "enable_public_access" {

@@ -18,6 +18,7 @@ allowed_domains = [
 
 # allowed_users will be set via environment variable TF_VAR_allowed_users
 # Example: export TF_VAR_allowed_users='["user1@example.com","user2@example.com"]'
+# IMPORTANT: Set this environment variable to allow specific users access
 allowed_users = []
 
 # Cloud Run configuration for production
@@ -27,8 +28,18 @@ max_instances        = 10    # Allow scaling up to 10 instances
 cpu_limit            = "1000m"
 memory_limit         = "2Gi"
 
-# Container image (will be updated during deployment)
-container_image = "asia-northeast1-docker.pkg.dev/apps-466614/imgstream/imgstream:latest"
+# Container image configuration
+# Note: container_image is deprecated - using shared Artifact Registry with tag management
+# The image will be automatically constructed from common Artifact Registry
+# Default tag for prod environment is "stable" (can be overridden with container_image_tag)
+container_image = "gcr.io/cloudrun/hello" # Fallback only, not used with new system
+
+# Container image tag (optional override for default "stable" tag in prod)
+# container_image_tag = "v1.2.3"  # Uncomment to use specific release tag
+
+# Storage security configuration
+# enable_public_photo_access = false  # Default: secure (no public access to photos)
+# Photos are served via signed URLs through the application for better security
 
 # Custom domain (optional - configure if you have a domain)
 # custom_domain = "imgstream.example.com"

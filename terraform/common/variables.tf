@@ -17,3 +17,10 @@ variable "github_repository" {
   type        = string
   default     = "mida-hub/imgstream"
 }
+
+# Artifact Registry configuration
+variable "cloud_run_service_accounts" {
+  description = "List of Cloud Run service account emails that need access to the Artifact Registry"
+  type        = list(string)
+  default     = []
+}

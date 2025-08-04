@@ -4,7 +4,7 @@
 resource "google_cloud_run_v2_service" "imgstream" {
   name     = "${var.app_name}-${var.environment}"
   location = var.region
-  
+
   # Prevent accidental deletion
   lifecycle {
     prevent_destroy = true
@@ -13,7 +13,7 @@ resource "google_cloud_run_v2_service" "imgstream" {
   template {
     # Service account for the container
     service_account = google_service_account.cloud_run.email
-    
+
     # Scaling configuration
     scaling {
       min_instance_count = var.min_instances
@@ -22,8 +22,8 @@ resource "google_cloud_run_v2_service" "imgstream" {
 
     # Container configuration
     containers {
-      # Container image (will be updated via CI/CD)
-      image = var.container_image
+      # Container image from shared Artifact Registry
+      image = local.container_image
 
       # Resource limits
       resources {
@@ -31,16 +31,16 @@ resource "google_cloud_run_v2_service" "imgstream" {
           cpu    = var.cpu_limit
           memory = var.memory_limit
         }
-        
+
         # CPU is only allocated during request processing
-        cpu_idle = false
+        cpu_idle          = false
         startup_cpu_boost = true
       }
 
       # Container port
       ports {
         container_port = 8080
-        name          = "http1"
+        name           = "http1"
       }
 
       # Environment variables
@@ -54,10 +54,7 @@ resource "google_cloud_run_v2_service" "imgstream" {
         value = "/app/src"
       }
 
-      env {
-        name  = "PORT"
-        value = "8080"
-      }
+      # Note: PORT is automatically set by Cloud Run v2
 
       env {
         name  = "STREAMLIT_SERVER_PORT"
@@ -107,9 +104,9 @@ resource "google_cloud_run_v2_service" "imgstream" {
           port = 8080
         }
         initial_delay_seconds = 30
-        timeout_seconds      = 10
-        period_seconds       = 10
-        failure_threshold    = 3
+        timeout_seconds       = 10
+        period_seconds        = 10
+        failure_threshold     = 3
       }
 
       liveness_probe {
@@ -118,14 +115,14 @@ resource "google_cloud_run_v2_service" "imgstream" {
           port = 8080
         }
         initial_delay_seconds = 60
-        timeout_seconds      = 10
-        period_seconds       = 30
-        failure_threshold    = 3
+        timeout_seconds       = 10
+        period_seconds        = 30
+        failure_threshold     = 3
       }
     }
 
     # Timeout configuration
-    timeout = "300s"  # 5 minutes
+    timeout = "300s" # 5 minutes
 
     # Execution environment
     execution_environment = "EXECUTION_ENVIRONMENT_GEN2"
@@ -144,11 +141,8 @@ resource "google_cloud_run_v2_service" "imgstream" {
     managed-by  = "terraform"
   }
 
-  # Annotations for Cloud Run specific settings
-  annotations = {
-    "run.googleapis.com/ingress"        = "all"
-    "run.googleapis.com/ingress-status" = "all"
-  }
+  # Note: Cloud Run v2 doesn't support system annotations like ingress
+  # These are managed automatically by the service
 
   depends_on = [
     google_project_service.required_apis,
@@ -161,7 +155,7 @@ resource "google_cloud_run_v2_service" "imgstream" {
 # IAM policy for Cloud Run service
 resource "google_cloud_run_v2_service_iam_binding" "public_access" {
   count = var.enable_public_access && !var.enable_iap ? 1 : 0
-  
+
   location = google_cloud_run_v2_service.imgstream.location
   name     = google_cloud_run_v2_service.imgstream.name
   role     = "roles/run.invoker"
@@ -171,7 +165,7 @@ resource "google_cloud_run_v2_service_iam_binding" "public_access" {
 # IAM policy for IAP access (when IAP is enabled)
 resource "google_cloud_run_v2_service_iam_binding" "iap_access" {
   count = var.enable_iap ? 1 : 0
-  
+
   location = google_cloud_run_v2_service.imgstream.location
   name     = google_cloud_run_v2_service.imgstream.name
   role     = "roles/run.invoker"
@@ -181,7 +175,7 @@ resource "google_cloud_run_v2_service_iam_binding" "iap_access" {
 # IAM policy for authenticated access (when neither public nor IAP is enabled)
 resource "google_cloud_run_v2_service_iam_binding" "authenticated_access" {
   count = !var.enable_public_access && !var.enable_iap ? 1 : 0
-  
+
   location = google_cloud_run_v2_service.imgstream.location
   name     = google_cloud_run_v2_service.imgstream.name
   role     = "roles/run.invoker"
@@ -191,7 +185,7 @@ resource "google_cloud_run_v2_service_iam_binding" "authenticated_access" {
 # Custom domain mapping (optional)
 resource "google_cloud_run_domain_mapping" "imgstream" {
   count = var.custom_domain != "" ? 1 : 0
-  
+
   location = var.region
   name     = var.custom_domain
 

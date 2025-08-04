@@ -13,6 +13,7 @@ NC='\033[0m' # No Color
 # Default values
 PROJECT_ID=""
 IMAGE_NAME="imgstream"
+REPOSITORY_NAME="imgstream"  # Artifact Registry repository name
 TAG="latest"
 REGISTRY="asia-northeast1-docker.pkg.dev"
 PUSH=false
@@ -29,8 +30,9 @@ usage() {
     echo ""
     echo "Optional:"
     echo "  -n IMAGE_NAME    Image name [default: imgstream]"
+    echo "  --repo REPO      Repository name [default: imgstream]"
     echo "  -t TAG           Image tag [default: latest]"
-    echo "  -r REGISTRY      Container registry [default: gcr.io]"
+    echo "  -r REGISTRY      Container registry [default: asia-northeast1-docker.pkg.dev]"
     echo "  --push           Push image to registry after build"
     echo "  --no-cache       Build without using cache"
     echo "  --build-arg      Build argument (can be used multiple times)"
@@ -70,6 +72,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -n|--name)
             IMAGE_NAME="$2"
+            shift 2
+            ;;
+        --repo)
+            REPOSITORY_NAME="$2"
             shift 2
             ;;
         -t|--tag)
@@ -112,14 +118,21 @@ if [[ -z "$PROJECT_ID" ]]; then
     usage
 fi
 
-# Construct full image name
-FULL_IMAGE_NAME="${REGISTRY}/${PROJECT_ID}/${IMAGE_NAME}:${TAG}"
+# Construct full image name based on registry type
+if [[ "$REGISTRY" == "gcr.io" ]]; then
+    # GCR format: gcr.io/PROJECT_ID/IMAGE_NAME:TAG
+    FULL_IMAGE_NAME="${REGISTRY}/${PROJECT_ID}/${IMAGE_NAME}:${TAG}"
+else
+    # Artifact Registry format: REGISTRY/PROJECT_ID/REPOSITORY/IMAGE_NAME:TAG
+    FULL_IMAGE_NAME="${REGISTRY}/${PROJECT_ID}/${REPOSITORY_NAME}/${IMAGE_NAME}:${TAG}"
+fi
 
 # Display configuration
 echo "=================================="
 echo "    Docker Image Build"
 echo "=================================="
 echo "Project ID:      $PROJECT_ID"
+echo "Repository:      $REPOSITORY_NAME"
 echo "Image Name:      $IMAGE_NAME"
 echo "Tag:             $TAG"
 echo "Registry:        $REGISTRY"

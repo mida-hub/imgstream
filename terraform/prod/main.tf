@@ -5,29 +5,27 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 5.0"
+      version = "=6.46.0"
     }
   }
   
-  # Backend configuration for remote state storage
   backend "gcs" {
-    bucket = "apps-466614-terraform-state"
-    prefix = "prod"
+    bucket = "tfstate-apps-466614"
+    prefix = "imgstream/prod"
   }
 }
 
-# Configure the Google Cloud Provider
 provider "google" {
-  project = var.project_id
-  region  = var.region
+  project = "apps-466614"
+  region  = "asia-northeast1"
 }
 
 # Data source to read common state (GitHub OIDC resources)
 data "terraform_remote_state" "common" {
   backend = "gcs"
   config = {
-    bucket = "apps-466614-terraform-state"
-    prefix = "common"
+    bucket = "tfstate-apps-466614"
+    prefix = "imgstream/common"
   }
 }
 
@@ -53,7 +51,11 @@ module "imgstream" {
   
   # Cloud Run configuration
   container_image      = var.container_image
+  container_image_tag  = var.container_image_tag
   enable_public_access = var.enable_public_access
+  
+  # Storage security configuration
+  enable_public_photo_access = false  # Secure: no public access to photos
   custom_domain        = var.custom_domain
   min_instances        = var.min_instances
   max_instances        = var.max_instances

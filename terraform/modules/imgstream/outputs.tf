@@ -20,10 +20,7 @@ output "database_bucket_name" {
   value       = google_storage_bucket.database.name
 }
 
-output "artifact_registry_repository_url" {
-  description = "URL of the Artifact Registry repository"
-  value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.imgstream.repository_id}"
-}
+
 
 output "cloud_run_service_account_email" {
   description = "Email of the Cloud Run service account"

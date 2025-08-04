@@ -17,18 +17,29 @@ allowed_domains = [
 ]
 
 # allowed_users will be set via environment variable TF_VAR_allowed_users
-# Example: export TF_VAR_allowed_users='["your-email@example.com"]'
+# Example: export TF_VAR_allowed_users='["your-email@example.com","team@example.com"]'
+# IMPORTANT: Set this environment variable to allow specific users access
 allowed_users = []
 
 # Cloud Run configuration for development
-enable_public_access = true # Enable public access for development
+enable_public_access = false # Disable public access - require authentication
 min_instances        = 0    # No minimum instances for cost savings
 max_instances        = 3    # Limit scaling for development
 cpu_limit            = "1000m"
 memory_limit         = "2Gi"
 
-# Container image (will be updated during deployment)
-container_image = "asia-northeast1-docker.pkg.dev/apps-466614/imgstream/imgstream:latest"
+# Container image configuration
+# Note: container_image is deprecated - using shared Artifact Registry with tag management
+# The image will be automatically constructed from common Artifact Registry
+# Default tag for dev environment is "latest" (can be overridden with container_image_tag)
+container_image = "gcr.io/cloudrun/hello" # Fallback only, not used with new system
+
+# Container image tag (optional override for default "latest" tag in dev)
+# container_image_tag = "dev-v1.2.3"  # Uncomment to use specific tag
+
+# Storage security configuration
+# enable_public_photo_access = false  # Default: secure (no public access to photos)
+# Photos are served via signed URLs through the application for better security
 
 # Custom domain (optional - configure if you have a domain for dev)
 # custom_domain = "imgstream-dev.example.com"
@@ -37,7 +48,7 @@ container_image = "asia-northeast1-docker.pkg.dev/apps-466614/imgstream/imgstrea
 # iap_support_email will be set via environment variable TF_VAR_iap_support_email
 # Example: export TF_VAR_iap_support_email="your-email@example.com"
 iap_support_email              = "support@example.com"
-enable_iap                     = false # Disable IAP for development (enable public access)
+enable_iap                     = false # Disable IAP (requires organization)
 enable_security_policy         = false # Disable security policy for development
 enable_waf_rules               = false # Disable WAF rules for development
 rate_limit_requests_per_minute = 1000  # Higher rate limit for development

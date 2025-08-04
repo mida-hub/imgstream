@@ -34,7 +34,7 @@ output "database_bucket_name" {
 
 output "artifact_registry_repository_url" {
   description = "URL of the Artifact Registry repository"
-  value       = module.imgstream.artifact_registry_repository_url
+  value       = data.terraform_remote_state.common.outputs.artifact_registry_repository_url
 }
 
 output "cloud_run_service_account_email" {
