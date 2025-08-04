@@ -22,6 +22,8 @@ dependencies = [
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "pillow>=10.0.0",
+    "pillow-heif>=0.13.0",
+    "structlog>=23.1.0",
     "duckdb>=0.9.0",
     "google-cloud-storage>=2.10.0",
     "google-cloud-run>=0.10.0",
@@ -169,6 +171,7 @@ module = [
     "pydantic.*",
     "pytest.*",
     "pillow_heif.*",
+    "structlog.*",
 ]
 ignore_missing_imports = true
 
@@ -233,4 +236,9 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
+]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.8.6",
 ]

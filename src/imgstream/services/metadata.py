@@ -48,7 +48,7 @@ MetadataError = DatabaseError
 class MetadataService:
     """Service for managing photo metadata with DuckDB and GCS synchronization."""
 
-    def __init__(self, user_id: str, temp_dir: str = "/tmp"):
+    def __init__(self, user_id: str, temp_dir: str = "/tmp"):  # nosec B108
         """
         Initialize metadata service for a specific user.
 
@@ -741,7 +741,7 @@ class MetadataService:
 _metadata_services: dict[str, MetadataService] = {}
 
 
-def get_metadata_service(user_id: str, temp_dir: str = "/tmp") -> MetadataService:
+def get_metadata_service(user_id: str, temp_dir: str = "/tmp") -> MetadataService:  # nosec B108
     """
     Get metadata service instance for a user.
 

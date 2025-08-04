@@ -155,7 +155,7 @@ class ImageProcessor:
 
                 # Try to extract date from EXIF tags in priority order
                 for tag_name in self.EXIF_DATE_TAGS:
-                    date_value = self._get_exif_date_by_name(exif_data, tag_name)
+                    date_value = self._get_exif_date_by_name(dict(exif_data), tag_name)
                     if date_value:
                         logger.debug("exif_date_extracted", tag_name=tag_name, date_value=date_value.isoformat())
                         return date_value
@@ -186,7 +186,7 @@ class ImageProcessor:
         logger.info("exif_date_fallback", fallback_time=datetime.now().isoformat())
         return datetime.now()
 
-    def _get_exif_date_by_name(self, exif_data: dict, tag_name: str) -> datetime | None:
+    def _get_exif_date_by_name(self, exif_data: dict[Any, Any], tag_name: str) -> datetime | None:
         """
         Get date from EXIF data by tag name.
 

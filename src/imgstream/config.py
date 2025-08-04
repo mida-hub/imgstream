@@ -49,7 +49,7 @@ class Config:
         if value is None and STREAMLIT_AVAILABLE:
             try:
                 value = st.secrets.get(key)
-            except Exception:
+            except Exception:  # nosec B110
                 # Ignore secrets errors (e.g., when not in Streamlit context)
                 pass
 
