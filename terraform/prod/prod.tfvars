@@ -16,10 +16,9 @@ allowed_domains = [
   # "example.com"
 ]
 
-allowed_users = [
-  "rusuden0106@gmail.com",
-  "s.a.c00gundam@gmail.com",
-]
+# allowed_users will be set via environment variable TF_VAR_allowed_users
+# Example: export TF_VAR_allowed_users='["user1@example.com","user2@example.com"]'
+allowed_users = []
 
 # Cloud Run configuration for production
 enable_public_access = false # Disable public access (use IAP)
@@ -35,7 +34,9 @@ container_image = "asia-northeast1-docker.pkg.dev/apps-466614/imgstream/imgstrea
 # custom_domain = "imgstream.example.com"
 
 # IAP configuration for production
-iap_support_email              = "rusuden@gmail.com"
+# iap_support_email will be set via environment variable TF_VAR_iap_support_email
+# Example: export TF_VAR_iap_support_email="your-email@example.com"
+iap_support_email              = "support@example.com"
 enable_iap                     = true                # Enable IAP for production
 enable_security_policy         = true                # Enable security policy
 enable_waf_rules               = true                # Enable WAF rules
@@ -45,7 +46,9 @@ session_duration               = 3600                # 1 hour
 # GitHub Actions OIDC configuration is managed in common infrastructure
 
 # Monitoring configuration
-alert_email                   = "rusuden@gmail.com"
+# alert_email will be set via environment variable TF_VAR_alert_email
+# Example: export TF_VAR_alert_email="alerts@example.com"
+alert_email                   = "alerts@example.com"
 slack_webhook_url             = ""  # Add Slack webhook URL if needed
 storage_alert_threshold_bytes = 85899345920  # 80GB
 

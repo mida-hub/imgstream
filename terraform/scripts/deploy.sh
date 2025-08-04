@@ -157,6 +157,18 @@ terraform validate
 # Format Terraform files
 terraform fmt -recursive
 
+# Prepare var-file arguments
+VAR_FILE_ARGS=""
+if [[ "$ENVIRONMENT" != "common" ]]; then
+    VAR_FILE_ARGS="-var-file=${ENVIRONMENT}.tfvars"
+    
+    # Add local tfvars file if it exists
+    if [[ -f "terraform.tfvars.local" ]]; then
+        echo "Found terraform.tfvars.local, including in deployment..."
+        VAR_FILE_ARGS="$VAR_FILE_ARGS -var-file=terraform.tfvars.local"
+    fi
+fi
+
 # Run Terraform command based on environment
 case $ACTION in
     plan)
@@ -164,7 +176,7 @@ case $ACTION in
         if [[ "$ENVIRONMENT" == "common" ]]; then
             terraform plan
         else
-            terraform plan -var-file="${ENVIRONMENT}.tfvars"
+            terraform plan $VAR_FILE_ARGS
         fi
         ;;
     apply)
@@ -177,9 +189,9 @@ case $ACTION in
             fi
         else
             if [[ "$AUTO_APPROVE" == "true" ]]; then
-                terraform apply -var-file="${ENVIRONMENT}.tfvars" -auto-approve
+                terraform apply $VAR_FILE_ARGS -auto-approve
             else
-                terraform apply -var-file="${ENVIRONMENT}.tfvars"
+                terraform apply $VAR_FILE_ARGS
             fi
         fi
         ;;
@@ -201,9 +213,9 @@ case $ACTION in
             fi
         else
             if [[ "$AUTO_APPROVE" == "true" ]]; then
-                terraform destroy -var-file="${ENVIRONMENT}.tfvars" -auto-approve
+                terraform destroy $VAR_FILE_ARGS -auto-approve
             else
-                terraform destroy -var-file="${ENVIRONMENT}.tfvars"
+                terraform destroy $VAR_FILE_ARGS
             fi
         fi
         ;;

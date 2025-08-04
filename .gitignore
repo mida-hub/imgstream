@@ -223,6 +223,8 @@ service-account-key.json
 .terraform.lock.hcl
 terraform.tfvars
 terraform.tfvars.json
+terraform.tfvars.local
+**/terraform.tfvars.local
 
 # Local development
 .env.local

@@ -98,6 +98,36 @@ terraform apply -var-file=prod.tfvars
 
 ## Configuration
 
+### Sensitive Information Management
+
+**IMPORTANT**: This repository is public, so personal information (email addresses, etc.) should not be committed to version control.
+
+#### Option 1: Environment Variables (Recommended)
+Set sensitive values using environment variables:
+
+```bash
+# Set environment variables
+export TF_VAR_allowed_users='["user1@example.com","user2@example.com"]'
+export TF_VAR_iap_support_email="support@example.com"
+export TF_VAR_alert_email="alerts@example.com"
+
+# Then run terraform
+terraform apply -var-file=dev.tfvars
+```
+
+#### Option 2: Local Configuration Files
+Create local configuration files that are not committed to git:
+
+```bash
+# Copy the example file
+cp terraform.tfvars.local.example terraform.tfvars.local
+
+# Edit with your actual values
+vim terraform.tfvars.local
+
+# The deploy script will automatically include this file
+```
+
 ### Environment Variables
 
 Each environment has its own `.tfvars` file with environment-specific configurations:
