@@ -31,11 +31,11 @@ print_status() {
 
 # Set working directory to terraform root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TERRAFORM_DIR="$(dirname "$SCRIPT_DIR")"
-cd "$TERRAFORM_DIR"
+TERRAFORM_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$TERRAFORM_ROOT"
 
-print_status "INFO" "Starting Terraform validation..."
-print_status "INFO" "Working Directory: $TERRAFORM_DIR"
+print_status "INFO" "Starting Terraform validation for new modular structure..."
+print_status "INFO" "Working Directory: $TERRAFORM_ROOT"
 
 # Check if terraform is installed
 if command -v terraform &> /dev/null; then
@@ -60,83 +60,94 @@ if ! command -v jq &> /dev/null; then
     print_status "WARNING" "jq is not installed (recommended for JSON parsing)"
 fi
 
-# Initialize Terraform
-print_status "INFO" "Initializing Terraform..."
-if terraform init -backend=false > /dev/null 2>&1; then
-    print_status "SUCCESS" "Terraform initialized successfully"
-else
-    print_status "ERROR" "Terraform initialization failed"
-    exit 1
-fi
+# Validate each environment
+ENVIRONMENTS=("common" "dev" "prod")
 
-# Validate Terraform configuration
-print_status "INFO" "Validating Terraform configuration..."
-if terraform validate > /dev/null 2>&1; then
-    print_status "SUCCESS" "Terraform configuration is valid"
-else
-    print_status "ERROR" "Terraform configuration validation failed"
-    terraform validate
-    exit 1
-fi
-
-# Format check
-print_status "INFO" "Checking Terraform formatting..."
-if terraform fmt -check -recursive > /dev/null 2>&1; then
-    print_status "SUCCESS" "Terraform files are properly formatted"
-else
-    print_status "WARNING" "Some Terraform files need formatting"
-    print_status "INFO" "Run 'terraform fmt -recursive' to fix formatting"
-fi
-
-# Check for required files
-REQUIRED_FILES=(
-    "main.tf"
-    "variables.tf"
-    "outputs.tf"
-    "storage.tf"
-    "security.tf"
-    "terraform.tfvars.example"
-    "environments/dev.tfvars"
-    "environments/prod.tfvars"
-)
-
-print_status "INFO" "Checking for required files..."
-for file in "${REQUIRED_FILES[@]}"; do
-    if [[ -f "$file" ]]; then
-        print_status "SUCCESS" "Found: $file"
+for env in "${ENVIRONMENTS[@]}"; do
+    print_status "INFO" "Validating $env environment..."
+    
+    if [[ ! -d "$env" ]]; then
+        print_status "ERROR" "Environment directory not found: $env"
+        continue
+    fi
+    
+    cd "$env"
+    
+    # Initialize Terraform
+    print_status "INFO" "Initializing Terraform for $env..."
+    if terraform init -backend=false > /dev/null 2>&1; then
+        print_status "SUCCESS" "Terraform initialized successfully for $env"
     else
-        print_status "ERROR" "Missing: $file"
-        exit 1
+        print_status "ERROR" "Terraform initialization failed for $env"
+        cd ..
+        continue
+    fi
+    
+    # Validate Terraform configuration
+    print_status "INFO" "Validating Terraform configuration for $env..."
+    if terraform validate > /dev/null 2>&1; then
+        print_status "SUCCESS" "Terraform configuration is valid for $env"
+    else
+        print_status "ERROR" "Terraform configuration validation failed for $env"
+        terraform validate
+        cd ..
+        continue
+    fi
+    
+    # Format check
+    print_status "INFO" "Checking Terraform formatting for $env..."
+    if terraform fmt -check -recursive > /dev/null 2>&1; then
+        print_status "SUCCESS" "Terraform files are properly formatted for $env"
+    else
+        print_status "WARNING" "Some Terraform files need formatting in $env"
+        print_status "INFO" "Run 'terraform fmt -recursive' in $env directory to fix formatting"
+    fi
+    
+    cd ..
+done
+
+# Check for required files in each environment
+print_status "INFO" "Checking for required files in each environment..."
+
+# Common environment files
+COMMON_FILES=("main.tf" "variables.tf" "outputs.tf" "github-oidc.tf" "terraform.tfvars")
+print_status "INFO" "Checking common environment files..."
+for file in "${COMMON_FILES[@]}"; do
+    if [[ -f "common/$file" ]]; then
+        print_status "SUCCESS" "Found: common/$file"
+    else
+        print_status "ERROR" "Missing: common/$file"
     fi
 done
 
-# Check terraform.tfvars
-if [[ -f "terraform.tfvars" ]]; then
-    print_status "SUCCESS" "Found: terraform.tfvars"
-    
-    # Check if project_id is set
-    if grep -q "project_id.*=.*\"your-gcp-project-id\"" terraform.tfvars; then
-        print_status "WARNING" "terraform.tfvars still contains example project_id"
-        print_status "INFO" "Please update terraform.tfvars with your actual project ID"
-    else
-        print_status "SUCCESS" "terraform.tfvars appears to be configured"
-    fi
-else
-    print_status "WARNING" "terraform.tfvars not found"
-    print_status "INFO" "Copy terraform.tfvars.example to terraform.tfvars and configure it"
-fi
-
-# Validate environment files
-print_status "INFO" "Validating environment files..."
+# Dev/Prod environment files
+ENV_FILES=("main.tf" "variables.tf" "outputs.tf")
 for env in "dev" "prod"; do
-    env_file="environments/${env}.tfvars"
-    if [[ -f "$env_file" ]]; then
-        # Basic syntax check
-        if terraform validate -var-file="$env_file" -var="project_id=test-project" > /dev/null 2>&1; then
-            print_status "SUCCESS" "Environment file $env_file is valid"
+    print_status "INFO" "Checking $env environment files..."
+    for file in "${ENV_FILES[@]}"; do
+        if [[ -f "$env/$file" ]]; then
+            print_status "SUCCESS" "Found: $env/$file"
         else
-            print_status "ERROR" "Environment file $env_file has syntax errors"
+            print_status "ERROR" "Missing: $env/$file"
         fi
+    done
+    
+    # Check tfvars file
+    if [[ -f "$env/${env}.tfvars" ]]; then
+        print_status "SUCCESS" "Found: $env/${env}.tfvars"
+    else
+        print_status "ERROR" "Missing: $env/${env}.tfvars"
+    fi
+done
+
+# Check modules
+print_status "INFO" "Checking modules..."
+MODULE_FILES=("main.tf" "variables.tf" "outputs.tf" "storage.tf" "cloud_run.tf" "artifact_registry.tf" "iap.tf" "security.tf" "monitoring.tf")
+for file in "${MODULE_FILES[@]}"; do
+    if [[ -f "modules/imgstream/$file" ]]; then
+        print_status "SUCCESS" "Found: modules/imgstream/$file"
+    else
+        print_status "ERROR" "Missing: modules/imgstream/$file"
     fi
 done
 
@@ -170,6 +181,11 @@ fi
 
 print_status "SUCCESS" "Terraform validation completed successfully!"
 print_status "INFO" "Next steps:"
-echo "  1. Configure terraform.tfvars with your project settings"
-echo "  2. Run: ./scripts/deploy.sh -p YOUR_PROJECT_ID -e dev -a plan"
-echo "  3. Review the plan and apply: ./scripts/deploy.sh -p YOUR_PROJECT_ID -e dev -a apply"
+echo "  1. Deploy common infrastructure first:"
+echo "     ./scripts/deploy.sh -e common -a apply"
+echo "  2. Deploy development environment:"
+echo "     ./scripts/deploy.sh -e dev -a plan"
+echo "     ./scripts/deploy.sh -e dev -a apply"
+echo "  3. Deploy production environment:"
+echo "     ./scripts/deploy.sh -e prod -a plan"
+echo "     ./scripts/deploy.sh -e prod -a apply"

@@ -16,8 +16,8 @@ WORKDIR /app
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies using uv.lock as the source of truth
-RUN uv sync --no-dev
+# Install dependencies using uv.lock as the source of truth (frozen for reproducible builds)
+RUN uv sync --no-dev --frozen
 
 # Production stage
 FROM python:3.11-slim

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Terraform initialization script with environment-specific backend configuration
-# Usage: ./scripts/terraform-init.sh [dev|prod]
+# Terraform initialization script for new modular structure
+# Usage: ./scripts/terraform-init.sh [common|dev|prod]
 
 set -e
 
@@ -32,35 +32,31 @@ print_header() {
 # Check if environment is provided
 if [ $# -eq 0 ]; then
     print_error "Environment not specified"
-    echo "Usage: $0 [dev|prod]"
+    echo "Usage: $0 [common|dev|prod]"
     echo ""
     echo "Examples:"
-    echo "  $0 dev   # Initialize for development environment"
-    echo "  $0 prod  # Initialize for production environment"
+    echo "  $0 common  # Initialize common infrastructure (GitHub OIDC)"
+    echo "  $0 dev     # Initialize development environment"
+    echo "  $0 prod    # Initialize production environment"
+    echo ""
+    echo "IMPORTANT: Deploy 'common' first, then 'dev' and 'prod'"
     exit 1
 fi
 
 ENVIRONMENT=$1
 
 # Validate environment
-if [[ "$ENVIRONMENT" != "dev" && "$ENVIRONMENT" != "prod" ]]; then
+if [[ "$ENVIRONMENT" != "common" && "$ENVIRONMENT" != "dev" && "$ENVIRONMENT" != "prod" ]]; then
     print_error "Invalid environment: $ENVIRONMENT"
-    echo "Supported environments: dev, prod"
+    echo "Supported environments: common, dev, prod"
     exit 1
 fi
 
-print_header "Terraform Initialization for $ENVIRONMENT Environment"
+print_header "Terraform Initialization for $ENVIRONMENT"
 
 # Check if we're in the correct directory
-if [ ! -f "terraform/main.tf" ]; then
-    print_error "terraform/main.tf not found. Please run this script from the project root."
-    exit 1
-fi
-
-# Check if backend config file exists
-BACKEND_CONFIG="terraform/backend-${ENVIRONMENT}.hcl"
-if [ ! -f "$BACKEND_CONFIG" ]; then
-    print_error "Backend configuration file not found: $BACKEND_CONFIG"
+if [ ! -d "terraform/$ENVIRONMENT" ]; then
+    print_error "terraform/$ENVIRONMENT directory not found. Please run this script from the project root."
     exit 1
 fi
 
@@ -93,7 +89,7 @@ fi
 print_status "Current Google Cloud project: $CURRENT_PROJECT"
 
 # Check if the Terraform state bucket exists
-BUCKET_NAME="tfstate-apps-466614"
+BUCKET_NAME="apps-466614-terraform-state"
 print_status "Checking if Terraform state bucket exists: gs://$BUCKET_NAME"
 
 if ! gsutil ls "gs://$BUCKET_NAME" > /dev/null 2>&1; then
@@ -117,8 +113,8 @@ else
     print_status "Terraform state bucket exists"
 fi
 
-# Change to terraform directory
-cd terraform
+# Change to specific terraform environment directory
+cd "terraform/$ENVIRONMENT"
 
 # Remove existing .terraform directory if it exists (for backend migration)
 if [ -d ".terraform" ]; then
@@ -126,21 +122,21 @@ if [ -d ".terraform" ]; then
     rm -rf .terraform
 fi
 
-# Initialize Terraform with environment-specific backend
-print_status "Initializing Terraform with $ENVIRONMENT backend configuration..."
+# Initialize Terraform (backend config is embedded in main.tf)
+print_status "Initializing Terraform for $ENVIRONMENT..."
 
 # Use gcloud access token for authentication
 export GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token)
-terraform init -backend-config="backend-${ENVIRONMENT}.hcl"
+terraform init
 
 if [ $? -eq 0 ]; then
-    print_status "Terraform initialized successfully for $ENVIRONMENT environment"
+    print_status "Terraform initialized successfully for $ENVIRONMENT"
     
     # Show backend configuration
     print_header "Backend Configuration"
     echo "Bucket: gs://$BUCKET_NAME"
-    echo "Prefix: imgstream/$ENVIRONMENT"
-    echo "State file: gs://$BUCKET_NAME/imgstream/$ENVIRONMENT/default.tfstate"
+    echo "Prefix: $ENVIRONMENT"
+    echo "State file: gs://$BUCKET_NAME/$ENVIRONMENT/default.tfstate"
     
     # Validate configuration
     print_status "Validating Terraform configuration..."
@@ -154,11 +150,20 @@ if [ $? -eq 0 ]; then
         GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token) terraform workspace show
         
         echo ""
-        print_status "Terraform is ready for $ENVIRONMENT environment!"
+        print_status "Terraform is ready for $ENVIRONMENT!"
         echo ""
         echo "Next steps:"
-        echo "  terraform plan -var-file=environments/${ENVIRONMENT}.tfvars"
-        echo "  terraform apply -var-file=environments/${ENVIRONMENT}.tfvars"
+        if [ "$ENVIRONMENT" = "common" ]; then
+            echo "  terraform plan"
+            echo "  terraform apply"
+            echo ""
+            echo "After applying common, you can deploy dev/prod environments."
+        else
+            echo "  terraform plan -var-file=${ENVIRONMENT}.tfvars"
+            echo "  terraform apply -var-file=${ENVIRONMENT}.tfvars"
+            echo ""
+            echo "Make sure 'common' infrastructure is deployed first!"
+        fi
     else
         print_error "Terraform configuration validation failed"
         exit 1

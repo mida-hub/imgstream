@@ -23,8 +23,8 @@ COPY src/ ./src/
 # Debug: Show uv version and files
 RUN uv --version && ls -la
 
-# Install dependencies using uv.lock as the source of truth
-RUN uv sync --no-dev
+# Install dependencies using uv.lock as the source of truth (frozen for reproducible builds)
+RUN uv sync --no-dev --frozen
 
 # Stage 2: Runtime stage
 FROM python:3.11-slim

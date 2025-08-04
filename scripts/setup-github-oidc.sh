@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Setup script for GitHub Actions OIDC authentication with Google Cloud
-# This script helps configure the necessary Terraform variables and provides
+# This script deploys the common infrastructure (GitHub OIDC) and provides
 # instructions for setting up GitHub repository secrets.
 
 set -e
@@ -122,34 +122,21 @@ get_project_info() {
 update_terraform_vars() {
     print_header "Updating Terraform Variables"
     
-    # Update terraform.tfvars.example
-    if [ -f "terraform/terraform.tfvars.example" ]; then
-        sed -i.bak "s|github_repository = \".*\"|github_repository = \"$GITHUB_REPOSITORY\"|" terraform/terraform.tfvars.example
-        print_status "Updated terraform/terraform.tfvars.example"
+    # Update common terraform.tfvars
+    if [ -f "terraform/common/terraform.tfvars" ]; then
+        sed -i.bak "s|project_id = \".*\"|project_id = \"$PROJECT_ID\"|" terraform/common/terraform.tfvars
+        sed -i.bak "s|github_repository = \".*\"|github_repository = \"$GITHUB_REPOSITORY\"|" terraform/common/terraform.tfvars
+        print_status "Updated terraform/common/terraform.tfvars"
+    else
+        print_warning "terraform/common/terraform.tfvars not found"
     fi
     
-    # Update prod.tfvars
-    if [ -f "terraform/environments/prod.tfvars" ]; then
-        sed -i.bak "s|github_repository = \".*\"|github_repository = \"$GITHUB_REPOSITORY\"|" terraform/environments/prod.tfvars
-        print_status "Updated terraform/environments/prod.tfvars"
-    fi
-    
-    # Create or update terraform.tfvars if it doesn't exist
-    if [ ! -f "terraform/terraform.tfvars" ]; then
-        print_status "Creating terraform/terraform.tfvars from example..."
-        cp terraform/terraform.tfvars.example terraform/terraform.tfvars
-        
-        # Update project_id in terraform.tfvars
-        sed -i.bak "s|project_id = \".*\"|project_id = \"$PROJECT_ID\"|" terraform/terraform.tfvars
-        sed -i.bak "s|github_repository = \".*\"|github_repository = \"$GITHUB_REPOSITORY\"|" terraform/terraform.tfvars
-        
-        print_warning "Please review and update terraform/terraform.tfvars with your specific configuration."
-    fi
+    print_status "Common infrastructure variables updated"
 }
 
 # Apply Terraform configuration
 apply_terraform() {
-    print_header "Applying Terraform Configuration"
+    print_header "Applying Common Infrastructure"
     
     # Verify authentication before proceeding
     if ! gcloud auth application-default print-access-token > /dev/null 2>&1; then
@@ -158,55 +145,46 @@ apply_terraform() {
         exit 1
     fi
     
-    cd terraform
+    cd terraform/common
     
-    print_status "Initializing Terraform..."
+    print_status "Initializing Terraform for common infrastructure..."
     terraform init
     
-    print_status "Planning Terraform changes..."
-    terraform plan -target=google_iam_workload_identity_pool.github_actions \
-                   -target=google_iam_workload_identity_pool_provider.github_actions \
-                   -target=google_service_account.github_actions \
-                   -target=google_service_account_iam_binding.github_actions_workload_identity \
-                   -target=google_project_iam_member.github_actions_roles
+    print_status "Planning common infrastructure changes..."
+    terraform plan
     
     echo -n "Do you want to apply these changes? (y/N): "
     read -r CONFIRM
     
     if [[ $CONFIRM =~ ^[Yy]$ ]]; then
-        print_status "Applying Terraform changes..."
-        terraform apply -target=google_iam_workload_identity_pool.github_actions \
-                       -target=google_iam_workload_identity_pool_provider.github_actions \
-                       -target=google_service_account.github_actions \
-                       -target=google_service_account_iam_binding.github_actions_workload_identity \
-                       -target=google_project_iam_member.github_actions_roles \
-                       -auto-approve
+        print_status "Applying common infrastructure..."
+        terraform apply -auto-approve
         
-        print_status "Terraform configuration applied successfully!"
+        print_status "Common infrastructure applied successfully!"
     else
         print_warning "Terraform apply skipped. You can run it manually later."
     fi
     
-    cd ..
+    cd ../..
 }
 
 # Get Terraform outputs
 get_terraform_outputs() {
     print_header "Getting Terraform Outputs"
     
-    cd terraform
+    cd terraform/common
     
     WIF_PROVIDER=$(terraform output -raw workload_identity_provider 2>/dev/null || echo "")
     SERVICE_ACCOUNT=$(terraform output -raw github_actions_service_account_email 2>/dev/null || echo "")
     
-    cd ..
+    cd ../..
     
     if [ -n "$WIF_PROVIDER" ] && [ -n "$SERVICE_ACCOUNT" ]; then
         print_status "Terraform outputs retrieved successfully!"
         export WIF_PROVIDER
         export SERVICE_ACCOUNT
     else
-        print_error "Could not retrieve Terraform outputs. Make sure Terraform has been applied."
+        print_error "Could not retrieve Terraform outputs. Make sure common infrastructure has been applied."
         exit 1
     fi
 }

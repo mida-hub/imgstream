@@ -1,28 +1,31 @@
 #!/bin/bash
 
-# Terraform deployment script for imgstream
+# Terraform deployment script for imgstream (new modular structure)
 set -e
 
 # Default values
 ENVIRONMENT="dev"
 ACTION="plan"
-PROJECT_ID=""
+PROJECT_ID="apps-466614"
 AUTO_APPROVE=false
 
 # Function to display usage
 usage() {
-    echo "Usage: $0 -p PROJECT_ID [-e ENVIRONMENT] [-a ACTION] [--auto-approve]"
+    echo "Usage: $0 [-p PROJECT_ID] [-e ENVIRONMENT] [-a ACTION] [--auto-approve]"
     echo ""
     echo "Options:"
-    echo "  -p PROJECT_ID    GCP project ID (required)"
-    echo "  -e ENVIRONMENT   Environment (dev|prod) [default: dev]"
+    echo "  -p PROJECT_ID    GCP project ID [default: apps-466614]"
+    echo "  -e ENVIRONMENT   Environment (common|dev|prod) [default: dev]"
     echo "  -a ACTION        Terraform action (plan|apply|destroy) [default: plan]"
     echo "  --auto-approve   Auto-approve terraform apply/destroy"
     echo "  -h               Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 -p my-project-id -e dev -a plan"
-    echo "  $0 -p my-project-id -e prod -a apply --auto-approve"
+    echo "  $0 -e common -a apply                    # Deploy common infrastructure"
+    echo "  $0 -e dev -a plan                        # Plan dev environment"
+    echo "  $0 -e prod -a apply --auto-approve       # Apply prod environment"
+    echo ""
+    echo "IMPORTANT: Deploy 'common' first, then 'dev' and 'prod'"
     exit 1
 }
 
@@ -55,14 +58,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate required parameters
-if [[ -z "$PROJECT_ID" ]]; then
-    echo "Error: PROJECT_ID is required"
-    usage
-fi
-
-if [[ ! "$ENVIRONMENT" =~ ^(dev|prod)$ ]]; then
-    echo "Error: ENVIRONMENT must be 'dev' or 'prod'"
+# Validate parameters
+if [[ ! "$ENVIRONMENT" =~ ^(common|dev|prod)$ ]]; then
+    echo "Error: ENVIRONMENT must be 'common', 'dev', or 'prod'"
     exit 1
 fi
 
@@ -71,26 +69,48 @@ if [[ ! "$ACTION" =~ ^(plan|apply|destroy)$ ]]; then
     exit 1
 fi
 
-# Set working directory to terraform root
+# Set working directory to specific terraform environment
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TERRAFORM_DIR="$(dirname "$SCRIPT_DIR")"
+TERRAFORM_ROOT="$(dirname "$SCRIPT_DIR")"
+TERRAFORM_DIR="$TERRAFORM_ROOT/$ENVIRONMENT"
+
+if [[ ! -d "$TERRAFORM_DIR" ]]; then
+    echo "Error: Terraform directory not found: $TERRAFORM_DIR"
+    exit 1
+fi
+
 cd "$TERRAFORM_DIR"
 
-echo "=== Terraform Deployment ==="
+echo "=== Terraform Deployment (New Modular Structure) ==="
 echo "Project ID: $PROJECT_ID"
 echo "Environment: $ENVIRONMENT"
 echo "Action: $ACTION"
 echo "Working Directory: $TERRAFORM_DIR"
 echo ""
 
+# Check if common infrastructure is deployed (for dev/prod environments)
+if [[ "$ENVIRONMENT" != "common" ]]; then
+    echo "Checking if common infrastructure is deployed..."
+    COMMON_STATE_BUCKET="apps-466614-terraform-state"
+    if gsutil ls "gs://$COMMON_STATE_BUCKET/common/" > /dev/null 2>&1; then
+        echo "✓ Common infrastructure state found"
+    else
+        echo "⚠ Common infrastructure not found. Please deploy 'common' first:"
+        echo "  $0 -e common -a apply"
+        exit 1
+    fi
+fi
+
 # Check if required APIs are enabled
 echo "Checking required APIs..."
 REQUIRED_APIS=(
     "run.googleapis.com"
     "storage.googleapis.com"
-    "secretmanager.googleapis.com"
-    "cloudbuild.googleapis.com"
-    "containerregistry.googleapis.com"
+    "artifactregistry.googleapis.com"
+    "iam.googleapis.com"
+    "compute.googleapis.com"
+    "monitoring.googleapis.com"
+    "logging.googleapis.com"
 )
 
 for api in "${REQUIRED_APIS[@]}"; do
@@ -137,35 +157,54 @@ terraform validate
 # Format Terraform files
 terraform fmt -recursive
 
-# Create terraform.tfvars if it doesn't exist
-if [[ ! -f "terraform.tfvars" ]]; then
-    echo "Creating terraform.tfvars from example..."
-    cp terraform.tfvars.example terraform.tfvars
-    echo "Please edit terraform.tfvars with your project-specific values"
-    echo "Setting project_id to $PROJECT_ID in terraform.tfvars"
-    sed -i.bak "s/your-gcp-project-id/$PROJECT_ID/g" terraform.tfvars
-fi
-
-# Run Terraform command
+# Run Terraform command based on environment
 case $ACTION in
     plan)
-        echo "Running Terraform plan..."
-        terraform plan -var-file="environments/${ENVIRONMENT}.tfvars" -var="project_id=$PROJECT_ID"
+        echo "Running Terraform plan for $ENVIRONMENT..."
+        if [[ "$ENVIRONMENT" == "common" ]]; then
+            terraform plan
+        else
+            terraform plan -var-file="${ENVIRONMENT}.tfvars"
+        fi
         ;;
     apply)
-        echo "Running Terraform apply..."
-        if [[ "$AUTO_APPROVE" == "true" ]]; then
-            terraform apply -var-file="environments/${ENVIRONMENT}.tfvars" -var="project_id=$PROJECT_ID" -auto-approve
+        echo "Running Terraform apply for $ENVIRONMENT..."
+        if [[ "$ENVIRONMENT" == "common" ]]; then
+            if [[ "$AUTO_APPROVE" == "true" ]]; then
+                terraform apply -auto-approve
+            else
+                terraform apply
+            fi
         else
-            terraform apply -var-file="environments/${ENVIRONMENT}.tfvars" -var="project_id=$PROJECT_ID"
+            if [[ "$AUTO_APPROVE" == "true" ]]; then
+                terraform apply -var-file="${ENVIRONMENT}.tfvars" -auto-approve
+            else
+                terraform apply -var-file="${ENVIRONMENT}.tfvars"
+            fi
         fi
         ;;
     destroy)
-        echo "Running Terraform destroy..."
-        if [[ "$AUTO_APPROVE" == "true" ]]; then
-            terraform destroy -var-file="environments/${ENVIRONMENT}.tfvars" -var="project_id=$PROJECT_ID" -auto-approve
+        echo "Running Terraform destroy for $ENVIRONMENT..."
+        if [[ "$ENVIRONMENT" == "common" ]]; then
+            echo "WARNING: Destroying common infrastructure will affect all environments!"
+            echo -n "Are you sure? (type 'yes' to confirm): "
+            read -r CONFIRM_DESTROY
+            if [[ "$CONFIRM_DESTROY" == "yes" ]]; then
+                if [[ "$AUTO_APPROVE" == "true" ]]; then
+                    terraform destroy -auto-approve
+                else
+                    terraform destroy
+                fi
+            else
+                echo "Destroy cancelled."
+                exit 1
+            fi
         else
-            terraform destroy -var-file="environments/${ENVIRONMENT}.tfvars" -var="project_id=$PROJECT_ID"
+            if [[ "$AUTO_APPROVE" == "true" ]]; then
+                terraform destroy -var-file="${ENVIRONMENT}.tfvars" -auto-approve
+            else
+                terraform destroy -var-file="${ENVIRONMENT}.tfvars"
+            fi
         fi
         ;;
 esac
