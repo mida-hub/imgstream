@@ -1,19 +1,19 @@
-# ImgStream Terraform Infrastructure
+# ImgStream Terraform インフラストラクチャ
 
-This directory contains the Terraform configuration for the ImgStream photo management application infrastructure on Google Cloud Platform.
+このディレクトリには、Google Cloud Platform上のImgStream写真管理アプリケーションインフラストラクチャのTerraform設定が含まれています。
 
-## Directory Structure
+## ディレクトリ構造
 
 ```
 terraform/
-├── common/                 # Shared resources (GitHub OIDC) - Deploy once
+├── common/                 # 共有リソース (GitHub OIDC) - 一度だけデプロイ
 │   ├── main.tf
 │   ├── github-oidc.tf
 │   ├── variables.tf
 │   ├── outputs.tf
 │   └── terraform.tfvars
 ├── modules/
-│   └── imgstream/         # ImgStream application module
+│   └── imgstream/         # ImgStreamアプリケーションモジュール
 │       ├── main.tf
 │       ├── variables.tf
 │       ├── outputs.tf
@@ -23,53 +23,53 @@ terraform/
 │       ├── iap.tf
 │       ├── security.tf
 │       └── monitoring.tf
-├── dev/                   # Development environment
+├── dev/                   # 開発環境
 │   ├── main.tf
 │   ├── variables.tf
 │   ├── outputs.tf
 │   └── dev.tfvars
-├── prod/                  # Production environment
+├── prod/                  # 本番環境
 │   ├── main.tf
 │   ├── variables.tf
 │   ├── outputs.tf
 │   └── prod.tfvars
-# Backend configurations are now embedded in main.tf files
+# バックエンド設定はmain.tfファイルに埋め込まれています
 └── README.md
 ```
 
-## Architecture Overview
+## アーキテクチャ概要
 
-### Common Resources
-- **GitHub OIDC**: Workload Identity Pool and Provider for GitHub Actions authentication
-- **Service Account**: GitHub Actions service account with necessary permissions
+### 共有リソース
+- **GitHub OIDC**: GitHub Actions認証用のWorkload Identity PoolとProvider
+- **サービスアカウント**: 必要な権限を持つGitHub Actionsサービスアカウント
 
-### ImgStream Module
-- **Cloud Run**: Containerized application deployment
-- **Cloud Storage**: Photo storage and database backup buckets
-- **Artifact Registry**: Container image repository
-- **IAP (Identity-Aware Proxy)**: Authentication and authorization
-- **Cloud Armor**: Security policies and WAF rules
-- **Monitoring**: Alerts, dashboards, and notification channels
+### ImgStreamモジュール
+- **Cloud Run**: コンテナ化されたアプリケーションのデプロイ
+- **Cloud Storage**: 写真保存とデータベースバックアップ用バケット
+- **Artifact Registry**: コンテナイメージリポジトリ
+- **IAP (Identity-Aware Proxy)**: 認証と認可
+- **Cloud Armor**: セキュリティポリシーとWAFルール
+- **Monitoring**: アラート、ダッシュボード、通知チャネル
 
-## Usage
+## 使用方法
 
-### Prerequisites
+### 前提条件
 
-1. Install Terraform >= 1.12
-2. Install Google Cloud SDK
-3. Authenticate with Google Cloud:
+1. Terraform >= 1.12をインストール
+2. Google Cloud SDKをインストール
+3. Google Cloudで認証:
    ```bash
    gcloud auth application-default login
    ```
-4. Ensure the GCS bucket `apps-466614-terraform-state` exists for state storage
+4. ステート保存用のGCSバケット `apps-466614-terraform-state` が存在することを確認
 
-### Deployment Order
+### デプロイ順序
 
-**IMPORTANT**: Deploy in this order to avoid dependency issues.
+**重要**: 依存関係の問題を避けるため、この順序でデプロイしてください。
 
-#### 1. Common Infrastructure (Deploy Once)
+#### 1. 共通インフラストラクチャ（一度だけデプロイ）
 
-Deploy the shared GitHub OIDC resources first:
+最初に共有GitHub OIDCリソースをデプロイ:
 
 ```bash
 cd terraform/common
@@ -78,7 +78,7 @@ terraform plan
 terraform apply
 ```
 
-#### 2. Development Environment
+#### 2. 開発環境
 
 ```bash
 cd terraform/dev
@@ -87,7 +87,7 @@ terraform plan -var-file=dev.tfvars
 terraform apply -var-file=dev.tfvars
 ```
 
-#### 3. Production Environment
+#### 3. 本番環境
 
 ```bash
 cd terraform/prod
@@ -96,184 +96,184 @@ terraform plan -var-file=prod.tfvars
 terraform apply -var-file=prod.tfvars
 ```
 
-## Configuration
+## 設定
 
-### Sensitive Information Management
+### 機密情報の管理
 
-**IMPORTANT**: This repository is public, so personal information (email addresses, etc.) should not be committed to version control.
+**重要**: このリポジトリは公開されているため、個人情報（メールアドレスなど）をバージョン管理にコミットしないでください。
 
-#### Option 1: Environment Variables (Recommended)
-Set sensitive values using environment variables:
+#### オプション1: 環境変数（推奨）
+環境変数を使用して機密値を設定:
 
 ```bash
-# Set environment variables
+# 環境変数を設定
 export TF_VAR_allowed_users='["user1@example.com","user2@example.com"]'
 export TF_VAR_iap_support_email="support@example.com"
 export TF_VAR_alert_email="alerts@example.com"
 
-# Then run terraform
+# その後terraformを実行
 terraform apply -var-file=dev.tfvars
 ```
 
-#### Option 2: Local Configuration Files
-Create local configuration files that are not committed to git:
+#### オプション2: ローカル設定ファイル
+gitにコミットされないローカル設定ファイルを作成:
 
 ```bash
-# Copy the example file
+# サンプルファイルをコピー
 cp terraform.tfvars.local.example terraform.tfvars.local
 
-# Edit with your actual values
+# 実際の値で編集
 vim terraform.tfvars.local
 
-# The deploy script will automatically include this file
+# デプロイスクリプトが自動的にこのファイルを含めます
 ```
 
-### Environment Variables
+### 環境変数
 
-Each environment has its own `.tfvars` file with environment-specific configurations:
+各環境には環境固有の設定を含む独自の `.tfvars` ファイルがあります:
 
-- **dev.tfvars**: Development environment settings
-  - Public access enabled
-  - IAP disabled
-  - Minimal instances for cost savings
-  - Relaxed security policies
+- **dev.tfvars**: 開発環境設定
+  - パブリックアクセス有効
+  - IAP無効
+  - コスト削減のための最小インスタンス
+  - 緩和されたセキュリティポリシー
 
-- **prod.tfvars**: Production environment settings
-  - IAP enabled for security
-  - Minimum instances for availability
-  - Full security policies enabled
-  - Production-grade monitoring
+- **prod.tfvars**: 本番環境設定
+  - セキュリティのためのIAP有効
+  - 可用性のための最小インスタンス
+  - 完全なセキュリティポリシー有効
+  - 本番グレードの監視
 
-### Key Configuration Options
+### 主要設定オプション
 
-| Variable | Description | Dev Default | Prod Default |
+| 変数 | 説明 | 開発環境デフォルト | 本番環境デフォルト |
 |----------|-------------|-------------|--------------|
-| `enable_public_access` | Allow public access | `true` | `false` |
-| `enable_iap` | Enable Identity-Aware Proxy | `false` | `true` |
-| `min_instances` | Minimum Cloud Run instances | `0` | `1` |
-| `max_instances` | Maximum Cloud Run instances | `3` | `10` |
-| `enable_security_policy` | Enable Cloud Armor | `false` | `true` |
-| `enable_waf_rules` | Enable WAF rules | `false` | `true` |
+| `enable_public_access` | パブリックアクセスを許可 | `true` | `false` |
+| `enable_iap` | Identity-Aware Proxyを有効化 | `false` | `true` |
+| `min_instances` | Cloud Runの最小インスタンス数 | `0` | `1` |
+| `max_instances` | Cloud Runの最大インスタンス数 | `3` | `10` |
+| `enable_security_policy` | Cloud Armorを有効化 | `false` | `true` |
+| `enable_waf_rules` | WAFルールを有効化 | `false` | `true` |
 
-## Outputs
+## 出力
 
-After successful deployment, Terraform will output important information:
+デプロイが成功すると、Terraformは重要な情報を出力します:
 
-- **cloud_run_service_url**: URL of the deployed application
-- **artifact_registry_repository_url**: Container registry URL
-- **photos_bucket_name**: GCS bucket for photo storage
-- **workload_identity_provider**: GitHub Actions OIDC provider
-- **monitoring_dashboard_url**: Link to monitoring dashboard
+- **cloud_run_service_url**: デプロイされたアプリケーションのURL
+- **artifact_registry_repository_url**: コンテナレジストリのURL
+- **photos_bucket_name**: 写真保存用のGCSバケット
+- **workload_identity_provider**: GitHub Actions OIDCプロバイダー
+- **monitoring_dashboard_url**: 監視ダッシュボードへのリンク
 
-## Security Features
+## セキュリティ機能
 
 ### Identity-Aware Proxy (IAP)
-- OAuth-based authentication
-- User and domain-based access control
-- Session management
+- OAuth ベースの認証
+- ユーザーとドメインベースのアクセス制御
+- セッション管理
 
-### Cloud Armor Security Policies
-- Rate limiting
-- Geographic restrictions
-- XSS and SQL injection protection
-- Custom security rules
+### Cloud Armor セキュリティポリシー
+- レート制限
+- 地理的制限
+- XSSとSQLインジェクション保護
+- カスタムセキュリティルール
 
-### Storage Security
-- Uniform bucket-level access
-- Service account-based permissions
-- Lifecycle management
-- Versioning for database backups
+### ストレージセキュリティ
+- 統一バケットレベルアクセス
+- サービスアカウントベースの権限
+- ライフサイクル管理
+- データベースバックアップのバージョニング
 
-## Monitoring and Alerting
+## 監視とアラート
 
-### Alert Policies
-- Service availability monitoring
-- High error rate detection
-- Response time monitoring
-- Resource utilization alerts
-- Storage usage monitoring
+### アラートポリシー
+- サービス可用性監視
+- 高エラー率検出
+- レスポンス時間監視
+- リソース使用率アラート
+- ストレージ使用量監視
 
-### Notification Channels
-- Email notifications
-- Slack integration (optional)
-- Custom webhook support
+### 通知チャネル
+- メール通知
+- Slack統合（オプション）
+- カスタムWebhookサポート
 
-### Dashboards
-- Real-time metrics visualization
-- Request rate and error tracking
-- Resource utilization monitoring
-- Storage usage analytics
+### ダッシュボード
+- リアルタイムメトリクス可視化
+- リクエスト率とエラー追跡
+- リソース使用率監視
+- ストレージ使用量分析
 
-## Maintenance
+## メンテナンス
 
-### Updating Infrastructure
+### インフラストラクチャの更新
 
-1. Modify the appropriate `.tfvars` file
-2. Run `terraform plan` to review changes
-3. Run `terraform apply` to apply changes
+1. 適切な `.tfvars` ファイルを修正
+2. `terraform plan` を実行して変更を確認
+3. `terraform apply` を実行して変更を適用
 
-### Adding New Environments
+### 新しい環境の追加
 
-1. Create a new directory (e.g., `staging/`)
-2. Copy files from `dev/` or `prod/`
-3. Create environment-specific `.tfvars` file
-4. Create backend configuration file
-5. Initialize and apply
+1. 新しいディレクトリを作成（例: `staging/`）
+2. `dev/` または `prod/` からファイルをコピー
+3. 環境固有の `.tfvars` ファイルを作成
+4. バックエンド設定ファイルを作成
+5. 初期化して適用
 
-### Module Updates
+### モジュールの更新
 
-The ImgStream module is versioned and can be updated independently. When updating:
+ImgStreamモジュールはバージョン管理されており、独立して更新できます。更新時:
 
-1. Review module changes
-2. Test in development environment first
-3. Apply to production after validation
+1. モジュールの変更を確認
+2. 最初に開発環境でテスト
+3. 検証後に本番環境に適用
 
-## Troubleshooting
+## トラブルシューティング
 
-### Common Issues
+### よくある問題
 
-1. **Backend initialization fails**
-   - Ensure GCS bucket `apps-466614-terraform-state` exists
-   - Check permissions on the bucket
-   - Verify you have deployed common infrastructure first
+1. **バックエンド初期化の失敗**
+   - GCSバケット `apps-466614-terraform-state` が存在することを確認
+   - バケットの権限を確認
+   - 共通インフラストラクチャを最初にデプロイしたことを確認
 
-2. **Remote state data source fails**
-   - Ensure common infrastructure has been deployed first
-   - Check that common state exists in GCS bucket
+2. **リモートステートデータソースの失敗**
+   - 共通インフラストラクチャが最初にデプロイされていることを確認
+   - 共通ステートがGCSバケットに存在することを確認
 
-3. **IAP setup fails**
-   - Verify OAuth consent screen is configured
-   - Check domain verification
+3. **IAP設定の失敗**
+   - OAuth同意画面が設定されていることを確認
+   - ドメイン検証を確認
 
-4. **Cloud Run deployment fails**
-   - Verify container image exists in Artifact Registry
-   - Check service account permissions
+4. **Cloud Runデプロイの失敗**
+   - コンテナイメージがArtifact Registryに存在することを確認
+   - サービスアカウントの権限を確認
 
-### Getting Help
+### ヘルプの取得
 
-- Check Terraform logs: `terraform apply -debug`
-- Review Google Cloud Console for resource status
-- Validate configuration: `terraform validate`
-- Format code: `terraform fmt -recursive`
+- Terraformログを確認: `terraform apply -debug`
+- リソースステータスについてGoogle Cloud Consoleを確認
+- 設定を検証: `terraform validate`
+- コードをフォーマット: `terraform fmt -recursive`
 
-## Best Practices
+## ベストプラクティス
 
-1. **State Management**
-   - Use remote state storage (GCS)
-   - Enable state locking
-   - Regular state backups
+1. **ステート管理**
+   - リモートステートストレージ（GCS）を使用
+   - ステートロックを有効化
+   - 定期的なステートバックアップ
 
-2. **Security**
-   - Use least-privilege service accounts
-   - Enable audit logging
-   - Regular security reviews
+2. **セキュリティ**
+   - 最小権限のサービスアカウントを使用
+   - 監査ログを有効化
+   - 定期的なセキュリティレビュー
 
-3. **Cost Optimization**
-   - Use appropriate instance sizing
-   - Implement lifecycle policies
-   - Monitor resource usage
+3. **コスト最適化**
+   - 適切なインスタンスサイジングを使用
+   - ライフサイクルポリシーを実装
+   - リソース使用量を監視
 
-4. **Deployment**
-   - Test in development first
-   - Use infrastructure as code
-   - Implement proper CI/CD pipelines
+4. **デプロイメント**
+   - 最初に開発環境でテスト
+   - Infrastructure as Codeを使用
+   - 適切なCI/CDパイプラインを実装
