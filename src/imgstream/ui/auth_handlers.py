@@ -182,7 +182,10 @@ def render_sidebar() -> None:
             st.markdown(f"**{user_name}**")
             st.markdown(f"📧 {user_email}")
 
-            if st.secrets.get("debug", False):
+            from ..config import get_config
+
+            config = get_config()
+            if config.get("debug", False, bool):
                 st.markdown(f"🆔 {st.session_state.user_id or 'Unknown'}")
 
             st.divider()

@@ -523,7 +523,10 @@ def render_image_info_overlay(photo: dict[str, Any]) -> None:
             st.write(f"• Photo ID: {photo.get('id', 'Unknown')}")
 
             # Storage paths (for debugging/admin)
-            if st.secrets.get("debug", False):
+            from ...config import get_config
+
+            config = get_config()
+            if config.get("debug", False, bool):
                 original_path = photo.get("original_path", "Unknown")
                 thumbnail_path = photo.get("thumbnail_path", "Unknown")
                 st.write(f"• Original: `{original_path}`")

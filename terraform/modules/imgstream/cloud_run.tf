@@ -92,34 +92,34 @@ resource "google_cloud_run_v2_service" "imgstream" {
         value = var.region
       }
 
-      # Streamlit secrets as environment variables
+      # Streamlit secrets as environment variables (using direct key names)
       env {
-        name  = "STREAMLIT_SECRETS_GENERAL_DEBUG"
+        name  = "debug"
         value = var.environment == "dev" ? "true" : "false"
       }
 
       env {
-        name  = "STREAMLIT_SECRETS_GENERAL_ENVIRONMENT"
+        name  = "general_environment"
         value = var.environment
       }
 
       env {
-        name  = "STREAMLIT_SECRETS_DEV_AUTH_ENABLED"
+        name  = "dev_auth_enabled"
         value = var.environment == "dev" ? "true" : "false"
       }
 
       env {
-        name  = "STREAMLIT_SECRETS_DEV_AUTH_DEFAULT_EMAIL"
+        name  = "dev_auth_default_email"
         value = "developer@example.com"
       }
 
       env {
-        name  = "STREAMLIT_SECRETS_DEV_AUTH_DEFAULT_NAME"
+        name  = "dev_auth_default_name"
         value = "Cloud Run Developer"
       }
 
       env {
-        name  = "STREAMLIT_SECRETS_DEV_AUTH_DEFAULT_USER_ID"
+        name  = "dev_auth_default_user_id"
         value = "cloudrun-dev-001"
       }
 

@@ -6,6 +6,7 @@ This is the entry point for the photo management web application.
 
 import streamlit as st
 
+from imgstream.config import get_config
 from imgstream.logging_config import configure_structured_logging, get_logger
 from imgstream.ui.auth_handlers import authenticate_user, render_sidebar
 from imgstream.ui.components import render_footer, render_header
@@ -118,7 +119,8 @@ def main() -> None:
 
         # Debug info (only in development)
         try:
-            if st.secrets.get("debug", False):
+            config = get_config()
+            if config.get("debug", False, bool):
                 with st.expander("Debug Info"):
                     st.write("Session State:", st.session_state)
         except Exception as e:

@@ -1,23 +1,31 @@
 name: Quality Check
 
-on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'pyproject.toml'
-      - 'uv.lock'
-      - '.github/workflows/quality-check.yml'
-  pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'pyproject.toml'
-      - 'uv.lock'
-      - '.github/workflows/quality-check.yml'
-  workflow_dispatch:  # Allow manual triggering
+# TEMPORARILY DISABLED - Uncomment the 'on' section below to re-enable
+# This workflow is disabled as GitHub Actions CI/CD is premature at this stage
+# To re-enable: uncomment the entire 'on' section below
+
+# on:
+#   push:
+#     branches: [ main, develop ]
+#     paths:
+#       - 'src/**'
+#       - 'tests/**'
+#       - 'pyproject.toml'
+#       - 'uv.lock'
+#       - '.github/workflows/quality-check.yml'
+#   pull_request:
+#     branches: [ main, develop ]
+#     paths:
+#       - 'src/**'
+#       - 'tests/**'
+#       - 'pyproject.toml'
+#       - 'uv.lock'
+#       - '.github/workflows/quality-check.yml'
+#   workflow_dispatch:  # Allow manual triggering
+
+# Manual trigger only for testing purposes (remove # from next 2 lines to enable manual runs)
+# on:
+#   workflow_dispatch:
 
 env:
   PYTHON_VERSION: "3.11"

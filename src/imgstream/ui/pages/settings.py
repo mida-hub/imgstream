@@ -80,7 +80,10 @@ def render_settings_page() -> None:
     # Advanced settings
     with st.expander("🔧 Advanced Settings"):
         st.markdown("**Debug Information**")
-        if st.secrets.get("debug", False):
+        from ...config import get_config
+
+        config = get_config()
+        if config.get("debug", False, bool):
             st.json(
                 {
                     "user_id": st.session_state.user_id,
