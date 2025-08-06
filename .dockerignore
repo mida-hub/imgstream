@@ -52,7 +52,6 @@ Thumbs.db
 secrets.toml
 
 # Documentation
-README.md
 docs/
 
 # CI/CD

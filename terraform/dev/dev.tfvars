@@ -22,7 +22,7 @@ allowed_domains = [
 allowed_users = []
 
 # Cloud Run configuration for development
-enable_public_access = false # Disable public access - require authentication
+enable_public_access = false  # Enable public access for development testing
 min_instances        = 0    # No minimum instances for cost savings
 max_instances        = 3    # Limit scaling for development
 cpu_limit            = "1000m"

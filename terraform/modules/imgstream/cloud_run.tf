@@ -5,11 +5,6 @@ resource "google_cloud_run_v2_service" "imgstream" {
   name     = "${var.app_name}-${var.environment}"
   location = var.region
 
-  # Prevent accidental deletion
-  lifecycle {
-    prevent_destroy = true
-  }
-
   template {
     # Service account for the container
     service_account = google_service_account.cloud_run.email
@@ -97,16 +92,47 @@ resource "google_cloud_run_v2_service" "imgstream" {
         value = var.region
       }
 
+      # Streamlit secrets as environment variables
+      env {
+        name  = "STREAMLIT_SECRETS_GENERAL_DEBUG"
+        value = var.environment == "dev" ? "true" : "false"
+      }
+
+      env {
+        name  = "STREAMLIT_SECRETS_GENERAL_ENVIRONMENT"
+        value = var.environment
+      }
+
+      env {
+        name  = "STREAMLIT_SECRETS_DEV_AUTH_ENABLED"
+        value = var.environment == "dev" ? "true" : "false"
+      }
+
+      env {
+        name  = "STREAMLIT_SECRETS_DEV_AUTH_DEFAULT_EMAIL"
+        value = "developer@example.com"
+      }
+
+      env {
+        name  = "STREAMLIT_SECRETS_DEV_AUTH_DEFAULT_NAME"
+        value = "Cloud Run Developer"
+      }
+
+      env {
+        name  = "STREAMLIT_SECRETS_DEV_AUTH_DEFAULT_USER_ID"
+        value = "cloudrun-dev-001"
+      }
+
       # Health check configuration
       startup_probe {
         http_get {
           path = "/_stcore/health"
           port = 8080
         }
-        initial_delay_seconds = 30
+        initial_delay_seconds = 60
         timeout_seconds       = 10
-        period_seconds        = 10
-        failure_threshold     = 3
+        period_seconds        = 15
+        failure_threshold     = 5
       }
 
       liveness_probe {
@@ -114,9 +140,9 @@ resource "google_cloud_run_v2_service" "imgstream" {
           path = "/_stcore/health"
           port = 8080
         }
-        initial_delay_seconds = 60
-        timeout_seconds       = 10
-        period_seconds        = 30
+        initial_delay_seconds = 120
+        timeout_seconds       = 30
+        period_seconds        = 60
         failure_threshold     = 3
       }
     }

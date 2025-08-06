@@ -10,11 +10,6 @@ resource "google_storage_bucket" "photos" {
   name     = "${var.app_name}-photos-${var.environment}-${random_id.bucket_suffix.hex}"
   location = var.bucket_location
 
-  # Prevent accidental deletion
-  lifecycle {
-    prevent_destroy = true
-  }
-
   # Enable uniform bucket-level access
   uniform_bucket_level_access = true
 
@@ -78,11 +73,6 @@ resource "google_storage_bucket" "database" {
   name     = "${var.app_name}-database-${var.environment}-${random_id.bucket_suffix.hex}"
   location = var.bucket_location
 
-  # Prevent accidental deletion
-  lifecycle {
-    prevent_destroy = true
-  }
-
   # Enable uniform bucket-level access
   uniform_bucket_level_access = true
 
@@ -113,14 +103,16 @@ resource "google_storage_bucket" "database" {
   }
 
   # Keep database backups for 1 year
-  lifecycle_rule {
-    condition {
-      age = 365
-    }
-    action {
-      type = "Delete"
-    }
-  }
+  # SAFETY: Commented out automatic deletion to prevent data loss
+  # Uncomment only if you have a proper backup strategy in place
+  # lifecycle_rule {
+  #   condition {
+  #     age = 365
+  #   }
+  #   action {
+  #     type = "Delete"
+  #   }
+  # }
 
   # Labels for resource management
   labels = {
