@@ -159,6 +159,148 @@ class TestMetadataServiceCollisionDetection:
         metadata_service.ensure_local_database.assert_called_once()
 
 
+class TestMetadataServiceUpdateOperations:
+    """Test UPDATE operations in MetadataService."""
+
+    @pytest.fixture
+    def metadata_service(self):
+        """Create a MetadataService instance for testing."""
+        with patch("src.imgstream.services.metadata.get_storage_service"):
+            service = MetadataService("test_user_123", "/tmp/test")
+            # Mock database manager with context manager support
+            mock_db_manager = MagicMock()
+            mock_db_manager.__enter__ = Mock(return_value=mock_db_manager)
+            mock_db_manager.__exit__ = Mock(return_value=None)
+            service._db_manager = mock_db_manager
+            # Mock ensure_local_database to avoid GCS calls
+            service.ensure_local_database = Mock()
+            service.trigger_async_sync = Mock()
+            return service
+
+    @pytest.fixture
+    def sample_photo_metadata(self):
+        """Create sample PhotoMetadata for testing."""
+        return PhotoMetadata(
+            id="photo_123",
+            user_id="test_user_123",
+            filename="test_photo.jpg",
+            original_path="photos/test_user_123/original/test_photo.jpg",
+            thumbnail_path="photos/test_user_123/thumbs/test_photo_thumb.jpg",
+            created_at=datetime(2024, 1, 15, 10, 30, 0),
+            uploaded_at=datetime(2024, 1, 15, 11, 0, 0),
+            file_size=1024000,
+            mime_type="image/jpeg",
+        )
+
+    def test_update_photo_metadata_with_preservation(self, metadata_service, sample_photo_metadata):
+        """Test update_photo_metadata with creation info preservation."""
+        # Mock existing record
+        existing_id = "existing_photo_123"
+        existing_created_at = "2024-01-10T09:00:00"
+        metadata_service._db_manager.execute_query.side_effect = [
+            [(existing_id, existing_created_at)],  # First call: get existing record
+            None,  # Second call: UPDATE query
+        ]
+
+        metadata_service.update_photo_metadata(sample_photo_metadata, preserve_creation_info=True)
+
+        # Verify queries were called correctly
+        assert metadata_service._db_manager.execute_query.call_count == 2
+
+        # Check first call (SELECT existing)
+        first_call = metadata_service._db_manager.execute_query.call_args_list[0]
+        assert "SELECT id, created_at FROM photos WHERE filename = ?" in first_call[0][0]
+        assert first_call[0][1] == ("test_photo.jpg", "test_user_123")
+
+        # Check second call (UPDATE)
+        second_call = metadata_service._db_manager.execute_query.call_args_list[1]
+        assert "UPDATE photos SET" in second_call[0][0]
+        assert existing_id in second_call[0][1]
+
+    def test_update_photo_metadata_without_preservation(self, metadata_service, sample_photo_metadata):
+        """Test update_photo_metadata without creation info preservation."""
+        # Mock UPDATE result
+        metadata_service._db_manager.execute_query.side_effect = [
+            None,  # UPDATE query
+            [(1,)],  # changes() query - 1 row affected
+        ]
+
+        metadata_service.update_photo_metadata(sample_photo_metadata, preserve_creation_info=False)
+
+        # Verify queries were called correctly
+        assert metadata_service._db_manager.execute_query.call_count == 2
+
+        # Check UPDATE call
+        first_call = metadata_service._db_manager.execute_query.call_args_list[0]
+        assert "UPDATE photos SET" in first_call[0][0]
+        assert sample_photo_metadata.id in first_call[0][1]
+
+    def test_update_photo_metadata_not_found_with_preservation(self, metadata_service, sample_photo_metadata):
+        """Test update_photo_metadata when photo not found with preservation."""
+        # Mock no existing record
+        metadata_service._db_manager.execute_query.return_value = []
+
+        with pytest.raises(MetadataError, match="not found for update"):
+            metadata_service.update_photo_metadata(sample_photo_metadata, preserve_creation_info=True)
+
+    def test_update_photo_metadata_not_found_without_preservation(self, metadata_service, sample_photo_metadata):
+        """Test update_photo_metadata when photo not found without preservation."""
+        # Mock UPDATE with no rows affected
+        metadata_service._db_manager.execute_query.side_effect = [
+            None,  # UPDATE query
+            [(0,)],  # changes() query - 0 rows affected
+        ]
+
+        with pytest.raises(MetadataError, match="not found for update"):
+            metadata_service.update_photo_metadata(sample_photo_metadata, preserve_creation_info=False)
+
+    def test_save_or_update_photo_metadata_overwrite(self, metadata_service, sample_photo_metadata):
+        """Test save_or_update_photo_metadata for overwrite operation."""
+        # Mock update_photo_metadata
+        metadata_service.update_photo_metadata = Mock()
+
+        metadata_service.save_or_update_photo_metadata(sample_photo_metadata, is_overwrite=True)
+
+        # Verify update_photo_metadata was called with preservation
+        metadata_service.update_photo_metadata.assert_called_once_with(
+            sample_photo_metadata, preserve_creation_info=True
+        )
+
+    def test_save_or_update_photo_metadata_new_upload(self, metadata_service, sample_photo_metadata):
+        """Test save_or_update_photo_metadata for new upload."""
+        # Mock save_photo_metadata
+        metadata_service.save_photo_metadata = Mock()
+
+        metadata_service.save_or_update_photo_metadata(sample_photo_metadata, is_overwrite=False)
+
+        # Verify save_photo_metadata was called
+        metadata_service.save_photo_metadata.assert_called_once_with(sample_photo_metadata)
+
+    def test_update_photo_metadata_invalid_metadata(self, metadata_service, sample_photo_metadata):
+        """Test update_photo_metadata with invalid metadata."""
+        # Mock invalid metadata
+        sample_photo_metadata.validate = Mock(return_value=False)
+
+        with pytest.raises(MetadataError, match="Invalid photo metadata"):
+            metadata_service.update_photo_metadata(sample_photo_metadata)
+
+    def test_update_photo_metadata_user_id_mismatch(self, metadata_service, sample_photo_metadata):
+        """Test update_photo_metadata with user ID mismatch."""
+        # Change user_id to create mismatch
+        sample_photo_metadata.user_id = "different_user"
+
+        with pytest.raises(MetadataError, match="User ID mismatch"):
+            metadata_service.update_photo_metadata(sample_photo_metadata)
+
+    def test_update_photo_metadata_database_error(self, metadata_service, sample_photo_metadata):
+        """Test update_photo_metadata with database error."""
+        # Mock database error
+        metadata_service._db_manager.execute_query.side_effect = Exception("Database error")
+
+        with pytest.raises(MetadataError, match="Failed to update photo metadata"):
+            metadata_service.update_photo_metadata(sample_photo_metadata)
+
+
 class TestMetadataServiceDatabaseReset:
     """Test database reset functionality in MetadataService."""
 

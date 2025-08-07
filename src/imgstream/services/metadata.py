@@ -585,6 +585,166 @@ class MetadataService:
             )
             raise MetadataError(f"Failed to save photo metadata: {e}") from e
 
+    def update_photo_metadata(self, photo_metadata: PhotoMetadata, preserve_creation_info: bool = True) -> None:
+        """
+        Update existing photo metadata in the database.
+
+        This method is specifically designed for overwrite operations where we want to
+        preserve the original creation date and photo ID while updating other fields.
+
+        Args:
+            photo_metadata: PhotoMetadata instance with updated information
+            preserve_creation_info: Whether to preserve original created_at and id from existing record
+
+        Raises:
+            MetadataError: If update operation fails or photo doesn't exist
+        """
+        try:
+            # Validate metadata
+            if not photo_metadata.validate():
+                raise MetadataError("Invalid photo metadata")
+
+            # Ensure user_id matches
+            if photo_metadata.user_id != self.user_id:
+                raise MetadataError(f"User ID mismatch: expected {self.user_id}, got {photo_metadata.user_id}")
+
+            # Ensure local database exists
+            self.ensure_local_database()
+
+            with self.db_manager as db:
+                if preserve_creation_info:
+                    # Get existing record to preserve creation info
+                    existing = db.execute_query(
+                        "SELECT id, created_at FROM photos WHERE filename = ? AND user_id = ?",
+                        (photo_metadata.filename, self.user_id),
+                    )
+
+                    if not existing:
+                        raise MetadataError(f"Photo with filename '{photo_metadata.filename}' not found for update")
+
+                    existing_id, existing_created_at = existing[0]
+
+                    # Update with preserved creation info
+                    db.execute_query(
+                        """UPDATE photos SET
+                           original_path = ?, thumbnail_path = ?, uploaded_at = ?, 
+                           file_size = ?, mime_type = ?
+                           WHERE id = ? AND user_id = ?""",
+                        (
+                            photo_metadata.original_path,
+                            photo_metadata.thumbnail_path,
+                            photo_metadata.uploaded_at.isoformat(),
+                            photo_metadata.file_size,
+                            photo_metadata.mime_type,
+                            existing_id,
+                            self.user_id,
+                        ),
+                    )
+
+                    log_user_action(
+                        self.user_id,
+                        "photo_metadata_overwrite_updated",
+                        photo_id=existing_id,
+                        filename=photo_metadata.filename,
+                        preserved_creation_date=existing_created_at,
+                        new_upload_date=photo_metadata.uploaded_at.isoformat(),
+                    )
+                else:
+                    # Standard update without preservation
+                    db.execute_query(
+                        """UPDATE photos SET
+                           original_path = ?, thumbnail_path = ?, created_at = ?, uploaded_at = ?, 
+                           file_size = ?, mime_type = ?
+                           WHERE id = ? AND user_id = ?""",
+                        (
+                            photo_metadata.original_path,
+                            photo_metadata.thumbnail_path,
+                            photo_metadata.created_at.isoformat() if photo_metadata.created_at else None,
+                            photo_metadata.uploaded_at.isoformat(),
+                            photo_metadata.file_size,
+                            photo_metadata.mime_type,
+                            photo_metadata.id,
+                            self.user_id,
+                        ),
+                    )
+
+                    # Check if any rows were affected
+                    changes_result = db.execute_query("SELECT changes()")
+                    rows_affected = changes_result[0][0] if changes_result else 0
+
+                    if rows_affected == 0:
+                        raise MetadataError(f"Photo with ID '{photo_metadata.id}' not found for update")
+
+                    log_user_action(
+                        self.user_id,
+                        "photo_metadata_standard_updated",
+                        photo_id=photo_metadata.id,
+                        filename=photo_metadata.filename,
+                    )
+
+            # Trigger async sync after successful update
+            self.trigger_async_sync()
+
+        except Exception as e:
+            log_error(
+                e,
+                {
+                    "operation": "update_photo_metadata",
+                    "user_id": self.user_id,
+                    "photo_id": photo_metadata.id,
+                    "filename": photo_metadata.filename,
+                    "preserve_creation_info": preserve_creation_info,
+                },
+            )
+            raise MetadataError(f"Failed to update photo metadata: {e}") from e
+
+    def save_or_update_photo_metadata(self, photo_metadata: PhotoMetadata, is_overwrite: bool = False) -> None:
+        """
+        Save or update photo metadata based on whether it's an overwrite operation.
+
+        This method provides a unified interface for both new uploads and overwrites,
+        automatically choosing the appropriate operation based on the is_overwrite flag.
+
+        Args:
+            photo_metadata: PhotoMetadata instance to save or update
+            is_overwrite: True if this is an overwrite operation, False for new upload
+
+        Raises:
+            MetadataError: If save or update operation fails
+        """
+        try:
+            if is_overwrite:
+                # For overwrites, use update method with creation info preservation
+                self.update_photo_metadata(photo_metadata, preserve_creation_info=True)
+                logger.info(
+                    "photo_metadata_overwrite_completed",
+                    user_id=self.user_id,
+                    filename=photo_metadata.filename,
+                    photo_id=photo_metadata.id,
+                )
+            else:
+                # For new uploads, use standard save method
+                self.save_photo_metadata(photo_metadata)
+                logger.info(
+                    "photo_metadata_new_save_completed",
+                    user_id=self.user_id,
+                    filename=photo_metadata.filename,
+                    photo_id=photo_metadata.id,
+                )
+
+        except Exception as e:
+            log_error(
+                e,
+                {
+                    "operation": "save_or_update_photo_metadata",
+                    "user_id": self.user_id,
+                    "photo_id": photo_metadata.id,
+                    "filename": photo_metadata.filename,
+                    "is_overwrite": is_overwrite,
+                },
+            )
+            raise MetadataError(f"Failed to save or update photo metadata: {e}") from e
+
     def get_photo_by_id(self, photo_id: str) -> PhotoMetadata | None:
         """
         Get photo metadata by ID.

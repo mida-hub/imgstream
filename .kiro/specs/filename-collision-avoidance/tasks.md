@@ -44,7 +44,7 @@
   - アップロードページ衝突フローの統合テストを作成
   - _要件: 1.1, 1.2, 2.1, 2.2, 2.3_
 
-- [ ] 6. 上書き用のデータベース UPDATE 操作を実装
+- [x] 6. 上書き用のデータベース UPDATE 操作を実装
 
   - MetadataService に`update_photo_metadata()`メソッドを追加
   - INSERT と UPDATE の両方をサポートするように`save_photo_metadata()`を修正
