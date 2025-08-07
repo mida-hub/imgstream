@@ -918,62 +918,178 @@ def render_upload_results(batch_result: dict[str, Any], processing_time: float |
                     with col2:
                         st.markdown("✅ **New Upload**")
 
-        # Show overwrites
+        # Show overwrites with enhanced information
         if overwrite_results:
             with st.expander(f"🔄 Overwrites ({len(overwrite_results)})", expanded=len(overwrite_results) <= 3):
+                st.markdown("**以下のファイルは既存の写真を上書きしました:**")
+                st.divider()
+
                 for result in overwrite_results:
                     col1, col2 = st.columns([3, 1])
                     with col1:
                         st.info(f"📷 **{result['filename']}**")
+
+                        # Show new file information
+                        st.markdown("**新しいファイル情報:**")
                         if "creation_date" in result:
-                            st.write(f"   📅 Created: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
+                            st.write(f"   📅 撮影日時: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
                         if "file_size" in result:
                             file_size_mb = result["file_size"] / (1024 * 1024)
-                            st.write(f"   💾 Size: {file_size_mb:.1f} MB")
-                        st.write("   🔄 **This file replaced an existing photo**")
+                            st.write(f"   💾 ファイルサイズ: {file_size_mb:.1f} MB")
+
+                        # Show overwrite confirmation
+                        st.success("   ✅ **上書き完了 - 既存の写真が新しいバージョンに置き換えられました**")
+
+                        # Show what was preserved
+                        st.markdown("**保持された情報:**")
+                        st.write("   🔒 元の作成日時とファイルIDは保持されています")
+                        st.write("   📊 メタデータは新しいファイルの情報に更新されました")
+
                         if "processing_steps" in result:
-                            with st.expander(f"Processing steps for {result['filename']}", expanded=False):
+                            with st.expander(f"上書き処理ステップ: {result['filename']}", expanded=False):
                                 for step in result["processing_steps"]:
                                     st.write(f"• {step}")
                     with col2:
-                        st.markdown("🔄 **Overwritten**")
+                        st.markdown("🔄 **上書き完了**")
+                        st.markdown("---")
+                        st.markdown("**操作結果:**")
+                        st.write("✅ 成功")
+                        st.write("🔄 既存ファイル更新")
+                        st.write("🔒 ID・作成日保持")
 
-        # Show skipped files
+        # Show skipped files with enhanced information
         if skipped_results:
-            with st.expander(f"⏭️ Skipped Files ({len(skipped_results)})", expanded=len(skipped_results) <= 3):
+            with st.expander(f"⏭️ スキップされたファイル ({len(skipped_results)})", expanded=len(skipped_results) <= 3):
+                st.markdown("**以下のファイルはユーザーの選択によりスキップされました:**")
+                st.divider()
+
                 for result in skipped_results:
                     col1, col2 = st.columns([3, 1])
                     with col1:
                         st.warning(f"📷 **{result['filename']}**")
-                        st.write("   ⏭️ **Skipped by user choice to avoid overwriting existing file**")
+                        st.markdown("**スキップ理由:**")
+                        st.write("   ⚠️ 同名のファイルが既に存在していました")
+                        st.write("   👤 ユーザーが上書きを選択せず、スキップを選択しました")
+                        st.write("   🔒 既存のファイルは変更されていません")
+
+                        st.info(
+                            "💡 **ヒント:** 同じファイルを後でアップロードしたい場合は、ファイル名を変更するか、上書きを選択してください。"
+                        )
                     with col2:
-                        st.markdown("⏭️ **Skipped**")
+                        st.markdown("⏭️ **スキップ済み**")
+                        st.markdown("---")
+                        st.markdown("**状態:**")
+                        st.write("⏭️ 処理スキップ")
+                        st.write("🔒 既存ファイル保護")
+                        st.write("👤 ユーザー選択")
 
-        # Show failed uploads with detailed error information
+        # Show failed uploads with detailed error information and overwrite-specific handling
         if failed_results:
-            with st.expander(f"❌ Failed Uploads ({len(failed_results)})", expanded=True):
-                for result in failed_results:
-                    st.error(f"📷 **{result['filename']}** - {result['message']}")
+            with st.expander(f"❌ 失敗したアップロード ({len(failed_results)})", expanded=True):
+                # Separate overwrite failures from regular failures
+                overwrite_failures = [r for r in failed_results if r.get("is_overwrite", False)]
+                regular_failures = [r for r in failed_results if not r.get("is_overwrite", False)]
 
-                    # Show error details
-                    if "error" in result:
-                        with st.expander(f"🔍 Error Details: {result['filename']}", expanded=False):
-                            col1, col2 = st.columns([1, 2])
-                            with col1:
-                                if "error_type" in result:
-                                    st.write(f"**Error Type:** {result['error_type']}")
-                                st.write(f"**File:** {result['filename']}")
-                            with col2:
-                                st.code(result["error"], language="text")
+                # Show overwrite-specific failures first
+                if overwrite_failures:
+                    st.markdown("**🔄 上書き操作の失敗:**")
+                    for result in overwrite_failures:
+                        st.error(f"📷 **{result['filename']}** - {result['message']}")
 
-                    # Provide troubleshooting suggestions
-                    st.info("💡 **Troubleshooting suggestions:**")
-                    suggestions = get_error_suggestions(result.get("error", ""), result.get("filename", ""))
-                    for suggestion in suggestions:
-                        st.write(f"• {suggestion}")
+                        # Special handling for overwrite failures
+                        st.warning("⚠️ **上書き失敗の影響:** 既存のファイルは変更されていません。")
 
-    # Processing summary and next steps
+                        # Show error details
+                        if "error" in result:
+                            with st.expander(f"🔍 上書きエラー詳細: {result['filename']}", expanded=False):
+                                col1, col2 = st.columns([1, 2])
+                                with col1:
+                                    if "error_type" in result:
+                                        st.write(f"**エラータイプ:** {result['error_type']}")
+                                    st.write(f"**ファイル:** {result['filename']}")
+                                    st.write("**操作:** 上書き試行")
+                                with col2:
+                                    st.code(result["error"], language="text")
+
+                        # Overwrite-specific troubleshooting
+                        st.info("💡 **上書き失敗のトラブルシューティング:**")
+                        overwrite_suggestions = [
+                            "既存のファイルが別のプロセスで使用されていないか確認してください",
+                            "データベースの整合性を確認してください",
+                            "一度ファイルを削除してから再アップロードを試してください",
+                            "ファイル名を変更して新規アップロードとして試してください",
+                        ]
+                        for suggestion in overwrite_suggestions:
+                            st.write(f"• {suggestion}")
+
+                        st.divider()
+
+                # Show regular failures
+                if regular_failures:
+                    if overwrite_failures:
+                        st.markdown("**📤 通常のアップロード失敗:**")
+
+                    for result in regular_failures:
+                        st.error(f"📷 **{result['filename']}** - {result['message']}")
+
+                        # Show error details
+                        if "error" in result:
+                            with st.expander(f"🔍 エラー詳細: {result['filename']}", expanded=False):
+                                col1, col2 = st.columns([1, 2])
+                                with col1:
+                                    if "error_type" in result:
+                                        st.write(f"**エラータイプ:** {result['error_type']}")
+                                    st.write(f"**ファイル:** {result['filename']}")
+                                with col2:
+                                    st.code(result["error"], language="text")
+
+                        # Provide troubleshooting suggestions
+                        st.info("💡 **トラブルシューティング提案:**")
+                        suggestions = get_error_suggestions(result.get("error", ""), result.get("filename", ""))
+                        for suggestion in suggestions:
+                            st.write(f"• {suggestion}")
+
+    # Enhanced processing summary for mixed operations
     st.divider()
+
+    # Show detailed summary for mixed operations
+    if overwrite_uploads > 0 or skipped_uploads > 0:
+        st.markdown("### 📊 処理サマリー")
+
+        # Create summary cards
+        summary_cols = st.columns(4)
+
+        with summary_cols[0]:
+            new_uploads = successful_uploads - overwrite_uploads
+            if new_uploads > 0:
+                st.metric(label="🆕 新規アップロード", value=new_uploads, help="新しく追加された写真の数")
+
+        with summary_cols[1]:
+            if overwrite_uploads > 0:
+                st.metric(label="🔄 上書き更新", value=overwrite_uploads, help="既存の写真を更新した数")
+
+        with summary_cols[2]:
+            if skipped_uploads > 0:
+                st.metric(label="⏭️ スキップ", value=skipped_uploads, help="ユーザー選択によりスキップされた数")
+
+        with summary_cols[3]:
+            if failed_uploads > 0:
+                st.metric(
+                    label="❌ 失敗", value=failed_uploads, delta=-failed_uploads, help="処理に失敗したファイルの数"
+                )
+
+        # Show operation impact summary
+        if overwrite_uploads > 0:
+            st.info(
+                f"🔄 **上書き操作について:** {overwrite_uploads}個のファイルが既存の写真を更新しました。"
+                "元の作成日時とファイルIDは保持され、メタデータのみが更新されています。"
+            )
+
+        if skipped_uploads > 0:
+            st.warning(
+                f"⏭️ **スキップされたファイル:** {skipped_uploads}個のファイルがスキップされました。"
+                "これらのファイルは処理されておらず、既存のファイルも変更されていません。"
+            )
 
     if batch_result["success"] and successful_uploads > 0:
         st.markdown("### 🎯 Next Steps")
