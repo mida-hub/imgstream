@@ -78,6 +78,9 @@ class StorageService:
         self.bucket_name = bucket_name or os.getenv("GCS_BUCKET")
         self.project_id = project_id or os.getenv("GOOGLE_CLOUD_PROJECT")
 
+        # Database bucket configuration
+        self.database_bucket_name = os.getenv("GCS_DATABASE_BUCKET")
+
         # Additional configuration from environment variables
         self.region = os.getenv("GCS_REGION", "asia-northeast1")
         self.storage_class = os.getenv("GCS_STORAGE_CLASS", "STANDARD")
@@ -93,6 +96,13 @@ class StorageService:
         try:
             self.client = storage.Client(project=self.project_id)
             self.bucket = self.client.bucket(self.bucket_name)
+
+            # Initialize database bucket if configured
+            if self.database_bucket_name:
+                self.database_bucket = self.client.bucket(self.database_bucket_name)
+            else:
+                # Fallback to main bucket for backward compatibility
+                self.database_bucket = self.bucket
             logger.info(
                 "storage_service_initialized",
                 bucket_name=self.bucket_name,
@@ -848,6 +858,104 @@ class StorageService:
         except Exception as e:
             logger.error(f"Error checking bucket: {e}")
             return False
+
+    def upload_database_file(self, user_id: str, file_data: bytes, filename: str) -> dict[str, str]:
+        """
+        Upload database file to the database bucket.
+
+        Args:
+            user_id: User identifier
+            file_data: Database file data as bytes
+            filename: Database filename (e.g., 'metadata.db')
+
+        Returns:
+            dict: Upload result with GCS path and metadata
+
+        Raises:
+            StorageError: If upload fails
+        """
+        try:
+            # Create database path: databases/{user_id}/{filename}
+            gcs_path = f"databases/{user_id}/{filename}"
+
+            # Use database bucket
+            blob = self.database_bucket.blob(gcs_path)
+
+            # Set metadata
+            blob.metadata = {
+                "user_id": user_id,
+                "filename": filename,
+                "upload_timestamp": datetime.now().isoformat(),
+                "file_type": "database",
+                "content_type": "application/octet-stream",
+            }
+
+            # Upload the file
+            blob.upload_from_string(file_data, content_type="application/octet-stream")
+
+            logger.info(
+                "database_file_uploaded",
+                user_id=user_id,
+                filename=filename,
+                gcs_path=gcs_path,
+                bucket=self.database_bucket.name,
+                file_size=len(file_data),
+            )
+
+            return {
+                "gcs_path": gcs_path,
+                "bucket": self.database_bucket.name,
+                "filename": filename,
+                "file_size": str(len(file_data)),
+                "upload_timestamp": datetime.now().isoformat(),
+            }
+
+        except GoogleCloudError as e:
+            logger.error("database_upload_failed", user_id=user_id, filename=filename, error=str(e))
+            raise StorageError(f"Failed to upload database file '{filename}': {e}") from e
+        except Exception as e:
+            logger.error("database_upload_error", user_id=user_id, filename=filename, error=str(e))
+            raise StorageError(f"Unexpected error uploading database file '{filename}': {e}") from e
+
+    def download_database_file(self, user_id: str, filename: str) -> bytes:
+        """
+        Download database file from the database bucket.
+
+        Args:
+            user_id: User identifier
+            filename: Database filename (e.g., 'metadata.db')
+
+        Returns:
+            bytes: Database file data
+
+        Raises:
+            StorageError: If download fails
+        """
+        try:
+            gcs_path = f"databases/{user_id}/{filename}"
+            blob = self.database_bucket.blob(gcs_path)
+
+            if not blob.exists():
+                raise StorageError(f"Database file not found: {gcs_path}")
+
+            file_data: bytes = blob.download_as_bytes()
+
+            logger.info(
+                "database_file_downloaded",
+                user_id=user_id,
+                filename=filename,
+                gcs_path=gcs_path,
+                file_size=len(file_data),
+            )
+
+            return file_data
+
+        except GoogleCloudError as e:
+            logger.error("database_download_failed", user_id=user_id, filename=filename, error=str(e))
+            raise StorageError(f"Failed to download database file '{filename}': {e}") from e
+        except Exception as e:
+            logger.error("database_download_error", user_id=user_id, filename=filename, error=str(e))
+            raise StorageError(f"Unexpected error downloading database file '{filename}': {e}") from e
 
 
 # Global storage service instance

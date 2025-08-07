@@ -686,9 +686,8 @@ def render_upload_results(batch_result: dict[str, Any], processing_time: float |
         if st.button("🔄 Try Again", use_container_width=True, type="primary"):
             st.rerun()
 
-    # Clear session state after processing
-    if batch_result["success"] and successful_uploads > 0:
-        clear_upload_session_state()
+    # Note: Don't automatically clear session state here to allow users to see results
+    # Session state will be cleared when user navigates away or uploads new files
 
 
 def get_error_suggestions(error_message: str, filename: str) -> list[str]:
@@ -773,6 +772,7 @@ def clear_upload_session_state() -> None:
         "upload_validated",
         "upload_in_progress",
         "upload_results",
+        "last_upload_result",  # Add this to clear the upload result
     ]
 
     for key in session_keys_to_clear:

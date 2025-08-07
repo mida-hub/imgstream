@@ -12,6 +12,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from src.imgstream.error_handling import DatabaseError
 from src.imgstream.models.photo import PhotoMetadata
 from src.imgstream.services.auth import CloudIAPAuthService
 from src.imgstream.services.metadata import MetadataService
@@ -80,15 +81,12 @@ class TestDataAccessSecurity(E2ETestBase):
         user1 = test_users["user1"]
         user2 = test_users["user2"]
 
-        # Create metadata services for different users
-        with patch("src.imgstream.services.metadata.MetadataService") as mock_metadata_class:
-            # Mock the metadata service to simulate real behavior
-            mock_metadata1 = Mock()
-            mock_metadata2 = Mock()
-
-            # Configure mocks to simulate user isolation
-            mock_metadata1.user_id = user1.user_id
-            mock_metadata2.user_id = user2.user_id
+        # Test that MetadataService enforces user isolation using real services
+        import tempfile
+        
+        with tempfile.TemporaryDirectory() as temp_dir1, tempfile.TemporaryDirectory() as temp_dir2:
+            metadata_service1 = MetadataService(user1.user_id, temp_dir1)
+            metadata_service2 = MetadataService(user2.user_id, temp_dir2)
 
             # Test that each service only works with its own user's data
             user1_photo = PhotoMetadata.create_new(
@@ -109,25 +107,16 @@ class TestDataAccessSecurity(E2ETestBase):
                 mime_type="image/jpeg",
             )
 
-            # Configure mock to reject cross-user access
-            def save_photo_metadata_side_effect(photo_metadata):
-                if photo_metadata.user_id != mock_metadata1.user_id:
-                    raise ValueError(
-                        f"User ID mismatch: expected {mock_metadata1.user_id}, got {photo_metadata.user_id}"
-                    )
-                return True
-
-            mock_metadata1.save_photo_metadata.side_effect = save_photo_metadata_side_effect
-            mock_metadata_class.return_value = mock_metadata1
-
-            metadata_service1 = MetadataService(user1.user_id)
-
             # User1's service should accept user1's data
             metadata_service1.save_photo_metadata(user1_photo)
-            mock_metadata1.save_photo_metadata.assert_called_with(user1_photo)
+            
+            # Verify the photo was saved
+            saved_photo = metadata_service1.get_photo_by_id(user1_photo.id)
+            assert saved_photo is not None
+            assert saved_photo.user_id == user1.user_id
 
             # User1's service should reject user2's data
-            with pytest.raises(ValueError, match="User ID mismatch"):
+            with pytest.raises(DatabaseError, match="User ID mismatch"):
                 metadata_service1.save_photo_metadata(user2_photo)
 
     @pytest.mark.security
@@ -429,7 +418,7 @@ class TestDataAccessSecurity(E2ETestBase):
         auth_service = CloudIAPAuthService()
 
         # Mock authentication for regular user
-        with patch.object(auth_service, "current_user", user):
+        with patch.object(auth_service, "_current_user", user):
             # Regular user should not be able to access admin paths
             storage_path = auth_service.get_user_storage_path()
             database_path = auth_service.get_user_database_path()
@@ -440,7 +429,9 @@ class TestDataAccessSecurity(E2ETestBase):
                 assert "admin" not in storage_path.lower()
 
             if database_path:
-                assert user.user_id in database_path
+                # Database path is based on email, not user_id
+                safe_email = user.email.replace("@", "_at_").replace(".", "_dot_")
+                assert safe_email in database_path
                 assert "admin" not in database_path.lower()
 
         # Test that user cannot manipulate their user_id to gain admin access

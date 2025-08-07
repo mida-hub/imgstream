@@ -81,7 +81,7 @@ class TestMetadataService:
         """Test ensure_local_database downloading from GCS."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.return_value = b"fake_db_data"
+        mock_storage.download_database_file.return_value = b"fake_db_data"
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
         mock_db_manager.__enter__ = MagicMock(return_value=mock_db_manager)
@@ -94,9 +94,9 @@ class TestMetadataService:
 
         assert result is True  # Downloaded from GCS
         assert service.local_db_path.exists()
-        # download_file is called twice: once for existence check, once for actual download
-        assert mock_storage.download_file.call_count == 2
-        mock_storage.download_file.assert_called_with(service.gcs_db_path)
+        # download_database_file is called twice: once for existence check, once for actual download
+        assert mock_storage.download_database_file.call_count == 2
+        mock_storage.download_database_file.assert_called_with(self.user_id, "metadata.db")
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     @patch("src.imgstream.services.metadata.create_database")
@@ -104,7 +104,7 @@ class TestMetadataService:
         """Test ensure_local_database creating new database."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         service = MetadataService(self.user_id, self.temp_dir)
 
@@ -118,7 +118,7 @@ class TestMetadataService:
         """Test _gcs_database_exists when database exists."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.return_value = b"fake_data"
+        mock_storage.download_database_file.return_value = b"fake_data"
 
         service = MetadataService(self.user_id, self.temp_dir)
 
@@ -131,7 +131,7 @@ class TestMetadataService:
         """Test _gcs_database_exists when database doesn't exist."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         service = MetadataService(self.user_id, self.temp_dir)
 
@@ -144,7 +144,7 @@ class TestMetadataService:
         """Test successful upload to GCS."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.upload_original_photo.return_value = {"gcs_path": "test/path"}
+        mock_storage.upload_database_file.return_value = {"gcs_path": "test/path"}
 
         service = MetadataService(self.user_id, self.temp_dir)
 
@@ -154,7 +154,7 @@ class TestMetadataService:
         result = service.upload_to_gcs()
 
         assert result is True
-        mock_storage.upload_original_photo.assert_called_once_with(self.user_id, b"fake_db_content", "metadata.db")
+        mock_storage.upload_database_file.assert_called_once_with(self.user_id, b"fake_db_content", "metadata.db")
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     def test_upload_to_gcs_no_local_file(self, mock_get_storage):
@@ -173,7 +173,7 @@ class TestMetadataService:
         """Test getting database information."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")  # GCS doesn't exist
+        mock_storage.download_database_file.side_effect = StorageError("Not found")  # GCS doesn't exist
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -217,7 +217,7 @@ class TestMetadataService:
         """Test context manager functionality."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -303,7 +303,7 @@ class TestMetadataServiceErrorHandling:
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
         # First call (existence check) succeeds, second call (download) fails
-        mock_storage.download_file.side_effect = [b"fake_data", Exception("Download failed")]
+        mock_storage.download_database_file.side_effect = [b"fake_data", Exception("Download failed")]
 
         service = MetadataService(self.user_id, self.temp_dir)
 
@@ -378,7 +378,7 @@ class TestMetadataServiceCRUD:
         """Test saving new photo metadata."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -407,7 +407,7 @@ class TestMetadataServiceCRUD:
         """Test updating existing photo metadata."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -479,7 +479,7 @@ class TestMetadataServiceCRUD:
         """Test getting photo by ID when found."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -512,7 +512,7 @@ class TestMetadataServiceCRUD:
         """Test getting photo by ID when not found."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -531,7 +531,7 @@ class TestMetadataServiceCRUD:
         """Test getting photos ordered by date."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         # Create sample data for multiple photos
         photo1_data = (
@@ -587,7 +587,7 @@ class TestMetadataServiceCRUD:
         """Test getting total photos count."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -609,7 +609,7 @@ class TestMetadataServiceCRUD:
         """Test successful photo metadata deletion."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -631,7 +631,7 @@ class TestMetadataServiceCRUD:
         """Test photo metadata deletion when not found."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -650,7 +650,7 @@ class TestMetadataServiceCRUD:
         """Test searching photos by filename pattern."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         photo_data = (
             "id1",
@@ -708,8 +708,8 @@ class TestMetadataServiceAsyncSync:
         """Test triggering async sync when enabled."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
-        mock_storage.upload_original_photo.return_value = {"gcs_path": "test/path"}
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
+        mock_storage.upload_database_file.return_value = {"gcs_path": "test/path"}
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -728,7 +728,7 @@ class TestMetadataServiceAsyncSync:
         assert success is True
 
         # Verify upload was called
-        mock_storage.upload_original_photo.assert_called_once()
+        mock_storage.upload_database_file.assert_called_once()
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     def test_trigger_async_sync_disabled(self, mock_get_storage):
@@ -746,14 +746,14 @@ class TestMetadataServiceAsyncSync:
         time.sleep(0.1)
 
         # Verify upload was not called
-        mock_storage.upload_original_photo.assert_not_called()
+        mock_storage.upload_database_file.assert_not_called()
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     def test_async_sync_pending_check(self, mock_get_storage):
         """Test that multiple sync triggers don't create multiple tasks."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.upload_original_photo.return_value = {"gcs_path": "test/path"}
+        mock_storage.upload_database_file.return_value = {"gcs_path": "test/path"}
 
         service = MetadataService(self.user_id, self.temp_dir)
 
@@ -769,14 +769,14 @@ class TestMetadataServiceAsyncSync:
         service.wait_for_sync_completion(timeout=5.0)
 
         # Should only upload once
-        assert mock_storage.upload_original_photo.call_count <= 1
+        assert mock_storage.upload_database_file.call_count <= 1
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     def test_async_sync_error_handling(self, mock_get_storage):
         """Test async sync error handling."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.upload_original_photo.side_effect = Exception("Upload failed")
+        mock_storage.upload_database_file.side_effect = Exception("Upload failed")
 
         service = MetadataService(self.user_id, self.temp_dir)
 
@@ -790,7 +790,7 @@ class TestMetadataServiceAsyncSync:
         service.wait_for_sync_completion(timeout=5.0)
 
         # Verify upload was attempted
-        mock_storage.upload_original_photo.assert_called_once()
+        mock_storage.upload_database_file.assert_called_once()
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     def test_wait_for_sync_completion_timeout(self, mock_get_storage):
@@ -829,8 +829,8 @@ class TestMetadataServiceAsyncSync:
         """Test that saving photo metadata triggers async sync."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
-        mock_storage.upload_original_photo.return_value = {"gcs_path": "test/path"}
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
+        mock_storage.upload_database_file.return_value = {"gcs_path": "test/path"}
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -860,7 +860,7 @@ class TestMetadataServiceAsyncSync:
         service.wait_for_sync_completion(timeout=5.0)
 
         # Verify sync was triggered
-        mock_storage.upload_original_photo.assert_called()
+        mock_storage.upload_database_file.assert_called()
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     @patch("src.imgstream.services.metadata.get_database_manager")
@@ -868,8 +868,8 @@ class TestMetadataServiceAsyncSync:
         """Test that deleting photo metadata triggers async sync."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
-        mock_storage.upload_original_photo.return_value = {"gcs_path": "test/path"}
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
+        mock_storage.upload_database_file.return_value = {"gcs_path": "test/path"}
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -887,7 +887,7 @@ class TestMetadataServiceAsyncSync:
         service.wait_for_sync_completion(timeout=5.0)
 
         # Verify sync was triggered
-        mock_storage.upload_original_photo.assert_called()
+        mock_storage.upload_database_file.assert_called()
 
 
 class TestMetadataServiceIntegration:
@@ -911,8 +911,8 @@ class TestMetadataServiceIntegration:
         """Test complete metadata lifecycle: create, read, update, delete."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
-        mock_storage.upload_original_photo.return_value = {"gcs_path": "test/path"}
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
+        mock_storage.upload_database_file.return_value = {"gcs_path": "test/path"}
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -997,7 +997,7 @@ class TestMetadataServiceIntegration:
         service.wait_for_sync_completion(timeout=5.0)
 
         # Verify sync was triggered (at least once for the operations)
-        assert mock_storage.upload_original_photo.call_count >= 1
+        assert mock_storage.upload_database_file.call_count >= 1
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     @patch("src.imgstream.services.metadata.get_database_manager")
@@ -1005,8 +1005,8 @@ class TestMetadataServiceIntegration:
         """Test concurrent metadata operations."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
-        mock_storage.upload_original_photo.return_value = {"gcs_path": "test/path"}
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
+        mock_storage.upload_database_file.return_value = {"gcs_path": "test/path"}
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -1052,7 +1052,7 @@ class TestMetadataServiceIntegration:
 
         # First call: local DB doesn't exist, GCS has backup
         # Second call: download the backup
-        mock_storage.download_file.side_effect = [
+        mock_storage.download_database_file.side_effect = [
             b"fake_backup_data",  # GCS has backup
             b"fake_backup_data",  # Download backup
         ]
@@ -1073,14 +1073,14 @@ class TestMetadataServiceIntegration:
         assert service.local_db_path.exists()
 
         # Verify download was called
-        assert mock_storage.download_file.call_count == 2
+        assert mock_storage.download_database_file.call_count == 2
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     def test_sync_disable_enable_cycle(self, mock_get_storage):
         """Test disabling and re-enabling sync functionality."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.upload_original_photo.return_value = {"gcs_path": "test/path"}
+        mock_storage.upload_database_file.return_value = {"gcs_path": "test/path"}
 
         service = MetadataService(self.user_id, self.temp_dir)
 
@@ -1097,7 +1097,7 @@ class TestMetadataServiceIntegration:
         # Trigger sync (should be ignored)
         service.trigger_async_sync()
         time.sleep(0.1)
-        mock_storage.upload_original_photo.assert_not_called()
+        mock_storage.upload_database_file.assert_not_called()
 
         # Re-enable sync
         service.enable_async_sync()
@@ -1106,7 +1106,7 @@ class TestMetadataServiceIntegration:
         # Trigger sync (should work now)
         service.trigger_async_sync()
         service.wait_for_sync_completion(timeout=5.0)
-        mock_storage.upload_original_photo.assert_called_once()
+        mock_storage.upload_database_file.assert_called_once()
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     @patch("src.imgstream.services.metadata.get_database_manager")
@@ -1114,7 +1114,7 @@ class TestMetadataServiceIntegration:
         """Test pagination and search functionality integration."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_file.side_effect = StorageError("Not found")
+        mock_storage.download_database_file.side_effect = StorageError("Not found")
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager

@@ -29,6 +29,15 @@ class MockUser:
     def to_dict(self) -> dict[str, str]:
         return {"user_id": self.user_id, "email": self.email, "name": self.name}
 
+    def get_storage_path_prefix(self) -> str:
+        """Get storage path prefix for this user."""
+        return f"photos/{self.user_id}/"
+
+    def get_database_path(self) -> str:
+        """Get database path for this user."""
+        safe_email = self.email.replace("@", "_at_").replace(".", "_dot_")
+        return f"dbs/{safe_email}/metadata.db"
+
 
 class E2ETestBase:
     """Base class for end-to-end tests."""

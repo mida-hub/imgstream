@@ -192,7 +192,10 @@ def render_upload_page() -> None:
 
             # Clear results button
             if st.button("🗑️ Clear Results", use_container_width=True):
-                st.session_state.last_upload_result = None
+                # Clear all upload-related session state
+                from imgstream.ui.upload_handlers import clear_upload_session_state
+
+                clear_upload_session_state()
                 st.rerun()
         else:
             # Show empty state when no files are uploaded

@@ -138,8 +138,8 @@ class MetadataService:
             if not self._gcs_database_exists():
                 return False
 
-            # Download database file
-            db_data = self.storage_service.download_file(self.gcs_db_path)
+            # Download database file from database bucket
+            db_data = self.storage_service.download_database_file(self.user_id, "metadata.db")
 
             # Ensure temp directory exists
             self.temp_dir.mkdir(parents=True, exist_ok=True)
@@ -166,8 +166,8 @@ class MetadataService:
     def _gcs_database_exists(self) -> bool:
         """Check if database exists in GCS."""
         try:
-            # Try to get file metadata
-            self.storage_service.download_file(self.gcs_db_path)
+            # Try to get file metadata from database bucket
+            self.storage_service.download_database_file(self.user_id, "metadata.db")
             return True
         except (StorageError, NotFound):
             return False
@@ -226,8 +226,8 @@ class MetadataService:
             with open(self.local_db_path, "rb") as f:
                 db_data = f.read()
 
-            # Upload to GCS
-            result = self.storage_service.upload_original_photo(self.user_id, db_data, "metadata.db")
+            # Upload to GCS database bucket
+            result = self.storage_service.upload_database_file(self.user_id, db_data, "metadata.db")
 
             log_user_action(
                 self.user_id, "database_uploaded_to_gcs", gcs_path=result["gcs_path"], file_size=len(db_data)

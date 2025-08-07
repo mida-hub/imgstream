@@ -73,6 +73,11 @@ resource "google_cloud_run_v2_service" "imgstream" {
 
       # GCS bucket names from storage resources
       env {
+        name  = "GCS_BUCKET"
+        value = google_storage_bucket.photos.name
+      }
+
+      env {
         name  = "GCS_PHOTOS_BUCKET"
         value = google_storage_bucket.photos.name
       }
@@ -84,6 +89,11 @@ resource "google_cloud_run_v2_service" "imgstream" {
 
       env {
         name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
+
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
         value = var.project_id
       }
 

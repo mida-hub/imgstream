@@ -42,13 +42,13 @@ class TestAuthenticationFlow(StreamlitE2ETest):
         auth_service = CloudIAPAuthService()
 
         # Test with empty headers
-        success = auth_service.authenticate_request({})
-        assert success is False
+        user_info = auth_service.authenticate_request({})
+        assert user_info is None
 
         # Test with incomplete headers
         incomplete_headers = {"X-Goog-Authenticated-User-Email": "test@example.com"}
-        success = auth_service.authenticate_request(incomplete_headers)
-        assert success is False
+        user_info = auth_service.authenticate_request(incomplete_headers)
+        assert user_info is None
 
     def test_invalid_jwt_token(self, test_users):
         """Test authentication failure with invalid JWT token."""
@@ -133,8 +133,8 @@ class TestAuthenticationFlow(StreamlitE2ETest):
             "X-Goog-Authenticated-User-ID": "",
         }
 
-        success = auth_service.authenticate_request(malformed_headers)
-        assert success is False
+        user_info = auth_service.authenticate_request(malformed_headers)
+        assert user_info is None
 
         # Test with None values
         none_headers = {
@@ -143,8 +143,8 @@ class TestAuthenticationFlow(StreamlitE2ETest):
             "X-Goog-Authenticated-User-ID": None,
         }
 
-        success = auth_service.authenticate_request(none_headers)
-        assert success is False
+        user_info = auth_service.authenticate_request(none_headers)
+        assert user_info is None
 
     def test_development_mode_authentication(self, test_users):
         """Test authentication in development mode."""

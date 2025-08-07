@@ -67,8 +67,8 @@ class TestSimpleAuthentication:
             auth_service = CloudIAPAuthService()
 
             # Empty headers should fail authentication
-            success = auth_service.authenticate_request({})
-            assert success is False
+            user_info = auth_service.authenticate_request({})
+            assert user_info is None
             assert not auth_service.is_authenticated()
 
     def test_missing_required_headers(self):
@@ -86,6 +86,6 @@ class TestSimpleAuthentication:
                 "X-Goog-Authenticated-User-ID": "test-user-123",
             }
 
-            success = auth_service.authenticate_request(headers)
+            user_info = auth_service.authenticate_request(headers)
             # Should fail without proper IAP JWT header
-            assert success is False
+            assert user_info is None
