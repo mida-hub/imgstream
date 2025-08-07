@@ -76,15 +76,25 @@ resource "google_storage_bucket" "database" {
   # Enable uniform bucket-level access
   uniform_bucket_level_access = true
 
-  # Versioning for database backups
+  # Versioning for database backups - keep only 3 generations
   versioning {
     enabled = true
   }
 
-  # Lifecycle management for database backups
+  # Lifecycle management for versioning - keep only 3 versions
   lifecycle_rule {
     condition {
-      age = 7
+      num_newer_versions = 3
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  # Move non-current versions to COLDLINE after 7 days
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 7
     }
     action {
       type          = "SetStorageClass"
@@ -92,27 +102,16 @@ resource "google_storage_bucket" "database" {
     }
   }
 
+  # Move non-current versions to ARCHIVE after 90 days
   lifecycle_rule {
     condition {
-      age = 90
+      days_since_noncurrent_time = 90
     }
     action {
       type          = "SetStorageClass"
       storage_class = "ARCHIVE"
     }
   }
-
-  # Keep database backups for 1 year
-  # SAFETY: Commented out automatic deletion to prevent data loss
-  # Uncomment only if you have a proper backup strategy in place
-  # lifecycle_rule {
-  #   condition {
-  #     age = 365
-  #   }
-  #   action {
-  #     type = "Delete"
-  #   }
-  # }
 
   # Labels for resource management
   labels = {

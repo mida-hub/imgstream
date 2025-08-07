@@ -306,6 +306,69 @@ class MetadataService:
                 {"operation": "cleanup_local_database", "user_id": self.user_id, "local_path": str(self.local_db_path)},
             )
 
+    def force_reload_from_gcs(self) -> bool:
+        """
+        Force reload database from GCS by deleting local file and re-downloading.
+
+        This is useful for development/testing when the local database becomes corrupted
+        or when you want to reset to the GCS version.
+
+        Returns:
+            bool: True if successfully reloaded from GCS, False if no GCS database exists
+
+        Raises:
+            MetadataError: If reload fails
+        """
+        try:
+            logger.info("force_reload_from_gcs_started", user_id=self.user_id, local_path=str(self.local_db_path))
+
+            # Close existing database connection
+            if self._db_manager:
+                self._db_manager.close()
+                self._db_manager = None
+
+            # Remove local database file if it exists
+            if self.local_db_path.exists():
+                self.local_db_path.unlink()
+                logger.info(
+                    "local_database_removed_for_reload", user_id=self.user_id, local_path=str(self.local_db_path)
+                )
+
+            # Check if GCS database exists
+            if not self._gcs_database_exists():
+                logger.warning("force_reload_no_gcs_database", user_id=self.user_id, gcs_path=self.gcs_db_path)
+                # Create new database since no GCS version exists
+                self._create_new_database()
+                log_user_action(self.user_id, "force_reload_created_new_database", local_path=str(self.local_db_path))
+                return False
+
+            # Download from GCS
+            if self._download_from_gcs():
+                log_user_action(
+                    self.user_id,
+                    "force_reload_from_gcs_completed",
+                    gcs_path=self.gcs_db_path,
+                    local_path=str(self.local_db_path),
+                )
+                return True
+            else:
+                # Fallback to creating new database
+                self._create_new_database()
+                log_user_action(self.user_id, "force_reload_fallback_new_database", local_path=str(self.local_db_path))
+                return False
+
+        except Exception as e:
+            log_error(
+                e,
+                {
+                    "operation": "force_reload_from_gcs",
+                    "user_id": self.user_id,
+                    "local_path": str(self.local_db_path),
+                    "gcs_path": self.gcs_db_path,
+                },
+            )
+            raise MetadataError(f"Failed to force reload database from GCS: {e}") from e
+
     # Async Sync Methods
 
     def enable_sync(self) -> None:
@@ -684,6 +747,86 @@ class MetadataService:
 
         except Exception as e:
             raise MetadataError(f"Failed to delete photo metadata: {e}") from e
+
+    def check_filename_exists(self, filename: str) -> dict | None:
+        """
+        Check if a photo with the given filename already exists for the user.
+
+        Args:
+            filename: Filename to check for collision
+
+        Returns:
+            dict: Existing photo information if found, None if not found
+                  Contains: existing_photo (PhotoMetadata), existing_file_info (dict)
+
+        Raises:
+            MetadataError: If collision check fails
+        """
+        try:
+            self.ensure_local_database()
+
+            with self.db_manager as db:
+                result = db.execute_query(
+                    """SELECT id, user_id, filename, original_path, thumbnail_path,
+                              created_at, uploaded_at, file_size, mime_type
+                       FROM photos WHERE user_id = ? AND filename = ?""",
+                    (self.user_id, filename),
+                )
+
+                if not result:
+                    logger.debug("filename_collision_check_no_match", user_id=self.user_id, filename=filename)
+                    return None
+
+                # Found existing photo
+                row = result[0]
+                existing_photo = PhotoMetadata(
+                    id=row[0],
+                    user_id=row[1],
+                    filename=row[2],
+                    original_path=row[3],
+                    thumbnail_path=row[4],
+                    created_at=row[5],
+                    uploaded_at=row[6],
+                    file_size=row[7],
+                    mime_type=row[8],
+                )
+
+                # Create file info for UI display
+                existing_file_info = {
+                    "upload_date": existing_photo.uploaded_at,
+                    "file_size": existing_photo.file_size,
+                    "creation_date": existing_photo.created_at,
+                    "photo_id": existing_photo.id,
+                }
+
+                collision_info = {
+                    "existing_photo": existing_photo,
+                    "existing_file_info": existing_file_info,
+                    "user_decision": "pending",
+                    "warning_shown": False,
+                }
+
+                logger.info(
+                    "filename_collision_detected",
+                    user_id=self.user_id,
+                    filename=filename,
+                    existing_photo_id=existing_photo.id,
+                    existing_upload_date=existing_photo.uploaded_at.isoformat() if existing_photo.uploaded_at else None,
+                    existing_file_size=existing_photo.file_size,
+                )
+
+                return collision_info
+
+        except Exception as e:
+            log_error(
+                e,
+                {
+                    "operation": "check_filename_exists",
+                    "user_id": self.user_id,
+                    "filename": filename,
+                },
+            )
+            raise MetadataError(f"Failed to check filename collision: {e}") from e
 
     def search_photos_by_filename(self, filename_pattern: str, limit: int = 50, offset: int = 0) -> list[PhotoMetadata]:
         """
