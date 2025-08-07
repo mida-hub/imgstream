@@ -12,12 +12,21 @@ from imgstream.ui.upload_handlers import (
     get_file_size_limits,
     process_batch_upload,
     render_detailed_progress_info,
-    render_file_validation_results,
+    render_file_validation_results_with_collisions,
     render_upload_progress,
     render_upload_results,
     render_upload_statistics,
-    validate_uploaded_files,
+    validate_uploaded_files_with_collision_check,
 )
+from imgstream.ui.collision_components import (
+    render_collision_warnings,
+    render_collision_status_indicator,
+    render_collision_help_section,
+    get_collision_decisions_from_session,
+    validate_collision_decisions,
+    clear_collision_decisions,
+)
+from imgstream.utils.collision_detection import process_collision_results, filter_files_by_collision_decision
 
 logger = structlog.get_logger()
 
@@ -70,6 +79,10 @@ def render_upload_page() -> None:
         st.session_state.valid_files = []
     if "validation_errors" not in st.session_state:
         st.session_state.validation_errors = []
+    if "collision_results" not in st.session_state:
+        st.session_state.collision_results = {}
+    if "collision_decisions_made" not in st.session_state:
+        st.session_state.collision_decisions_made = False
     if "upload_in_progress" not in st.session_state:
         st.session_state.upload_in_progress = False
     if "last_upload_result" not in st.session_state:
@@ -77,44 +90,142 @@ def render_upload_page() -> None:
 
     # Process uploaded files
     if uploaded_files:
-        # Validate files when new files are uploaded
+        # Validate files when new files are uploaded (including collision detection)
         if not st.session_state.upload_validated or len(uploaded_files) != len(st.session_state.valid_files) + len(
             st.session_state.validation_errors
         ):
-            with st.spinner("Validating uploaded files..."):
-                valid_files, validation_errors = validate_uploaded_files(uploaded_files)
+            with st.spinner("ファイルを検証中（衝突検出を含む）..."):
+                valid_files, validation_errors, collision_results = validate_uploaded_files_with_collision_check(
+                    uploaded_files
+                )
                 st.session_state.valid_files = valid_files
                 st.session_state.validation_errors = validation_errors
+                st.session_state.collision_results = collision_results
                 st.session_state.upload_validated = True
+                st.session_state.collision_decisions_made = False
 
                 logger.info(
-                    "file_validation_completed",
+                    "file_validation_with_collision_completed",
                     total_files=len(uploaded_files),
                     valid_files=len(valid_files),
                     errors=len(validation_errors),
+                    collisions=len(collision_results),
                 )
 
-        # Display validation results
+        # Display validation results with collision information
         st.divider()
-        st.markdown("#### Validation Results")
-        render_file_validation_results(st.session_state.valid_files, st.session_state.validation_errors)
+        st.markdown("#### 検証結果")
+        render_file_validation_results_with_collisions(
+            st.session_state.valid_files, st.session_state.validation_errors, st.session_state.collision_results
+        )
+
+        # Handle collision resolution if there are collisions
+        if st.session_state.collision_results:
+            st.divider()
+
+            # Get current user decisions from session
+            user_decisions = get_collision_decisions_from_session(st.session_state.collision_results)
+
+            # Render collision warnings and collect decisions
+            updated_decisions = render_collision_warnings(st.session_state.collision_results)
+
+            # Update decisions if any were made
+            if updated_decisions:
+                user_decisions.update(updated_decisions)
+
+            # Show collision status indicator
+            render_collision_status_indicator(st.session_state.collision_results, user_decisions)
+
+            # Validate that all decisions have been made
+            all_decisions_made, pending_files = validate_collision_decisions(
+                st.session_state.collision_results, user_decisions
+            )
+
+            if not all_decisions_made:
+                st.warning(f"⚠️ {len(pending_files)} 件のファイルについて決定が必要です: {', '.join(pending_files)}")
+
+                # Show help section
+                render_collision_help_section()
+
+                # Clear decisions button
+                if st.button("🗑️ すべての決定をクリア", help="すべての衝突決定をリセットします"):
+                    clear_collision_decisions(st.session_state.collision_results)
+                    st.rerun()
+            else:
+                st.success("✅ すべての衝突について決定が完了しました。アップロードを続行できます。")
+                st.session_state.collision_decisions_made = True
 
         # Show upload button if there are valid files
         if st.session_state.valid_files:
             st.divider()
+
+            # Check if all collision decisions have been made
+            can_upload = True
+            upload_button_text = f"🚀 {len(st.session_state.valid_files)} 件のファイルをアップロード"
+
+            if st.session_state.collision_results:
+                user_decisions = get_collision_decisions_from_session(st.session_state.collision_results)
+                all_decisions_made, pending_files = validate_collision_decisions(
+                    st.session_state.collision_results, user_decisions
+                )
+
+                if not all_decisions_made:
+                    can_upload = False
+                    upload_button_text = f"⚠️ 衝突の決定が必要です ({len(pending_files)} 件)"
+                else:
+                    # Process collision results to determine final file list
+                    processed_results = process_collision_results(st.session_state.collision_results, user_decisions)
+                    filtered_files = filter_files_by_collision_decision(
+                        st.session_state.valid_files, processed_results["collisions"]
+                    )
+
+                    proceed_count = len(filtered_files["proceed_files"])
+                    skip_count = len(filtered_files["skip_files"])
+
+                    if proceed_count == 0:
+                        can_upload = False
+                        upload_button_text = "❌ すべてのファイルがスキップされました"
+                    else:
+                        upload_button_text = f"🚀 {proceed_count} 件をアップロード"
+                        if skip_count > 0:
+                            upload_button_text += f" ({skip_count} 件をスキップ)"
+
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                # Disable button during upload
-                upload_button_disabled = st.session_state.upload_in_progress
+                # Disable button during upload or if decisions are pending
+                upload_button_disabled = st.session_state.upload_in_progress or not can_upload
 
                 if st.button(
-                    f"🚀 Upload {len(st.session_state.valid_files)} Photo(s)",
+                    upload_button_text,
                     use_container_width=True,
-                    type="primary",
+                    type="primary" if can_upload else "secondary",
                     disabled=upload_button_disabled,
+                    help="衝突の決定を完了してからアップロードしてください" if not can_upload else None,
                 ):
                     # Set upload in progress
                     st.session_state.upload_in_progress = True
+
+                    # Determine which files to upload based on collision decisions
+                    files_to_upload = st.session_state.valid_files
+
+                    if st.session_state.collision_results:
+                        user_decisions = get_collision_decisions_from_session(st.session_state.collision_results)
+                        processed_results = process_collision_results(
+                            st.session_state.collision_results, user_decisions
+                        )
+                        filtered_files = filter_files_by_collision_decision(
+                            st.session_state.valid_files, processed_results["collisions"]
+                        )
+                        files_to_upload = filtered_files["proceed_files"]
+
+                        logger.info(
+                            "upload_with_collision_decisions",
+                            total_files=len(st.session_state.valid_files),
+                            proceed_files=len(files_to_upload),
+                            skip_files=len(filtered_files["skip_files"]),
+                            overwrite_files=len([f for f in files_to_upload if f.get("is_overwrite", False)]),
+                        )
+
                     # Initialize progress tracking
                     start_time = datetime.now()
                     progress_placeholder = st.empty()
@@ -144,15 +255,15 @@ def render_upload_page() -> None:
 
                     # Show initial progress
                     progress_callback(
-                        "Initializing...",
-                        "🚀 Starting upload process...",
+                        "初期化中...",
+                        "🚀 アップロードプロセスを開始中...",
                         0,
-                        len(st.session_state.valid_files),
+                        len(files_to_upload),
                         "processing",
                     )
 
                     # Process the batch upload with enhanced progress tracking
-                    batch_result = process_batch_upload(st.session_state.valid_files, progress_callback)
+                    batch_result = process_batch_upload(files_to_upload, progress_callback)
 
                     # Calculate total processing time
                     end_time = datetime.now()
@@ -181,7 +292,13 @@ def render_upload_page() -> None:
             st.session_state.upload_validated = False
             st.session_state.valid_files = []
             st.session_state.validation_errors = []
+            st.session_state.collision_results = {}
+            st.session_state.collision_decisions_made = False
             st.session_state.upload_in_progress = False
+
+            # Clear collision decisions from session state
+            if st.session_state.collision_results:
+                clear_collision_decisions(st.session_state.collision_results)
 
     else:
         # Show last upload result if available
