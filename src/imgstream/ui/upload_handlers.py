@@ -12,6 +12,7 @@ from imgstream.services.image_processor import ImageProcessingError, ImageProces
 from imgstream.services.metadata import get_metadata_service
 from imgstream.services.storage import get_storage_service
 from imgstream.ui.components import format_file_size
+from imgstream.utils.collision_detection import check_filename_collisions, CollisionDetectionError
 
 logger = structlog.get_logger()
 
@@ -81,6 +82,81 @@ def validate_uploaded_files(uploaded_files: list) -> tuple[list, list]:
     return valid_files, validation_errors
 
 
+def validate_uploaded_files_with_collision_check(uploaded_files: list) -> tuple[list, list, dict]:
+    """
+    Validate uploaded files for format, size, and filename collisions.
+
+    Args:
+        uploaded_files: List of uploaded file objects from Streamlit
+
+    Returns:
+        tuple: (valid_files, validation_errors, collision_results)
+               collision_results: Dict mapping filename to collision info
+    """
+    if not uploaded_files:
+        return [], [], {}
+
+    # First, perform standard validation
+    valid_files, validation_errors = validate_uploaded_files(uploaded_files)
+
+    if not valid_files:
+        # No valid files to check for collisions
+        return valid_files, validation_errors, {}
+
+    # Extract filenames from valid files for collision detection
+    filenames = [file_info["filename"] for file_info in valid_files]
+
+    try:
+        # Get current user for collision detection
+        auth_service = get_auth_service()
+        user_info = auth_service.ensure_authenticated()
+
+        # Check for filename collisions
+        collision_results = check_filename_collisions(user_info.user_id, filenames)
+
+        logger.info(
+            "file_validation_with_collision_completed",
+            total_files=len(uploaded_files),
+            valid_files=len(valid_files),
+            validation_errors=len(validation_errors),
+            collisions_found=len(collision_results),
+        )
+
+        return valid_files, validation_errors, collision_results
+
+    except CollisionDetectionError as e:
+        logger.warning(
+            "collision_detection_failed_during_validation",
+            error=str(e),
+            total_files=len(uploaded_files),
+        )
+        # Add collision detection failure as a validation error
+        validation_errors.append(
+            {
+                "filename": "システム",
+                "error": "衝突検出エラー",
+                "details": f"ファイル名の衝突検出に失敗しました: {str(e)}",
+            }
+        )
+        return valid_files, validation_errors, {}
+
+    except Exception as e:
+        logger.error(
+            "unexpected_error_during_collision_check",
+            error=str(e),
+            total_files=len(uploaded_files),
+        )
+        # Continue without collision detection on unexpected errors
+        validation_errors.append(
+            {
+                "filename": "システム",
+                "error": "予期しないエラー",
+                "details": "衝突検出中に予期しないエラーが発生しました。アップロードは続行できますが、既存ファイルの上書きにご注意ください。",
+            }
+        )
+        return valid_files, validation_errors, {}
+
+
 def render_file_validation_results(valid_files: list, validation_errors: list) -> None:
     """
     Render the results of file validation.
@@ -112,6 +188,76 @@ def render_file_validation_results(valid_files: list, validation_errors: list) -
                 st.error(f"**{error['filename']}**: {error['error']}")
                 if error["details"]:
                     st.write(f"Details: {error['details']}")
+
+
+def render_file_validation_results_with_collisions(
+    valid_files: list, validation_errors: list, collision_results: dict
+) -> None:
+    """
+    Render the results of file validation including collision information.
+
+    Args:
+        valid_files: List of valid file objects
+        validation_errors: List of validation error objects
+        collision_results: Dictionary mapping filename to collision info
+    """
+    # First show standard validation results
+    render_file_validation_results(valid_files, validation_errors)
+
+    # Then show collision information if any
+    if collision_results:
+        st.warning(f"⚠️ {len(collision_results)} file(s) have filename conflicts")
+
+        with st.expander("🔄 Filename Conflicts", expanded=True):
+            st.markdown("以下のファイルは既に存在します。上書きするかスキップするかを選択してください。")
+
+            for filename, collision_info in collision_results.items():
+                existing_file_info = collision_info["existing_file_info"]
+
+                # Create a container for each collision
+                with st.container():
+                    st.markdown(f"**📷 {filename}**")
+
+                    col1, col2 = st.columns([2, 1])
+
+                    with col1:
+                        st.markdown("**既存ファイル情報:**")
+                        st.write(
+                            f"• アップロード日時: {existing_file_info['upload_date'].strftime('%Y-%m-%d %H:%M:%S')}"
+                        )
+                        st.write(f"• ファイルサイズ: {format_file_size(existing_file_info['file_size'])}")
+                        if existing_file_info["creation_date"]:
+                            st.write(f"• 作成日時: {existing_file_info['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
+
+                    with col2:
+                        # User decision selection
+                        decision_key = f"collision_decision_{filename}"
+                        current_decision = collision_info.get("user_decision", "pending")
+
+                        if current_decision == "pending":
+                            st.selectbox(
+                                "選択してください:",
+                                options=["pending", "overwrite", "skip"],
+                                format_func=lambda x: {
+                                    "pending": "決定待ち",
+                                    "overwrite": "上書きする",
+                                    "skip": "スキップする",
+                                }[x],
+                                key=decision_key,
+                                index=0,
+                            )
+                        else:
+                            # Show current decision
+                            decision_text = {"overwrite": "✅ 上書きする", "skip": "❌ スキップする"}.get(
+                                current_decision, "決定待ち"
+                            )
+                            st.write(f"**決定:** {decision_text}")
+
+                    st.divider()
+
+    elif valid_files:
+        # Show positive message when no collisions
+        st.info("✅ ファイル名の衝突は検出されませんでした。すべてのファイルを安全にアップロードできます。")
 
 
 def get_file_size_limits() -> tuple[int, int]:

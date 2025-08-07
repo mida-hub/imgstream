@@ -16,7 +16,7 @@
   - 衝突ユーティリティのユニットテストを作成
   - _要件: 1.1, 1.2, 5.1_
 
-- [ ] 3. ファイル検証に衝突検出を統合
+- [x] 3. ファイル検証に衝突検出を統合
 
   - `validate_uploaded_files()`を修正して衝突チェックを含める
   - `validate_uploaded_files_with_collision_check()`関数を作成
