@@ -236,3 +236,7 @@ cloudbuild-local.yaml
 
 *.bak
 *.backup.*
+
+imgstream_tmp
+.DS_Store
+.idea

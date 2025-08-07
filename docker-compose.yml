@@ -13,7 +13,8 @@ services:
       # Mount source code for development
       - ./src:/app/src:ro
       # Mount temporary directory for DuckDB files
-      - imgstream_tmp:/tmp
+      - ./imgstream_tmp:/tmp
+      - ~/.config/gcloud:/root/.config/gcloud:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -47,9 +48,7 @@ services:
       - ./src:/app/src
       - ./tests:/app/tests
       - ./.streamlit:/app/.streamlit
-      - imgstream_tmp:/tmp
+      - ./imgstream_tmp:/tmp
+      - ~/.config/gcloud:/root/.config/gcloud:ro
     profiles:
       - dev
-
-volumes:
-  imgstream_tmp:
