@@ -3,7 +3,7 @@
 # OAuth consent screen configuration
 resource "google_iap_brand" "project_brand" {
   count = var.enable_iap ? 1 : 0
-  
+
   support_email     = var.iap_support_email
   application_title = "${var.app_name} - ${var.environment}"
   project           = var.project_id
@@ -12,7 +12,7 @@ resource "google_iap_brand" "project_brand" {
 # OAuth client for IAP
 resource "google_iap_client" "project_client" {
   count = var.enable_iap ? 1 : 0
-  
+
   display_name = "${var.app_name}-${var.environment}-iap-client"
   brand        = google_iap_brand.project_brand[0].name
 }
@@ -20,7 +20,7 @@ resource "google_iap_client" "project_client" {
 # Backend service for Cloud Run
 resource "google_compute_backend_service" "imgstream_backend" {
   count = var.enable_iap ? 1 : 0
-  
+
   name                  = "${var.app_name}-${var.environment}-backend"
   protocol              = "HTTP"
   port_name             = "http"
@@ -60,7 +60,7 @@ resource "google_compute_backend_service" "imgstream_backend" {
 # Network Endpoint Group for Cloud Run
 resource "google_compute_region_network_endpoint_group" "imgstream_neg" {
   count = var.enable_iap ? 1 : 0
-  
+
   name                  = "${var.app_name}-${var.environment}-neg"
   network_endpoint_type = "SERVERLESS"
   region                = var.region
@@ -73,11 +73,11 @@ resource "google_compute_region_network_endpoint_group" "imgstream_neg" {
 # Health check for backend service
 resource "google_compute_health_check" "imgstream_health_check" {
   count = var.enable_iap ? 1 : 0
-  
-  name               = "${var.app_name}-${var.environment}-health-check"
-  check_interval_sec = 30
-  timeout_sec        = 10
-  healthy_threshold  = 2
+
+  name                = "${var.app_name}-${var.environment}-health-check"
+  check_interval_sec  = 30
+  timeout_sec         = 10
+  healthy_threshold   = 2
   unhealthy_threshold = 3
 
   http_health_check {
@@ -89,7 +89,7 @@ resource "google_compute_health_check" "imgstream_health_check" {
 # URL map for load balancer
 resource "google_compute_url_map" "imgstream_url_map" {
   count = var.enable_iap ? 1 : 0
-  
+
   name            = "${var.app_name}-${var.environment}-url-map"
   default_service = google_compute_backend_service.imgstream_backend[0].id
 
@@ -128,7 +128,7 @@ resource "google_compute_managed_ssl_certificate" "imgstream_ssl_cert" {
 # HTTPS proxy
 resource "google_compute_target_https_proxy" "imgstream_https_proxy" {
   count = var.enable_iap ? 1 : 0
-  
+
   name             = "${var.app_name}-${var.environment}-https-proxy"
   url_map          = google_compute_url_map.imgstream_url_map[0].id
   ssl_certificates = var.custom_domain != "" ? [google_compute_managed_ssl_certificate.imgstream_ssl_cert[0].id] : []
@@ -140,7 +140,7 @@ resource "google_compute_target_https_proxy" "imgstream_https_proxy" {
 # HTTP to HTTPS redirect
 resource "google_compute_url_map" "imgstream_http_redirect" {
   count = var.enable_iap ? 1 : 0
-  
+
   name = "${var.app_name}-${var.environment}-http-redirect"
 
   default_url_redirect {
@@ -152,7 +152,7 @@ resource "google_compute_url_map" "imgstream_http_redirect" {
 
 resource "google_compute_target_http_proxy" "imgstream_http_proxy" {
   count = var.enable_iap ? 1 : 0
-  
+
   name    = "${var.app_name}-${var.environment}-http-proxy"
   url_map = google_compute_url_map.imgstream_http_redirect[0].id
 }
@@ -160,7 +160,7 @@ resource "google_compute_target_http_proxy" "imgstream_http_proxy" {
 # Global forwarding rules
 resource "google_compute_global_forwarding_rule" "imgstream_https_forwarding_rule" {
   count = var.enable_iap ? 1 : 0
-  
+
   name       = "${var.app_name}-${var.environment}-https-forwarding-rule"
   target     = google_compute_target_https_proxy.imgstream_https_proxy[0].id
   port_range = "443"
@@ -169,7 +169,7 @@ resource "google_compute_global_forwarding_rule" "imgstream_https_forwarding_rul
 
 resource "google_compute_global_forwarding_rule" "imgstream_http_forwarding_rule" {
   count = var.enable_iap ? 1 : 0
-  
+
   name       = "${var.app_name}-${var.environment}-http-forwarding-rule"
   target     = google_compute_target_http_proxy.imgstream_http_proxy[0].id
   port_range = "80"
@@ -179,7 +179,7 @@ resource "google_compute_global_forwarding_rule" "imgstream_http_forwarding_rule
 # Static IP address
 resource "google_compute_global_address" "imgstream_ip" {
   count = var.enable_iap ? 1 : 0
-  
+
   name = "${var.app_name}-${var.environment}-ip"
 }
 
@@ -219,7 +219,7 @@ resource "google_compute_security_policy" "imgstream_security_policy" {
         count        = var.rate_limit_requests_per_minute
         interval_sec = 60
       }
-      ban_duration_sec = 300  # 5 minutes
+      ban_duration_sec = 300 # 5 minutes
     }
     description = "Rate limiting rule"
   }

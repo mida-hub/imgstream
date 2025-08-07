@@ -1,13 +1,8 @@
 # GCS buckets and lifecycle policies for imgstream
 
-# Random suffix for bucket names to ensure uniqueness
-resource "random_id" "bucket_suffix" {
-  byte_length = 4
-}
-
 # Photos storage bucket
 resource "google_storage_bucket" "photos" {
-  name     = "${var.app_name}-photos-${var.environment}-${random_id.bucket_suffix.hex}"
+  name     = "${var.app_name}-photos-${var.environment}-${data.google_project.current.project_id}"
   location = var.bucket_location
 
   # Enable uniform bucket-level access
@@ -70,7 +65,7 @@ resource "google_storage_bucket" "photos" {
 
 # Database backup bucket
 resource "google_storage_bucket" "database" {
-  name     = "${var.app_name}-database-${var.environment}-${random_id.bucket_suffix.hex}"
+  name     = "${var.app_name}-database-${var.environment}-${data.google_project.current.project_id}"
   location = var.bucket_location
 
   # Enable uniform bucket-level access

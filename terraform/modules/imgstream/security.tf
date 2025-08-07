@@ -18,7 +18,7 @@ resource "google_project_iam_member" "cloud_run_permissions" {
 resource "google_storage_bucket_iam_binding" "photos_prevent_public_write" {
   bucket = google_storage_bucket.photos.name
   role   = "roles/storage.objectCreator"
-  
+
   members = [
     "serviceAccount:${google_service_account.cloud_run.email}"
   ]
@@ -27,7 +27,7 @@ resource "google_storage_bucket_iam_binding" "photos_prevent_public_write" {
 resource "google_storage_bucket_iam_binding" "database_prevent_public_access" {
   bucket = google_storage_bucket.database.name
   role   = "roles/storage.objectViewer"
-  
+
   members = [
     "serviceAccount:${google_service_account.cloud_run.email}"
   ]
@@ -37,7 +37,7 @@ resource "google_storage_bucket_iam_binding" "database_prevent_public_access" {
 resource "google_storage_bucket_iam_binding" "photos_admin_only" {
   bucket = google_storage_bucket.photos.name
   role   = "roles/storage.admin"
-  
+
   members = [
     "serviceAccount:${google_service_account.cloud_run.email}"
   ]
@@ -46,7 +46,7 @@ resource "google_storage_bucket_iam_binding" "photos_admin_only" {
 resource "google_storage_bucket_iam_binding" "database_admin_only" {
   bucket = google_storage_bucket.database.name
   role   = "roles/storage.admin"
-  
+
   members = [
     "serviceAccount:${google_service_account.cloud_run.email}"
   ]

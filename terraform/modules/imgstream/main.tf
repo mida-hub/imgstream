@@ -21,10 +21,10 @@ locals {
     staging = "staging"
     prod    = "stable"
   }
-  
+
   # Determine the image tag to use
   image_tag = var.container_image_tag != null ? var.container_image_tag : local.default_image_tags[var.environment]
-  
+
   # Construct the full container image URL from common Artifact Registry
   # Format: REGISTRY/PROJECT_ID/REPOSITORY/IMAGE_NAME:TAG
   container_image = "${data.terraform_remote_state.common.outputs.artifact_registry_repository_url}/${var.app_name}:${local.image_tag}"

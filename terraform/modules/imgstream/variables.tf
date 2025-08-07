@@ -162,11 +162,11 @@ variable "slack_webhook_url" {
 variable "storage_alert_threshold_bytes" {
   description = "Storage usage threshold in bytes for alerts"
   type        = number
-  default     = 85899345920  # 80GB
+  default     = 85899345920 # 80GB
 }
 
 variable "enable_public_photo_access" {
   description = "Enable public read access to photos bucket (less secure but simpler)"
   type        = bool
-  default     = false  # Secure by default - use signed URLs only
+  default     = false # Secure by default - use signed URLs only
 }
