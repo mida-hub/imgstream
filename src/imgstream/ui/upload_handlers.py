@@ -271,12 +271,13 @@ def get_file_size_limits() -> tuple[int, int]:
     return image_processor.MIN_FILE_SIZE, image_processor.MAX_FILE_SIZE
 
 
-def process_single_upload(file_info: dict[str, Any]) -> dict[str, Any]:
+def process_single_upload(file_info: dict[str, Any], is_overwrite: bool = False) -> dict[str, Any]:
     """
     Process a single file upload through the complete pipeline.
 
     Args:
         file_info: Dictionary containing file information from validation
+        is_overwrite: Whether this is an overwrite operation
 
     Returns:
         dict: Processing result with success status and details
@@ -285,7 +286,8 @@ def process_single_upload(file_info: dict[str, Any]) -> dict[str, Any]:
     file_data = file_info["data"]
 
     try:
-        logger.info("upload_processing_started", filename=filename, size=len(file_data))
+        operation_type = "overwrite" if is_overwrite else "new_upload"
+        logger.info("upload_processing_started", filename=filename, size=len(file_data), operation_type=operation_type)
 
         # Get services
         auth_service = get_auth_service()
@@ -312,17 +314,17 @@ def process_single_upload(file_info: dict[str, Any]) -> dict[str, Any]:
         thumbnail_data = image_processor.generate_thumbnail(file_data)
 
         # Step 3: Upload original image to GCS
-        logger.info("uploading_original_image", filename=filename)
+        logger.info("uploading_original_image", filename=filename, is_overwrite=is_overwrite)
         original_upload_result = storage_service.upload_original_photo(user_info.user_id, file_data, filename)
         original_gcs_path = original_upload_result["gcs_path"]
 
         # Step 4: Upload thumbnail to GCS
-        logger.info("uploading_thumbnail", filename=filename)
+        logger.info("uploading_thumbnail", filename=filename, is_overwrite=is_overwrite)
         thumbnail_upload_result = storage_service.upload_thumbnail(user_info.user_id, thumbnail_data, filename)
         thumbnail_gcs_path = thumbnail_upload_result["gcs_path"]
 
-        # Step 5: Save metadata to DuckDB
-        logger.info("saving_metadata", filename=filename)
+        # Step 5: Save or update metadata in DuckDB
+        logger.info("saving_metadata", filename=filename, is_overwrite=is_overwrite)
 
         # Determine MIME type based on file extension
         file_extension = filename.lower().split(".")[-1]
@@ -341,9 +343,11 @@ def process_single_upload(file_info: dict[str, Any]) -> dict[str, Any]:
             uploaded_at=datetime.now(),
         )
 
-        metadata_service.save_photo_metadata(photo_metadata)
+        # Use the new save_or_update method based on operation type
+        metadata_service.save_or_update_photo_metadata(photo_metadata, is_overwrite=is_overwrite)
 
-        logger.info("upload_processing_completed", filename=filename)
+        operation_message = "overwritten" if is_overwrite else "uploaded"
+        logger.info("upload_processing_completed", filename=filename, operation_type=operation_type)
 
         return {
             "success": True,
@@ -351,25 +355,31 @@ def process_single_upload(file_info: dict[str, Any]) -> dict[str, Any]:
             "original_path": original_gcs_path,
             "thumbnail_path": thumbnail_gcs_path,
             "creation_date": creation_date,
-            "message": f"Successfully uploaded {filename}",
+            "is_overwrite": is_overwrite,
+            "message": f"Successfully {operation_message} {filename}",
         }
 
     except Exception as e:
-        logger.error("upload_processing_failed", filename=filename, error=str(e))
+        operation_type = "overwrite" if is_overwrite else "upload"
+        logger.error("upload_processing_failed", filename=filename, error=str(e), operation_type=operation_type)
         return {
             "success": False,
             "filename": filename,
             "error": str(e),
-            "message": f"Failed to upload {filename}: {str(e)}",
+            "is_overwrite": is_overwrite,
+            "message": f"Failed to {operation_type} {filename}: {str(e)}",
         }
 
 
-def process_batch_upload(valid_files: list[dict[str, Any]], progress_callback: Any = None) -> dict[str, Any]:
+def process_batch_upload(
+    valid_files: list[dict[str, Any]], collision_results: dict[str, Any] | None = None, progress_callback: Any = None
+) -> dict[str, Any]:
     """
-    Process multiple files through the upload pipeline with progress tracking.
+    Process multiple files through the upload pipeline with progress tracking and collision handling.
 
     Args:
         valid_files: List of validated file information dictionaries
+        collision_results: Dictionary mapping filename to collision info with user decisions
         progress_callback: Optional callback function for progress updates
 
     Returns:
@@ -381,15 +391,20 @@ def process_batch_upload(valid_files: list[dict[str, Any]], progress_callback: A
             "total_files": 0,
             "successful_uploads": 0,
             "failed_uploads": 0,
+            "skipped_uploads": 0,
+            "overwrite_uploads": 0,
             "results": [],
             "message": "No files to process",
         }
 
-    logger.info("batch_upload_started", total_files=len(valid_files))
+    collision_results = collision_results or {}
+    logger.info("batch_upload_started", total_files=len(valid_files), collisions_detected=len(collision_results))
 
     results = []
     successful_uploads = 0
     failed_uploads = 0
+    skipped_uploads = 0
+    overwrite_uploads = 0
     total_files = len(valid_files)
 
     # Process each file with progress tracking
@@ -406,24 +421,91 @@ def process_batch_upload(valid_files: list[dict[str, Any]], progress_callback: A
                 stage="processing",
             )
 
+        # Check if this file has a collision and user decision
+        collision_info = collision_results.get(filename)
+        if collision_info:
+            user_decision = collision_info.get("user_decision", "pending")
+
+            if user_decision == "skip":
+                # Skip this file
+                logger.info("file_skipped_by_user_decision", filename=filename)
+                result = {
+                    "success": True,
+                    "filename": filename,
+                    "skipped": True,
+                    "is_overwrite": False,
+                    "message": f"Skipped {filename} (user decision)",
+                }
+                results.append(result)
+                skipped_uploads += 1
+
+                if progress_callback:
+                    progress_callback(
+                        current_file=filename,
+                        current_step="⏭️ Skipped by user",
+                        completed=index + 1,
+                        total=total_files,
+                        stage="skipped",
+                    )
+                continue
+            elif user_decision == "overwrite":
+                # Process as overwrite
+                is_overwrite = True
+                logger.info("file_marked_for_overwrite", filename=filename)
+            else:
+                # Pending decision - treat as error
+                logger.warning("file_collision_decision_pending", filename=filename)
+                result = {
+                    "success": False,
+                    "filename": filename,
+                    "error": "User decision pending for collision",
+                    "is_overwrite": False,
+                    "message": f"Failed to process {filename}: User decision required for collision",
+                }
+                results.append(result)
+                failed_uploads += 1
+
+                if progress_callback:
+                    progress_callback(
+                        current_file=filename,
+                        current_step="❌ Decision pending",
+                        completed=index + 1,
+                        total=total_files,
+                        stage="failed",
+                    )
+                continue
+        else:
+            # No collision, process as new upload
+            is_overwrite = False
+
         # Process the file with detailed step tracking
-        result = process_single_upload_with_progress(file_info, progress_callback, index, total_files)
+        result = process_single_upload_with_progress(
+            file_info, progress_callback, index, total_files, is_overwrite=is_overwrite
+        )
         results.append(result)
 
         if result["success"]:
             successful_uploads += 1
+            if is_overwrite:
+                overwrite_uploads += 1
         else:
             failed_uploads += 1
 
         # Update progress after processing
         if progress_callback:
-            status = "✅ Completed" if result["success"] else "❌ Failed"
+            if result["success"]:
+                status = "✅ Overwritten" if is_overwrite else "✅ Uploaded"
+                stage = "completed"
+            else:
+                status = "❌ Failed"
+                stage = "failed"
+
             progress_callback(
                 current_file=filename,
                 current_step=status,
                 completed=index + 1,
                 total=total_files,
-                stage="completed" if result["success"] else "failed",
+                stage=stage,
             )
 
     # Create summary
@@ -432,17 +514,30 @@ def process_batch_upload(valid_files: list[dict[str, Any]], progress_callback: A
         "total_files": total_files,
         "successful_uploads": successful_uploads,
         "failed_uploads": failed_uploads,
+        "skipped_uploads": skipped_uploads,
+        "overwrite_uploads": overwrite_uploads,
         "results": results,
-        "message": f"Processed {total_files} files: {successful_uploads} successful, {failed_uploads} failed",
+        "message": f"Processed {total_files} files: {successful_uploads} successful ({overwrite_uploads} overwrites), {skipped_uploads} skipped, {failed_uploads} failed",
     }
 
-    logger.info("batch_upload_completed", total_files=total_files, successful=successful_uploads, failed=failed_uploads)
+    logger.info(
+        "batch_upload_completed",
+        total_files=total_files,
+        successful=successful_uploads,
+        failed=failed_uploads,
+        skipped=skipped_uploads,
+        overwrites=overwrite_uploads,
+    )
 
     return batch_result
 
 
 def process_single_upload_with_progress(
-    file_info: dict[str, Any], progress_callback: Any = None, file_index: int = 0, total_files: int = 1
+    file_info: dict[str, Any],
+    progress_callback: Any = None,
+    file_index: int = 0,
+    total_files: int = 1,
+    is_overwrite: bool = False,
 ) -> dict[str, Any]:
     """
     Process a single file upload with detailed progress tracking.
@@ -452,6 +547,7 @@ def process_single_upload_with_progress(
         progress_callback: Optional callback function for progress updates
         file_index: Index of current file in batch
         total_files: Total number of files in batch
+        is_overwrite: Whether this is an overwrite operation
 
     Returns:
         dict: Processing result with success status and details
@@ -466,7 +562,8 @@ def process_single_upload_with_progress(
             )
 
     try:
-        logger.info("upload_processing_started", filename=filename, size=len(file_data))
+        operation_type = "overwrite" if is_overwrite else "new_upload"
+        logger.info("upload_processing_started", filename=filename, size=len(file_data), operation_type=operation_type)
         update_progress("🔐 Authenticating user...")
 
         # Get services
@@ -496,20 +593,22 @@ def process_single_upload_with_progress(
         thumbnail_data = image_processor.generate_thumbnail(file_data)
 
         # Step 3: Upload original image to GCS
-        update_progress("☁️ Uploading original image...")
-        logger.info("uploading_original_image", filename=filename)
+        operation_text = "Overwriting" if is_overwrite else "Uploading"
+        update_progress(f"☁️ {operation_text} original image...")
+        logger.info("uploading_original_image", filename=filename, is_overwrite=is_overwrite)
         original_upload_result = storage_service.upload_original_photo(user_info.user_id, file_data, filename)
         original_gcs_path = original_upload_result["gcs_path"]
 
         # Step 4: Upload thumbnail to GCS
-        update_progress("🔄 Uploading thumbnail...")
-        logger.info("uploading_thumbnail", filename=filename)
+        update_progress(f"🔄 {operation_text} thumbnail...")
+        logger.info("uploading_thumbnail", filename=filename, is_overwrite=is_overwrite)
         thumbnail_upload_result = storage_service.upload_thumbnail(user_info.user_id, thumbnail_data, filename)
         thumbnail_gcs_path = thumbnail_upload_result["gcs_path"]
 
-        # Step 5: Save metadata to DuckDB
-        update_progress("💾 Saving metadata...")
-        logger.info("saving_metadata", filename=filename)
+        # Step 5: Save or update metadata in DuckDB
+        metadata_text = "Updating" if is_overwrite else "Saving"
+        update_progress(f"💾 {metadata_text} metadata...")
+        logger.info("saving_metadata", filename=filename, is_overwrite=is_overwrite)
 
         # Determine MIME type based on file extension
         file_extension = filename.lower().split(".")[-1]
@@ -528,10 +627,22 @@ def process_single_upload_with_progress(
             uploaded_at=datetime.now(),
         )
 
-        metadata_service.save_photo_metadata(photo_metadata)
+        # Use the new save_or_update method based on operation type
+        metadata_service.save_or_update_photo_metadata(photo_metadata, is_overwrite=is_overwrite)
 
-        update_progress("✅ Upload completed!", "success")
-        logger.info("upload_processing_completed", filename=filename)
+        completion_text = "✅ Overwrite completed!" if is_overwrite else "✅ Upload completed!"
+        update_progress(completion_text, "success")
+        logger.info("upload_processing_completed", filename=filename, operation_type=operation_type)
+
+        operation_message = "overwritten" if is_overwrite else "uploaded"
+        processing_steps = [
+            "Authentication verified",
+            "EXIF metadata extracted",
+            "Thumbnail generated",
+            f"Original image {'overwritten' if is_overwrite else 'uploaded'} to GCS",
+            f"Thumbnail {'overwritten' if is_overwrite else 'uploaded'} to GCS",
+            f"Metadata {'updated' if is_overwrite else 'saved'} in database",
+        ]
 
         return {
             "success": True,
@@ -540,26 +651,22 @@ def process_single_upload_with_progress(
             "thumbnail_path": thumbnail_gcs_path,
             "creation_date": creation_date,
             "file_size": len(file_data),
-            "processing_steps": [
-                "Authentication verified",
-                "EXIF metadata extracted",
-                "Thumbnail generated",
-                "Original image uploaded to GCS",
-                "Thumbnail uploaded to GCS",
-                "Metadata saved to database",
-            ],
-            "message": f"Successfully uploaded {filename}",
+            "is_overwrite": is_overwrite,
+            "processing_steps": processing_steps,
+            "message": f"Successfully {operation_message} {filename}",
         }
 
     except Exception as e:
+        operation_type = "overwrite" if is_overwrite else "upload"
         update_progress(f"❌ Error: {str(e)}", "error")
-        logger.error("upload_processing_failed", filename=filename, error=str(e))
+        logger.error("upload_processing_failed", filename=filename, error=str(e), operation_type=operation_type)
         return {
             "success": False,
             "filename": filename,
             "error": str(e),
             "error_type": type(e).__name__,
-            "message": f"Failed to upload {filename}: {str(e)}",
+            "is_overwrite": is_overwrite,
+            "message": f"Failed to {operation_type} {filename}: {str(e)}",
         }
 
 
@@ -715,45 +822,87 @@ def render_upload_results(batch_result: dict[str, Any], processing_time: float |
     total_files = batch_result["total_files"]
     successful_uploads = batch_result["successful_uploads"]
     failed_uploads = batch_result["failed_uploads"]
+    skipped_uploads = batch_result.get("skipped_uploads", 0)
+    overwrite_uploads = batch_result.get("overwrite_uploads", 0)
 
-    # Enhanced overall status with more context
+    # Enhanced overall status with more context including overwrites and skips
     if batch_result["success"]:
-        if successful_uploads == 1:
-            st.success("🎉 Successfully uploaded 1 photo!")
+        if total_files == 1:
+            if overwrite_uploads > 0:
+                st.success("🎉 Successfully overwritten 1 photo!")
+            elif skipped_uploads > 0:
+                st.info("⏭️ 1 photo was skipped as requested")
+            else:
+                st.success("🎉 Successfully uploaded 1 photo!")
         else:
-            st.success(f"🎉 Successfully uploaded all {successful_uploads} photos!")
-    elif successful_uploads > 0:
-        st.warning(f"⚠️ Partial success: {successful_uploads} uploaded, {failed_uploads} failed")
+            success_parts = []
+            if successful_uploads - overwrite_uploads > 0:
+                success_parts.append(f"{successful_uploads - overwrite_uploads} uploaded")
+            if overwrite_uploads > 0:
+                success_parts.append(f"{overwrite_uploads} overwritten")
+            if skipped_uploads > 0:
+                success_parts.append(f"{skipped_uploads} skipped")
+
+            if success_parts:
+                st.success(f"🎉 Successfully processed all {total_files} photos: {', '.join(success_parts)}")
+            else:
+                st.success(f"🎉 Successfully processed all {total_files} photos!")
+    elif successful_uploads > 0 or skipped_uploads > 0:
+        status_parts = []
+        if successful_uploads > 0:
+            if overwrite_uploads > 0:
+                status_parts.append(f"{successful_uploads} successful ({overwrite_uploads} overwrites)")
+            else:
+                status_parts.append(f"{successful_uploads} successful")
+        if skipped_uploads > 0:
+            status_parts.append(f"{skipped_uploads} skipped")
+        if failed_uploads > 0:
+            status_parts.append(f"{failed_uploads} failed")
+
+        st.warning(f"⚠️ Partial success: {', '.join(status_parts)}")
     else:
         st.error(f"❌ Upload failed: All {failed_uploads} files encountered errors")
 
     # Enhanced summary metrics with additional information
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric("Total Files", total_files)
     with col2:
         st.metric("Successful", successful_uploads, delta=successful_uploads if successful_uploads > 0 else None)
     with col3:
-        st.metric("Failed", failed_uploads, delta=-failed_uploads if failed_uploads > 0 else None)
+        if overwrite_uploads > 0:
+            st.metric("Overwrites", overwrite_uploads, delta=overwrite_uploads)
+        else:
+            st.metric("Failed", failed_uploads, delta=-failed_uploads if failed_uploads > 0 else None)
     with col4:
-        if processing_time:
+        if skipped_uploads > 0:
+            st.metric("Skipped", skipped_uploads)
+        elif processing_time:
             st.metric("Processing Time", f"{processing_time:.1f}s")
         else:
             success_rate = (successful_uploads / total_files * 100) if total_files > 0 else 0
             st.metric("Success Rate", f"{success_rate:.1f}%")
+    with col5:
+        if processing_time and (overwrite_uploads > 0 or skipped_uploads > 0):
+            st.metric("Processing Time", f"{processing_time:.1f}s")
+        elif failed_uploads > 0 and not (overwrite_uploads > 0 or skipped_uploads > 0):
+            st.metric("Failed", failed_uploads, delta=-failed_uploads)
 
     # Enhanced detailed results with better organization
     if batch_result["results"]:
-        # Separate successful and failed results
-        successful_results = [r for r in batch_result["results"] if r["success"]]
+        # Separate results by type
+        successful_results = [r for r in batch_result["results"] if r["success"] and not r.get("skipped", False)]
+        skipped_results = [r for r in batch_result["results"] if r.get("skipped", False)]
         failed_results = [r for r in batch_result["results"] if not r["success"]]
 
-        # Show successful uploads
-        if successful_results:
-            with st.expander(
-                f"✅ Successful Uploads ({len(successful_results)})", expanded=len(successful_results) <= 3
-            ):
-                for result in successful_results:
+        # Further separate successful results into new uploads and overwrites
+        new_upload_results = [r for r in successful_results if not r.get("is_overwrite", False)]
+        overwrite_results = [r for r in successful_results if r.get("is_overwrite", False)]
+
+        # Show new uploads
+        if new_upload_results:
+            with st.expander(f"✅ New Uploads ({len(new_upload_results)})", expanded=len(new_upload_results) <= 3):
+                for result in new_upload_results:
                     col1, col2 = st.columns([3, 1])
                     with col1:
                         st.success(f"📷 **{result['filename']}**")
@@ -767,7 +916,38 @@ def render_upload_results(batch_result: dict[str, Any], processing_time: float |
                                 for step in result["processing_steps"]:
                                     st.write(f"• {step}")
                     with col2:
-                        st.markdown("✅ **Success**")
+                        st.markdown("✅ **New Upload**")
+
+        # Show overwrites
+        if overwrite_results:
+            with st.expander(f"🔄 Overwrites ({len(overwrite_results)})", expanded=len(overwrite_results) <= 3):
+                for result in overwrite_results:
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.info(f"📷 **{result['filename']}**")
+                        if "creation_date" in result:
+                            st.write(f"   📅 Created: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
+                        if "file_size" in result:
+                            file_size_mb = result["file_size"] / (1024 * 1024)
+                            st.write(f"   💾 Size: {file_size_mb:.1f} MB")
+                        st.write("   🔄 **This file replaced an existing photo**")
+                        if "processing_steps" in result:
+                            with st.expander(f"Processing steps for {result['filename']}", expanded=False):
+                                for step in result["processing_steps"]:
+                                    st.write(f"• {step}")
+                    with col2:
+                        st.markdown("🔄 **Overwritten**")
+
+        # Show skipped files
+        if skipped_results:
+            with st.expander(f"⏭️ Skipped Files ({len(skipped_results)})", expanded=len(skipped_results) <= 3):
+                for result in skipped_results:
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.warning(f"📷 **{result['filename']}**")
+                        st.write("   ⏭️ **Skipped by user choice to avoid overwriting existing file**")
+                    with col2:
+                        st.markdown("⏭️ **Skipped**")
 
         # Show failed uploads with detailed error information
         if failed_results:

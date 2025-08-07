@@ -398,3 +398,254 @@ class TestMetadataServiceDatabaseReset:
             gcs_path=metadata_service.gcs_db_path,
             local_path=str(metadata_service.local_db_path),
         )
+
+
+class TestUploadHandlersOverwriteSupport:
+    """Test overwrite support in upload handlers."""
+
+    @pytest.fixture
+    def sample_file_info(self):
+        """Create sample file info for testing."""
+        return {
+            "filename": "test_photo.jpg",
+            "size": 1024000,
+            "data": b"fake_image_data",
+        }
+
+    @pytest.fixture
+    def collision_results(self):
+        """Create sample collision results for testing."""
+        return {
+            "test_photo.jpg": {
+                "existing_photo": Mock(),
+                "existing_file_info": {
+                    "file_size": 512000,
+                    "photo_id": "existing_123",
+                    "upload_date": datetime(2024, 1, 10, 10, 0, 0),
+                    "creation_date": datetime(2024, 1, 10, 9, 0, 0),
+                },
+                "user_decision": "overwrite",
+                "warning_shown": True,
+            }
+        }
+
+    @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
+    def test_process_batch_upload_with_overwrite(self, mock_process_single, sample_file_info, collision_results):
+        """Test batch upload processing with overwrite decisions."""
+        from src.imgstream.ui.upload_handlers import process_batch_upload
+
+        # Mock successful overwrite result
+        mock_process_single.return_value = {
+            "success": True,
+            "filename": "test_photo.jpg",
+            "is_overwrite": True,
+            "message": "Successfully overwritten test_photo.jpg",
+        }
+
+        result = process_batch_upload([sample_file_info], collision_results)
+
+        # Verify overwrite was processed
+        assert result["success"] is True
+        assert result["total_files"] == 1
+        assert result["successful_uploads"] == 1
+        assert result["overwrite_uploads"] == 1
+        assert result["skipped_uploads"] == 0
+        assert result["failed_uploads"] == 0
+
+        # Verify process_single_upload_with_progress was called with is_overwrite=True
+        mock_process_single.assert_called_once()
+        call_args = mock_process_single.call_args
+        assert call_args[1]["is_overwrite"] is True
+
+    @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
+    def test_process_batch_upload_with_skip(self, mock_process_single, sample_file_info):
+        """Test batch upload processing with skip decisions."""
+        from src.imgstream.ui.upload_handlers import process_batch_upload
+
+        collision_results = {
+            "test_photo.jpg": {
+                "existing_photo": Mock(),
+                "existing_file_info": {
+                    "file_size": 512000,
+                    "photo_id": "existing_123",
+                    "upload_date": datetime(2024, 1, 10, 10, 0, 0),
+                    "creation_date": datetime(2024, 1, 10, 9, 0, 0),
+                },
+                "user_decision": "skip",
+                "warning_shown": True,
+            }
+        }
+
+        result = process_batch_upload([sample_file_info], collision_results)
+
+        # Verify skip was processed
+        assert result["success"] is True
+        assert result["total_files"] == 1
+        assert result["successful_uploads"] == 0
+        assert result["overwrite_uploads"] == 0
+        assert result["skipped_uploads"] == 1
+        assert result["failed_uploads"] == 0
+
+        # Verify process_single_upload_with_progress was not called for skipped file
+        mock_process_single.assert_not_called()
+
+    @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
+    def test_process_batch_upload_with_pending_decision(self, mock_process_single, sample_file_info):
+        """Test batch upload processing with pending collision decisions."""
+        from src.imgstream.ui.upload_handlers import process_batch_upload
+
+        collision_results = {
+            "test_photo.jpg": {
+                "existing_photo": Mock(),
+                "existing_file_info": {
+                    "file_size": 512000,
+                    "photo_id": "existing_123",
+                    "upload_date": datetime(2024, 1, 10, 10, 0, 0),
+                    "creation_date": datetime(2024, 1, 10, 9, 0, 0),
+                },
+                "user_decision": "pending",
+                "warning_shown": True,
+            }
+        }
+
+        result = process_batch_upload([sample_file_info], collision_results)
+
+        # Verify pending decision results in failure
+        assert result["success"] is False
+        assert result["total_files"] == 1
+        assert result["successful_uploads"] == 0
+        assert result["overwrite_uploads"] == 0
+        assert result["skipped_uploads"] == 0
+        assert result["failed_uploads"] == 1
+
+        # Verify process_single_upload_with_progress was not called for pending decision
+        mock_process_single.assert_not_called()
+
+    @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
+    def test_process_batch_upload_mixed_operations(self, mock_process_single, collision_results):
+        """Test batch upload processing with mixed new uploads and overwrites."""
+        from src.imgstream.ui.upload_handlers import process_batch_upload
+
+        file_infos = [
+            {"filename": "test_photo.jpg", "size": 1024000, "data": b"fake_data_1"},
+            {"filename": "new_photo.jpg", "size": 2048000, "data": b"fake_data_2"},
+        ]
+
+        # Mock results: first file overwrite, second file new upload
+        mock_process_single.side_effect = [
+            {
+                "success": True,
+                "filename": "test_photo.jpg",
+                "is_overwrite": True,
+                "message": "Successfully overwritten test_photo.jpg",
+            },
+            {
+                "success": True,
+                "filename": "new_photo.jpg",
+                "is_overwrite": False,
+                "message": "Successfully uploaded new_photo.jpg",
+            },
+        ]
+
+        result = process_batch_upload(file_infos, collision_results)
+
+        # Verify mixed operations were processed correctly
+        assert result["success"] is True
+        assert result["total_files"] == 2
+        assert result["successful_uploads"] == 2
+        assert result["overwrite_uploads"] == 1
+        assert result["skipped_uploads"] == 0
+        assert result["failed_uploads"] == 0
+
+        # Verify both files were processed with correct overwrite flags
+        assert mock_process_single.call_count == 2
+
+        # First call should be overwrite
+        first_call = mock_process_single.call_args_list[0]
+        assert first_call[1]["is_overwrite"] is True
+
+        # Second call should be new upload
+        second_call = mock_process_single.call_args_list[1]
+        assert second_call[1]["is_overwrite"] is False
+
+    @patch("src.imgstream.ui.upload_handlers.get_metadata_service")
+    @patch("src.imgstream.ui.upload_handlers.get_storage_service")
+    @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
+    @patch("src.imgstream.ui.upload_handlers.get_auth_service")
+    def test_process_single_upload_overwrite_mode(
+        self, mock_auth, mock_image_processor, mock_storage, mock_metadata, sample_file_info
+    ):
+        """Test single upload processing in overwrite mode."""
+        from src.imgstream.ui.upload_handlers import process_single_upload
+
+        # Mock services
+        mock_user_info = Mock()
+        mock_user_info.user_id = "test_user_123"
+        mock_auth.return_value.ensure_authenticated.return_value = mock_user_info
+
+        mock_processor = Mock()
+        mock_processor.extract_creation_date.return_value = datetime(2024, 1, 15, 10, 0, 0)
+        mock_processor.generate_thumbnail.return_value = b"thumbnail_data"
+        mock_image_processor.return_value = mock_processor
+
+        mock_storage_service = Mock()
+        mock_storage_service.upload_original_photo.return_value = {"gcs_path": "original/path"}
+        mock_storage_service.upload_thumbnail.return_value = {"gcs_path": "thumbnail/path"}
+        mock_storage.return_value = mock_storage_service
+
+        mock_metadata_service = Mock()
+        mock_metadata.return_value = mock_metadata_service
+
+        # Test overwrite mode
+        result = process_single_upload(sample_file_info, is_overwrite=True)
+
+        # Verify result indicates overwrite
+        assert result["success"] is True
+        assert result["is_overwrite"] is True
+        assert "overwritten" in result["message"]
+
+        # Verify metadata service was called with is_overwrite=True
+        mock_metadata_service.save_or_update_photo_metadata.assert_called_once()
+        call_args = mock_metadata_service.save_or_update_photo_metadata.call_args
+        assert call_args[1]["is_overwrite"] is True
+
+    @patch("src.imgstream.ui.upload_handlers.get_metadata_service")
+    @patch("src.imgstream.ui.upload_handlers.get_storage_service")
+    @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
+    @patch("src.imgstream.ui.upload_handlers.get_auth_service")
+    def test_process_single_upload_new_mode(
+        self, mock_auth, mock_image_processor, mock_storage, mock_metadata, sample_file_info
+    ):
+        """Test single upload processing in new upload mode."""
+        from src.imgstream.ui.upload_handlers import process_single_upload
+
+        # Mock services
+        mock_user_info = Mock()
+        mock_user_info.user_id = "test_user_123"
+        mock_auth.return_value.ensure_authenticated.return_value = mock_user_info
+
+        mock_processor = Mock()
+        mock_processor.extract_creation_date.return_value = datetime(2024, 1, 15, 10, 0, 0)
+        mock_processor.generate_thumbnail.return_value = b"thumbnail_data"
+        mock_image_processor.return_value = mock_processor
+
+        mock_storage_service = Mock()
+        mock_storage_service.upload_original_photo.return_value = {"gcs_path": "original/path"}
+        mock_storage_service.upload_thumbnail.return_value = {"gcs_path": "thumbnail/path"}
+        mock_storage.return_value = mock_storage_service
+
+        mock_metadata_service = Mock()
+        mock_metadata.return_value = mock_metadata_service
+
+        # Test new upload mode (default)
+        result = process_single_upload(sample_file_info, is_overwrite=False)
+
+        # Verify result indicates new upload
+        assert result["success"] is True
+        assert result["is_overwrite"] is False
+        assert "uploaded" in result["message"]
+
+        # Verify metadata service was called with is_overwrite=False
+        mock_metadata_service.save_or_update_photo_metadata.assert_called_once()
+        call_args = mock_metadata_service.save_or_update_photo_metadata.call_args
+        assert call_args[1]["is_overwrite"] is False
