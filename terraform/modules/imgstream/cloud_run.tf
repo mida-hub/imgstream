@@ -3,8 +3,8 @@
 # Cloud Run service
 resource "google_cloud_run_v2_service" "imgstream" {
   # provider    = google-beta
-  name        = "${var.app_name}-${var.environment}"
-  location    = var.region
+  name          = "${var.app_name}-${var.environment}"
+  location      = var.region
   # iap_enabled = true
   # ingress     = "INGRESS_TRAFFIC_ALL"
 

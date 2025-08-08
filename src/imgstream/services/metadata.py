@@ -5,6 +5,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from google.cloud.exceptions import NotFound
 
@@ -733,6 +734,35 @@ class MetadataService:
                 )
 
         except Exception as e:
+            # Enhanced error handling for overwrite operations
+            if is_overwrite:
+                logger.error(
+                    "overwrite_operation_failed",
+                    user_id=self.user_id,
+                    filename=photo_metadata.filename,
+                    photo_id=photo_metadata.id,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+                
+                # Try to verify if the original file still exists
+                try:
+                    existing_photo = self.get_photo_by_filename(photo_metadata.filename)
+                    if existing_photo:
+                        logger.info(
+                            "original_file_preserved_after_overwrite_failure",
+                            user_id=self.user_id,
+                            filename=photo_metadata.filename,
+                            original_photo_id=existing_photo.id,
+                        )
+                except Exception as verify_error:
+                    logger.warning(
+                        "failed_to_verify_original_file_after_overwrite_failure",
+                        user_id=self.user_id,
+                        filename=photo_metadata.filename,
+                        verify_error=str(verify_error),
+                    )
+            
             log_error(
                 e,
                 {
@@ -743,7 +773,162 @@ class MetadataService:
                     "is_overwrite": is_overwrite,
                 },
             )
-            raise MetadataError(f"Failed to save or update photo metadata: {e}") from e
+            
+            # Provide more specific error messages
+            if is_overwrite:
+                raise MetadataError(f"Failed to overwrite photo metadata for {photo_metadata.filename}: {e}") from e
+            else:
+                raise MetadataError(f"Failed to save photo metadata for {photo_metadata.filename}: {e}") from e
+
+    def save_or_update_photo_metadata_with_fallback(
+        self, photo_metadata: PhotoMetadata, is_overwrite: bool = False, enable_fallback: bool = True
+    ) -> dict[str, Any]:
+        """
+        Save or update photo metadata with fallback to alternative strategies on failure.
+
+        Args:
+            photo_metadata: PhotoMetadata instance to save or update
+            is_overwrite: True if this is an overwrite operation, False for new upload
+            enable_fallback: Whether to enable fallback strategies
+
+        Returns:
+            dict: Operation result with success status and details
+
+        Raises:
+            MetadataError: If both primary and fallback operations fail
+        """
+        try:
+            # Try primary operation
+            self.save_or_update_photo_metadata(photo_metadata, is_overwrite)
+            
+            return {
+                "success": True,
+                "operation": "overwrite" if is_overwrite else "save",
+                "filename": photo_metadata.filename,
+                "photo_id": photo_metadata.id,
+                "fallback_used": False,
+                "message": f"Successfully {'overwritten' if is_overwrite else 'saved'} {photo_metadata.filename}",
+            }
+            
+        except MetadataError as e:
+            if not enable_fallback or not is_overwrite:
+                # No fallback for new saves or when fallback is disabled
+                raise
+            
+            logger.warning(
+                "overwrite_failed_attempting_fallback",
+                user_id=self.user_id,
+                filename=photo_metadata.filename,
+                error=str(e),
+            )
+            
+            try:
+                # Fallback strategy: Save as new file with modified name
+                fallback_result = self._attempt_overwrite_fallback(photo_metadata, e)
+                
+                logger.info(
+                    "overwrite_fallback_completed",
+                    user_id=self.user_id,
+                    original_filename=photo_metadata.filename,
+                    fallback_strategy=fallback_result["strategy"],
+                )
+                
+                return fallback_result
+                
+            except Exception as fallback_error:
+                logger.error(
+                    "overwrite_fallback_failed",
+                    user_id=self.user_id,
+                    filename=photo_metadata.filename,
+                    primary_error=str(e),
+                    fallback_error=str(fallback_error),
+                )
+                
+                raise MetadataError(
+                    f"Both primary overwrite and fallback failed for {photo_metadata.filename}. "
+                    f"Primary: {e}, Fallback: {fallback_error}"
+                ) from e
+
+    def _attempt_overwrite_fallback(self, photo_metadata: PhotoMetadata, original_error: Exception) -> dict[str, Any]:
+        """
+        Attempt fallback strategies when overwrite fails.
+        
+        Args:
+            photo_metadata: Original photo metadata
+            original_error: The error that caused the fallback
+            
+        Returns:
+            dict: Fallback operation result
+        """
+        from datetime import datetime
+        import uuid
+        
+        # Strategy 1: Try to save as new file with timestamp suffix
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        name_parts = photo_metadata.filename.rsplit(".", 1)
+        if len(name_parts) == 2:
+            fallback_filename = f"{name_parts[0]}_overwrite_{timestamp}.{name_parts[1]}"
+        else:
+            fallback_filename = f"{photo_metadata.filename}_overwrite_{timestamp}"
+        
+        # Create new metadata with fallback filename
+        fallback_metadata = PhotoMetadata.create_new(
+            user_id=photo_metadata.user_id,
+            filename=fallback_filename,
+            original_path=photo_metadata.original_path.replace(photo_metadata.filename, fallback_filename),
+            thumbnail_path=photo_metadata.thumbnail_path.replace(photo_metadata.filename, fallback_filename),
+            file_size=photo_metadata.file_size,
+            mime_type=photo_metadata.mime_type,
+            created_at=photo_metadata.created_at,
+            uploaded_at=photo_metadata.uploaded_at,
+        )
+        
+        try:
+            # Save as new file
+            self.save_photo_metadata(fallback_metadata)
+            
+            return {
+                "success": True,
+                "operation": "fallback_save",
+                "filename": photo_metadata.filename,
+                "fallback_filename": fallback_filename,
+                "photo_id": fallback_metadata.id,
+                "fallback_used": True,
+                "strategy": "timestamp_suffix",
+                "original_error": str(original_error),
+                "message": f"Overwrite failed, saved as new file: {fallback_filename}",
+                "warning": f"上書きに失敗したため、新しいファイル名 '{fallback_filename}' で保存されました。",
+            }
+            
+        except Exception as save_error:
+            # Strategy 2: Try with UUID suffix
+            unique_id = str(uuid.uuid4())[:8]
+            uuid_filename = f"{name_parts[0]}_overwrite_{unique_id}.{name_parts[1]}" if len(name_parts) == 2 else f"{photo_metadata.filename}_overwrite_{unique_id}"
+            
+            fallback_metadata.filename = uuid_filename
+            fallback_metadata.original_path = photo_metadata.original_path.replace(photo_metadata.filename, uuid_filename)
+            fallback_metadata.thumbnail_path = photo_metadata.thumbnail_path.replace(photo_metadata.filename, uuid_filename)
+            
+            try:
+                self.save_photo_metadata(fallback_metadata)
+                
+                return {
+                    "success": True,
+                    "operation": "fallback_save",
+                    "filename": photo_metadata.filename,
+                    "fallback_filename": uuid_filename,
+                    "photo_id": fallback_metadata.id,
+                    "fallback_used": True,
+                    "strategy": "uuid_suffix",
+                    "original_error": str(original_error),
+                    "message": f"Overwrite failed, saved as new file: {uuid_filename}",
+                    "warning": f"上書きに失敗したため、新しいファイル名 '{uuid_filename}' で保存されました。",
+                }
+                
+            except Exception as uuid_error:
+                raise MetadataError(
+                    f"All fallback strategies failed. Timestamp: {save_error}, UUID: {uuid_error}"
+                ) from uuid_error
 
     def get_photo_by_id(self, photo_id: str) -> PhotoMetadata | None:
         """

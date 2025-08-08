@@ -1,12 +1,91 @@
 """Collision detection utilities for filename conflicts."""
 
 from typing import Any
+import time
 import structlog
 
 from ..services.metadata import get_metadata_service, MetadataError
 from ..logging_config import log_error
 
 logger = structlog.get_logger(__name__)
+
+
+class CollisionDetectionRecoveryError(Exception):
+    """Raised when collision detection recovery fails."""
+    pass
+
+
+def check_filename_collisions_with_retry(
+    user_id: str, filenames: list[str], max_retries: int = 3, retry_delay: float = 1.0
+) -> dict[str, dict[str, Any]]:
+    """
+    Check for filename collisions with retry logic and error recovery.
+
+    Args:
+        user_id: User identifier
+        filenames: List of filenames to check for collisions
+        max_retries: Maximum number of retry attempts
+        retry_delay: Delay between retries in seconds
+
+    Returns:
+        dict: Dictionary mapping filename to collision info
+
+    Raises:
+        CollisionDetectionError: If collision detection fails after all retries
+    """
+    if not filenames:
+        return {}
+
+    last_error = None
+    
+    for attempt in range(max_retries + 1):
+        try:
+            if attempt > 0:
+                logger.info(
+                    "collision_detection_retry_attempt",
+                    user_id=user_id,
+                    attempt=attempt,
+                    max_retries=max_retries,
+                    delay=retry_delay,
+                )
+                time.sleep(retry_delay)
+            
+            return check_filename_collisions(user_id, filenames)
+            
+        except CollisionDetectionError as e:
+            last_error = e
+            if attempt < max_retries:
+                logger.warning(
+                    "collision_detection_failed_retrying",
+                    user_id=user_id,
+                    attempt=attempt,
+                    error=str(e),
+                    next_retry_in=retry_delay,
+                )
+                # Exponential backoff
+                retry_delay *= 2
+            else:
+                logger.error(
+                    "collision_detection_failed_all_retries",
+                    user_id=user_id,
+                    total_attempts=attempt + 1,
+                    final_error=str(e),
+                )
+        except Exception as e:
+            # For unexpected errors, don't retry
+            logger.error(
+                "collision_detection_unexpected_error",
+                user_id=user_id,
+                attempt=attempt,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            raise CollisionDetectionError(f"Unexpected error during collision detection: {e}") from e
+    
+    # If we get here, all retries failed
+    raise CollisionDetectionRecoveryError(
+        f"Collision detection failed after {max_retries + 1} attempts. Last error: {last_error}"
+    )
 
 
 def check_filename_collisions(user_id: str, filenames: list[str]) -> dict[str, dict[str, Any]]:
@@ -27,6 +106,8 @@ def check_filename_collisions(user_id: str, filenames: list[str]) -> dict[str, d
     if not filenames:
         return {}
 
+    failed_files = []
+    
     try:
         metadata_service = get_metadata_service(user_id)
         collision_results = {}
@@ -51,6 +132,7 @@ def check_filename_collisions(user_id: str, filenames: list[str]) -> dict[str, d
                     )
 
             except MetadataError as e:
+                failed_files.append(filename)
                 logger.warning(
                     "collision_check_failed_for_file",
                     user_id=user_id,
@@ -59,26 +141,147 @@ def check_filename_collisions(user_id: str, filenames: list[str]) -> dict[str, d
                 )
                 # Continue with other files even if one fails
                 continue
+            except Exception as e:
+                failed_files.append(filename)
+                logger.error(
+                    "collision_check_unexpected_error_for_file",
+                    user_id=user_id,
+                    filename=filename,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+                # Continue with other files
+                continue
 
+        # Log summary including failures
         logger.info(
             "batch_collision_detection_completed",
             user_id=user_id,
             total_files=len(filenames),
             collisions_found=len(collision_results),
+            failed_files=len(failed_files),
+            failed_filenames=failed_files[:5] if failed_files else [],
         )
+
+        # If too many files failed, consider it a system error
+        failure_rate = len(failed_files) / len(filenames) if filenames else 0
+        if failure_rate > 0.5:  # More than 50% failed
+            raise CollisionDetectionError(
+                f"High failure rate in collision detection: {len(failed_files)}/{len(filenames)} files failed"
+            )
 
         return collision_results
 
     except Exception as e:
+        if isinstance(e, CollisionDetectionError):
+            raise
+        
         log_error(
             e,
             {
                 "operation": "check_filename_collisions",
                 "user_id": user_id,
                 "total_files": len(filenames),
+                "failed_files": len(failed_files),
             },
         )
         raise CollisionDetectionError(f"Failed to check filename collisions: {e}") from e
+
+
+def check_filename_collisions_with_fallback(
+    user_id: str, filenames: list[str], enable_fallback: bool = True
+) -> tuple[dict[str, dict[str, Any]], bool]:
+    """
+    Check for filename collisions with fallback to safe mode on failure.
+
+    Args:
+        user_id: User identifier
+        filenames: List of filenames to check for collisions
+        enable_fallback: Whether to enable fallback mode
+
+    Returns:
+        tuple: (collision_results, fallback_used)
+               - collision_results: Dictionary mapping filename to collision info
+               - fallback_used: True if fallback mode was used
+
+    Raises:
+        CollisionDetectionError: If both primary and fallback detection fail
+    """
+    try:
+        # Try primary collision detection with retry
+        collision_results = check_filename_collisions_with_retry(user_id, filenames)
+        return collision_results, False
+        
+    except (CollisionDetectionError, CollisionDetectionRecoveryError) as e:
+        if not enable_fallback:
+            raise
+        
+        logger.warning(
+            "collision_detection_failed_using_fallback",
+            user_id=user_id,
+            total_files=len(filenames),
+            error=str(e),
+        )
+        
+        try:
+            # Fallback: Assume all files are potential collisions for safety
+            fallback_results = _create_fallback_collision_results(user_id, filenames)
+            
+            logger.info(
+                "collision_detection_fallback_completed",
+                user_id=user_id,
+                total_files=len(filenames),
+                assumed_collisions=len(fallback_results),
+            )
+            
+            return fallback_results, True
+            
+        except Exception as fallback_error:
+            logger.error(
+                "collision_detection_fallback_failed",
+                user_id=user_id,
+                primary_error=str(e),
+                fallback_error=str(fallback_error),
+            )
+            raise CollisionDetectionError(
+                f"Both primary and fallback collision detection failed. "
+                f"Primary: {e}, Fallback: {fallback_error}"
+            ) from e
+
+
+def _create_fallback_collision_results(user_id: str, filenames: list[str]) -> dict[str, dict[str, Any]]:
+    """
+    Create fallback collision results that assume all files are potential collisions.
+    
+    This is a safety mechanism when collision detection fails completely.
+    
+    Args:
+        user_id: User identifier
+        filenames: List of filenames
+        
+    Returns:
+        dict: Fallback collision results
+    """
+    from datetime import datetime
+    
+    fallback_results = {}
+    
+    for filename in filenames:
+        # Create a minimal collision info structure for safety
+        fallback_results[filename] = {
+            "existing_photo": None,  # We don't have the actual photo
+            "existing_file_info": {
+                "file_size": 0,  # Unknown
+                "photo_id": "unknown",
+                "upload_date": datetime.now(),
+                "creation_date": None,
+            },
+            "collision_detected": True,
+            "fallback_mode": True,
+            "warning_message": "衝突検出に失敗したため、安全のため既存ファイルがあると仮定しています。",
+        }
+    
+    return fallback_results
 
 
 def process_collision_results(
