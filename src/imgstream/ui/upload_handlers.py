@@ -19,6 +19,7 @@ from imgstream.utils.collision_detection import (
     CollisionDetectionError,
     CollisionDetectionRecoveryError
 )
+from imgstream.monitoring.collision_monitor import log_user_decision, log_collision_resolved
 
 logger = structlog.get_logger()
 
@@ -1439,3 +1440,168 @@ def clear_upload_session_state() -> None:
     for key in keys_to_clear:
         if key in st.session_state:
             del st.session_state[key]
+
+
+def handle_collision_decision_monitoring(user_id: str, filename: str, decision: str, 
+                                       decision_start_time: float = None, **collision_context) -> None:
+    """
+    Handle monitoring of user collision decisions.
+    
+    Args:
+        user_id: ID of the user making the decision
+        filename: Name of the file with collision
+        decision: User's decision ('overwrite', 'skip', 'pending')
+        decision_start_time: When the decision process started (for timing)
+        **collision_context: Additional context about the collision
+    """
+    import time
+    
+    # Calculate decision time if start time provided
+    decision_time_ms = None
+    if decision_start_time is not None:
+        decision_time_ms = (time.perf_counter() - decision_start_time) * 1000
+    
+    # Log the user decision
+    log_user_decision(
+        user_id=user_id,
+        filename=filename,
+        decision=decision,
+        decision_time_ms=decision_time_ms,
+        **collision_context
+    )
+    
+    # If decision is resolved (not pending), also log collision resolution
+    if decision in ['overwrite', 'skip']:
+        log_collision_resolved(
+            user_id=user_id,
+            filename=filename,
+            user_decision=decision,
+            decision_time_ms=decision_time_ms,
+            **collision_context
+        )
+
+
+def collect_user_collision_decisions(collision_results: dict, user_id: str) -> dict:
+    """
+    Collect and monitor user decisions for collision handling.
+    
+    Args:
+        collision_results: Dictionary mapping filename to collision info
+        user_id: ID of the user making decisions
+        
+    Returns:
+        dict: Updated collision results with user decisions and monitoring
+    """
+    import time
+    import streamlit as st
+    
+    updated_results = {}
+    
+    for filename, collision_info in collision_results.items():
+        decision_key = f"collision_decision_{filename}"
+        
+        # Get current decision from session state
+        current_decision = st.session_state.get(decision_key, "pending")
+        
+        # Check if decision changed from previous state
+        previous_decision = collision_info.get("user_decision", "pending")
+        
+        # Record decision start time if not already recorded
+        decision_start_key = f"decision_start_{filename}"
+        if decision_start_key not in st.session_state:
+            st.session_state[decision_start_key] = time.perf_counter()
+        
+        decision_start_time = st.session_state[decision_start_key]
+        
+        # If decision changed, log it
+        if current_decision != previous_decision and current_decision != "pending":
+            handle_collision_decision_monitoring(
+                user_id=user_id,
+                filename=filename,
+                decision=current_decision,
+                decision_start_time=decision_start_time,
+                existing_photo_id=collision_info.get("existing_photo", {}).get("id"),
+                fallback_mode=collision_info.get("fallback_mode", False),
+                file_size=collision_info.get("existing_file_info", {}).get("file_size"),
+                upload_date=collision_info.get("existing_file_info", {}).get("upload_date")
+            )
+        
+        # Update collision info with current decision
+        updated_collision_info = collision_info.copy()
+        updated_collision_info["user_decision"] = current_decision
+        updated_results[filename] = updated_collision_info
+    
+    return updated_results
+
+
+def clear_upload_session_state() -> None:
+    """Clear upload-related session state variables."""
+    keys_to_clear = [
+        key for key in st.session_state.keys() 
+        if key.startswith(('collision_decision_', 'decision_start_', 'upload_', 'validation_'))
+    ]
+    
+    for key in keys_to_clear:
+        del st.session_state[key]
+
+
+def get_collision_decision_statistics(user_id: str) -> dict:
+    """
+    Get collision decision statistics for a user.
+    
+    Args:
+        user_id: ID of the user
+        
+    Returns:
+        dict: Statistics about user's collision decisions
+    """
+    from imgstream.monitoring.collision_monitor import get_collision_monitor
+    
+    monitor = get_collision_monitor()
+    return monitor.get_user_behavior_patterns(user_id)
+
+
+def render_collision_decision_help() -> None:
+    """Render help information for collision decisions."""
+    with st.expander("❓ 衝突処理について", expanded=False):
+        st.markdown("""
+        ### 📋 衝突処理オプション
+        
+        **🔄 上書きする:**
+        - 既存のファイルを新しいファイルで置き換えます
+        - 元の作成日時とファイルIDは保持されます
+        - メタデータ（ファイルサイズ、撮影日時など）は新しいファイルの情報に更新されます
+        
+        **⏭️ スキップする:**
+        - 既存のファイルをそのまま保持します
+        - 新しいファイルはアップロードされません
+        - 後でファイル名を変更してアップロードすることができます
+        
+        ### 💡 推奨事項
+        - 同じ写真の高画質版がある場合は「上書き」を選択
+        - 異なる写真の場合は「スキップ」を選択してファイル名を変更
+        - 不明な場合は既存ファイルの詳細を確認してから決定
+        """)
+
+
+def monitor_batch_collision_processing(user_id: str, filenames: list, collision_results: dict, 
+                                     processing_time_ms: float) -> None:
+    """
+    Monitor batch collision processing metrics.
+    
+    Args:
+        user_id: ID of the user
+        filenames: List of filenames processed
+        collision_results: Results of collision detection
+        processing_time_ms: Time taken for processing
+    """
+    from imgstream.monitoring.collision_monitor import log_batch_collision_detection
+    
+    log_batch_collision_detection(
+        user_id=user_id,
+        filenames=filenames,
+        collisions_found=len(collision_results),
+        processing_time_ms=processing_time_ms,
+        total_files=len(filenames),
+        collision_rate=len(collision_results) / len(filenames) if filenames else 0
+    )

@@ -206,6 +206,9 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
     if not filenames:
         return {}
 
+    # Start timing for performance monitoring
+    start_time = time.perf_counter()
+
     # Check cache first if enabled
     if use_cache:
         cached_results = _collision_cache.get(user_id, filenames)
@@ -297,6 +300,19 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
             collisions_found=len(collision_results),
             failed_files=len(failed_files),
             failed_filenames=failed_files[:5] if failed_files else [],
+        )
+        
+        # Log batch metrics to collision monitor
+        end_time = time.perf_counter()
+        processing_time_ms = (end_time - start_time) * 1000
+        
+        log_batch_collision_detection(
+            user_id=user_id,
+            filenames=filenames,
+            collisions_found=len(collision_results),
+            processing_time_ms=processing_time_ms,
+            failed_files=len(failed_files),
+            failure_rate=failure_rate,
         )
 
         # If too many files failed, consider it a system error
