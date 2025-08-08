@@ -1,1 +1,1 @@
-"""Integration tests."""
+"""Integration tests for imgstream application."""

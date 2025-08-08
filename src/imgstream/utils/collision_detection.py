@@ -235,18 +235,31 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
             cache_enabled=use_cache,
         )
 
-        # Use optimized batch collision detection
+        # Use optimized batch collision detection if available
         try:
-            collision_results = metadata_service.check_multiple_filename_exists(filenames)
-            
-            # Log detected collisions
-            for filename, collision_info in collision_results.items():
-                logger.debug(
-                    "collision_detected_in_batch",
-                    user_id=user_id,
-                    filename=filename,
-                    existing_photo_id=collision_info["existing_photo"].id,
-                )
+            if hasattr(metadata_service, 'check_multiple_filename_exists'):
+                collision_results = metadata_service.check_multiple_filename_exists(filenames)
+                
+                # Log detected collisions
+                for filename, collision_info in collision_results.items():
+                    logger.debug(
+                        "collision_detected_in_batch",
+                        user_id=user_id,
+                        filename=filename,
+                        existing_photo_id=collision_info["existing_photo"].id,
+                    )
+                    
+                    # Log to collision monitor
+                    log_collision_detected(
+                        user_id=user_id,
+                        filename=filename,
+                        existing_photo_id=collision_info["existing_photo"].id,
+                        file_size=collision_info["existing_file_info"].get("file_size"),
+                        upload_date=collision_info["existing_file_info"].get("upload_date"),
+                    )
+            else:
+                # Fall back to individual checks
+                raise MetadataError("Batch collision detection not available")
                 
         except MetadataError as e:
             # If batch operation fails, fall back to individual checks
@@ -269,6 +282,19 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
                             filename=filename,
                             existing_photo_id=collision_info["existing_photo"].id,
                         )
+                        
+                        # Log to collision monitor
+                        try:
+                            from ..monitoring.collision_monitor import log_collision_detected
+                            log_collision_detected(
+                                user_id=user_id,
+                                filename=filename,
+                                existing_photo_id=collision_info["existing_photo"].id,
+                                file_size=collision_info["existing_file_info"].get("file_size"),
+                                upload_date=collision_info["existing_file_info"].get("upload_date"),
+                            )
+                        except ImportError:
+                            pass  # Monitoring not available
 
                 except MetadataError as e:
                     failed_files.append(filename)
@@ -302,21 +328,27 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
             failed_filenames=failed_files[:5] if failed_files else [],
         )
         
+        # Calculate failure rate
+        failure_rate = len(failed_files) / len(filenames) if filenames else 0
+        
         # Log batch metrics to collision monitor
         end_time = time.perf_counter()
         processing_time_ms = (end_time - start_time) * 1000
         
-        log_batch_collision_detection(
-            user_id=user_id,
-            filenames=filenames,
-            collisions_found=len(collision_results),
-            processing_time_ms=processing_time_ms,
-            failed_files=len(failed_files),
-            failure_rate=failure_rate,
-        )
+        try:
+            from ..monitoring.collision_monitor import log_batch_collision_detection
+            log_batch_collision_detection(
+                user_id=user_id,
+                filenames=filenames,
+                collisions_found=len(collision_results),
+                processing_time_ms=processing_time_ms,
+                failed_files=len(failed_files),
+                failure_rate=failure_rate,
+            )
+        except ImportError:
+            pass  # Monitoring not available
 
         # If too many files failed, consider it a system error
-        failure_rate = len(failed_files) / len(filenames) if filenames else 0
         if failure_rate > 0.5:  # More than 50% failed
             raise CollisionDetectionError(
                 f"High failure rate in collision detection: {len(failed_files)}/{len(filenames)} files failed"
