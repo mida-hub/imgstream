@@ -15,6 +15,7 @@ from imgstream.ui.components import format_file_size
 from imgstream.utils.collision_detection import (
     check_filename_collisions, 
     check_filename_collisions_with_fallback,
+    check_filename_collisions_optimized,
     CollisionDetectionError,
     CollisionDetectionRecoveryError
 )
@@ -116,10 +117,23 @@ def validate_uploaded_files_with_collision_check(uploaded_files: list) -> tuple[
         auth_service = get_auth_service()
         user_info = auth_service.ensure_authenticated()
 
-        # Check for filename collisions with fallback support
-        collision_results, fallback_used = check_filename_collisions_with_fallback(
-            user_info.user_id, filenames, enable_fallback=True
-        )
+        # Use optimized collision detection for better performance
+        if len(filenames) > 20:  # Use optimized version for larger batches
+            try:
+                collision_results = check_filename_collisions_optimized(
+                    user_info.user_id, filenames, batch_size=50
+                )
+                fallback_used = False
+            except (CollisionDetectionError, CollisionDetectionRecoveryError):
+                # Fall back to regular collision detection with fallback
+                collision_results, fallback_used = check_filename_collisions_with_fallback(
+                    user_info.user_id, filenames, enable_fallback=True
+                )
+        else:
+            # Use regular collision detection with fallback for smaller batches
+            collision_results, fallback_used = check_filename_collisions_with_fallback(
+                user_info.user_id, filenames, enable_fallback=True
+            )
 
         if fallback_used:
             # Add warning about fallback mode

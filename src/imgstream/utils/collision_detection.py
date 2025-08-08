@@ -3,6 +3,8 @@
 from typing import Any
 import time
 import structlog
+from functools import lru_cache
+from datetime import datetime, timedelta
 
 from ..services.metadata import get_metadata_service, MetadataError
 from ..logging_config import log_error
@@ -13,6 +15,103 @@ logger = structlog.get_logger(__name__)
 class CollisionDetectionRecoveryError(Exception):
     """Raised when collision detection recovery fails."""
     pass
+
+
+class CollisionCache:
+    """Simple cache for collision detection results."""
+    
+    def __init__(self, ttl_seconds: int = 300):  # 5 minutes default TTL
+        self.cache = {}
+        self.ttl_seconds = ttl_seconds
+    
+    def _get_cache_key(self, user_id: str, filenames: list[str]) -> str:
+        """Generate cache key for collision detection."""
+        sorted_filenames = sorted(filenames)
+        return f"{user_id}:{':'.join(sorted_filenames)}"
+    
+    def get(self, user_id: str, filenames: list[str]) -> dict[str, Any] | None:
+        """Get cached collision results if still valid."""
+        cache_key = self._get_cache_key(user_id, filenames)
+        
+        if cache_key in self.cache:
+            cached_data, timestamp = self.cache[cache_key]
+            
+            # Check if cache is still valid
+            if datetime.now() - timestamp < timedelta(seconds=self.ttl_seconds):
+                logger.debug(
+                    "collision_cache_hit",
+                    user_id=user_id,
+                    cache_key=cache_key,
+                    cached_results=len(cached_data),
+                )
+                return cached_data
+            else:
+                # Cache expired, remove it
+                del self.cache[cache_key]
+                logger.debug(
+                    "collision_cache_expired",
+                    user_id=user_id,
+                    cache_key=cache_key,
+                )
+        
+        return None
+    
+    def set(self, user_id: str, filenames: list[str], results: dict[str, Any]) -> None:
+        """Cache collision detection results."""
+        cache_key = self._get_cache_key(user_id, filenames)
+        self.cache[cache_key] = (results, datetime.now())
+        
+        logger.debug(
+            "collision_cache_set",
+            user_id=user_id,
+            cache_key=cache_key,
+            cached_results=len(results),
+        )
+    
+    def clear_user_cache(self, user_id: str) -> None:
+        """Clear all cache entries for a specific user."""
+        keys_to_remove = [key for key in self.cache.keys() if key.startswith(f"{user_id}:")]
+        for key in keys_to_remove:
+            del self.cache[key]
+        
+        logger.debug(
+            "collision_cache_cleared_for_user",
+            user_id=user_id,
+            cleared_entries=len(keys_to_remove),
+        )
+    
+    def clear_all(self) -> None:
+        """Clear all cache entries."""
+        cache_size = len(self.cache)
+        self.cache.clear()
+        
+        logger.debug(
+            "collision_cache_cleared_all",
+            cleared_entries=cache_size,
+        )
+    
+    def get_stats(self) -> dict[str, Any]:
+        """Get cache statistics."""
+        now = datetime.now()
+        valid_entries = 0
+        expired_entries = 0
+        
+        for cached_data, timestamp in self.cache.values():
+            if now - timestamp < timedelta(seconds=self.ttl_seconds):
+                valid_entries += 1
+            else:
+                expired_entries += 1
+        
+        return {
+            "total_entries": len(self.cache),
+            "valid_entries": valid_entries,
+            "expired_entries": expired_entries,
+            "ttl_seconds": self.ttl_seconds,
+        }
+
+
+# Global cache instance
+_collision_cache = CollisionCache()
 
 
 def check_filename_collisions_with_retry(
@@ -88,13 +187,14 @@ def check_filename_collisions_with_retry(
     )
 
 
-def check_filename_collisions(user_id: str, filenames: list[str]) -> dict[str, dict[str, Any]]:
+def check_filename_collisions(user_id: str, filenames: list[str], use_cache: bool = True) -> dict[str, dict[str, Any]]:
     """
     Check for filename collisions across multiple files for a user.
 
     Args:
         user_id: User identifier
         filenames: List of filenames to check for collisions
+        use_cache: Whether to use caching for performance optimization
 
     Returns:
         dict: Dictionary mapping filename to collision info
@@ -105,6 +205,18 @@ def check_filename_collisions(user_id: str, filenames: list[str]) -> dict[str, d
     """
     if not filenames:
         return {}
+
+    # Check cache first if enabled
+    if use_cache:
+        cached_results = _collision_cache.get(user_id, filenames)
+        if cached_results is not None:
+            logger.info(
+                "collision_detection_cache_hit",
+                user_id=user_id,
+                total_files=len(filenames),
+                cached_collisions=len(cached_results),
+            )
+            return cached_results
 
     failed_files = []
     
@@ -117,41 +229,65 @@ def check_filename_collisions(user_id: str, filenames: list[str]) -> dict[str, d
             user_id=user_id,
             total_files=len(filenames),
             filenames=filenames[:5],  # Log first 5 filenames for debugging
+            cache_enabled=use_cache,
         )
 
-        for filename in filenames:
-            try:
-                collision_info = metadata_service.check_filename_exists(filename)
-                if collision_info:
-                    collision_results[filename] = collision_info
-                    logger.debug(
-                        "collision_detected_in_batch",
+        # Use optimized batch collision detection
+        try:
+            collision_results = metadata_service.check_multiple_filename_exists(filenames)
+            
+            # Log detected collisions
+            for filename, collision_info in collision_results.items():
+                logger.debug(
+                    "collision_detected_in_batch",
+                    user_id=user_id,
+                    filename=filename,
+                    existing_photo_id=collision_info["existing_photo"].id,
+                )
+                
+        except MetadataError as e:
+            # If batch operation fails, fall back to individual checks
+            logger.warning(
+                "batch_collision_check_failed_fallback_to_individual",
+                user_id=user_id,
+                error=str(e),
+                total_files=len(filenames),
+            )
+            
+            collision_results = {}
+            for filename in filenames:
+                try:
+                    collision_info = metadata_service.check_filename_exists(filename)
+                    if collision_info:
+                        collision_results[filename] = collision_info
+                        logger.debug(
+                            "collision_detected_in_individual_fallback",
+                            user_id=user_id,
+                            filename=filename,
+                            existing_photo_id=collision_info["existing_photo"].id,
+                        )
+
+                except MetadataError as e:
+                    failed_files.append(filename)
+                    logger.warning(
+                        "collision_check_failed_for_file",
                         user_id=user_id,
                         filename=filename,
-                        existing_photo_id=collision_info["existing_photo"].id,
+                        error=str(e),
                     )
-
-            except MetadataError as e:
-                failed_files.append(filename)
-                logger.warning(
-                    "collision_check_failed_for_file",
-                    user_id=user_id,
-                    filename=filename,
-                    error=str(e),
-                )
-                # Continue with other files even if one fails
-                continue
-            except Exception as e:
-                failed_files.append(filename)
-                logger.error(
-                    "collision_check_unexpected_error_for_file",
-                    user_id=user_id,
-                    filename=filename,
-                    error=str(e),
-                    error_type=type(e).__name__,
-                )
-                # Continue with other files
-                continue
+                    # Continue with other files even if one fails
+                    continue
+                except Exception as e:
+                    failed_files.append(filename)
+                    logger.error(
+                        "collision_check_unexpected_error_for_file",
+                        user_id=user_id,
+                        filename=filename,
+                        error=str(e),
+                        error_type=type(e).__name__,
+                    )
+                    # Continue with other files
+                    continue
 
         # Log summary including failures
         logger.info(
@@ -169,6 +305,10 @@ def check_filename_collisions(user_id: str, filenames: list[str]) -> dict[str, d
             raise CollisionDetectionError(
                 f"High failure rate in collision detection: {len(failed_files)}/{len(filenames)} files failed"
             )
+
+        # Cache successful results if caching is enabled
+        if use_cache and failure_rate < 0.1:  # Only cache if less than 10% failed
+            _collision_cache.set(user_id, filenames, collision_results)
 
         return collision_results
 
@@ -477,3 +617,194 @@ class CollisionDetectionError(Exception):
     def __init__(self, message: str, original_error: Exception | None = None):
         super().__init__(message)
         self.original_error = original_error
+
+
+def get_collision_cache_stats() -> dict[str, Any]:
+    """
+    Get collision detection cache statistics.
+    
+    Returns:
+        dict: Cache statistics including hit rate, size, etc.
+    """
+    return _collision_cache.get_stats()
+
+
+def clear_collision_cache(user_id: str | None = None) -> None:
+    """
+    Clear collision detection cache.
+    
+    Args:
+        user_id: If provided, clear only cache for this user. If None, clear all cache.
+    """
+    if user_id:
+        _collision_cache.clear_user_cache(user_id)
+    else:
+        _collision_cache.clear_all()
+
+
+def monitor_collision_detection_performance(func):
+    """
+    Decorator to monitor collision detection performance.
+    
+    Args:
+        func: Function to monitor
+        
+    Returns:
+        Wrapped function with performance monitoring
+    """
+    import functools
+    from time import perf_counter
+    
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = perf_counter()
+        
+        try:
+            result = func(*args, **kwargs)
+            end_time = perf_counter()
+            duration = end_time - start_time
+            
+            # Extract user_id and file count for logging
+            user_id = args[0] if args else "unknown"
+            filenames = args[1] if len(args) > 1 else []
+            file_count = len(filenames) if isinstance(filenames, list) else 0
+            
+            logger.info(
+                "collision_detection_performance",
+                function=func.__name__,
+                user_id=user_id,
+                file_count=file_count,
+                duration_seconds=duration,
+                files_per_second=file_count / duration if duration > 0 else 0,
+                success=True,
+            )
+            
+            return result
+            
+        except Exception as e:
+            end_time = perf_counter()
+            duration = end_time - start_time
+            
+            user_id = args[0] if args else "unknown"
+            filenames = args[1] if len(args) > 1 else []
+            file_count = len(filenames) if isinstance(filenames, list) else 0
+            
+            logger.error(
+                "collision_detection_performance",
+                function=func.__name__,
+                user_id=user_id,
+                file_count=file_count,
+                duration_seconds=duration,
+                success=False,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            
+            raise
+    
+    return wrapper
+
+
+# Apply performance monitoring to key functions
+check_filename_collisions = monitor_collision_detection_performance(check_filename_collisions)
+check_filename_collisions_with_retry = monitor_collision_detection_performance(check_filename_collisions_with_retry)
+check_filename_collisions_with_fallback = monitor_collision_detection_performance(check_filename_collisions_with_fallback)
+
+
+def optimize_collision_detection_query(filenames: list[str], batch_size: int = 100) -> list[list[str]]:
+    """
+    Optimize collision detection by batching filenames into optimal query sizes.
+    
+    Args:
+        filenames: List of filenames to check
+        batch_size: Maximum number of filenames per batch
+        
+    Returns:
+        List of filename batches
+    """
+    if not filenames:
+        return []
+    
+    # Split filenames into batches for optimal query performance
+    batches = []
+    for i in range(0, len(filenames), batch_size):
+        batch = filenames[i:i + batch_size]
+        batches.append(batch)
+    
+    logger.debug(
+        "collision_detection_query_optimization",
+        total_files=len(filenames),
+        batch_count=len(batches),
+        batch_size=batch_size,
+    )
+    
+    return batches
+
+
+def check_filename_collisions_optimized(user_id: str, filenames: list[str], batch_size: int = 100) -> dict[str, dict[str, Any]]:
+    """
+    Optimized collision detection with batching and caching.
+    
+    Args:
+        user_id: User identifier
+        filenames: List of filenames to check for collisions
+        batch_size: Maximum number of filenames per batch query
+        
+    Returns:
+        dict: Dictionary mapping filename to collision info
+        
+    Raises:
+        CollisionDetectionError: If collision detection fails
+    """
+    if not filenames:
+        return {}
+    
+    # For small lists, use regular collision detection
+    if len(filenames) <= batch_size:
+        return check_filename_collisions(user_id, filenames, use_cache=True)
+    
+    # For large lists, process in batches
+    batches = optimize_collision_detection_query(filenames, batch_size)
+    all_collision_results = {}
+    
+    logger.info(
+        "optimized_collision_detection_started",
+        user_id=user_id,
+        total_files=len(filenames),
+        batch_count=len(batches),
+        batch_size=batch_size,
+    )
+    
+    for i, batch in enumerate(batches):
+        try:
+            batch_results = check_filename_collisions(user_id, batch, use_cache=True)
+            all_collision_results.update(batch_results)
+            
+            logger.debug(
+                "collision_detection_batch_completed",
+                user_id=user_id,
+                batch_index=i + 1,
+                batch_size=len(batch),
+                batch_collisions=len(batch_results),
+            )
+            
+        except Exception as e:
+            logger.error(
+                "collision_detection_batch_failed",
+                user_id=user_id,
+                batch_index=i + 1,
+                batch_size=len(batch),
+                error=str(e),
+            )
+            # Continue with other batches
+            continue
+    
+    logger.info(
+        "optimized_collision_detection_completed",
+        user_id=user_id,
+        total_files=len(filenames),
+        total_collisions=len(all_collision_results),
+        batch_count=len(batches),
+    )
+    
+    return all_collision_results

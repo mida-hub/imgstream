@@ -1250,3 +1250,86 @@ def cleanup_metadata_services() -> None:
     for service in _metadata_services.values():
         service.cleanup_local_database()
     _metadata_services.clear()
+
+    def check_multiple_filename_exists(self, filenames: list[str]) -> dict[str, dict]:
+        """
+        Optimized batch check for multiple filename collisions.
+
+        Args:
+            filenames: List of filenames to check for collisions
+
+        Returns:
+            dict: Dictionary mapping filename to collision info (if collision exists)
+
+        Raises:
+            MetadataError: If batch collision check fails
+        """
+        if not filenames:
+            return {}
+
+        try:
+            self.ensure_local_database()
+
+            # Use single query with IN clause for better performance
+            placeholders = ",".join("?" * len(filenames))
+            query = f"""
+                SELECT id, user_id, filename, original_path, thumbnail_path,
+                       created_at, uploaded_at, file_size, mime_type
+                FROM photos 
+                WHERE user_id = ? AND filename IN ({placeholders})
+            """
+            
+            params = [self.user_id] + filenames
+
+            with self.db_manager as db:
+                results = db.execute_query(query, params)
+
+                collision_results = {}
+                
+                if results:
+                    for row in results:
+                        existing_photo = PhotoMetadata(
+                            id=row[0],
+                            user_id=row[1],
+                            filename=row[2],
+                            original_path=row[3],
+                            thumbnail_path=row[4],
+                            created_at=row[5],
+                            uploaded_at=row[6],
+                            file_size=row[7],
+                            mime_type=row[8],
+                        )
+
+                        existing_file_info = {
+                            "upload_date": existing_photo.uploaded_at,
+                            "file_size": existing_photo.file_size,
+                            "creation_date": existing_photo.created_at,
+                            "photo_id": existing_photo.id,
+                        }
+
+                        collision_results[existing_photo.filename] = {
+                            "existing_photo": existing_photo,
+                            "existing_file_info": existing_file_info,
+                            "user_decision": "pending",
+                            "warning_shown": False,
+                        }
+
+                logger.debug(
+                    "batch_filename_collision_check_completed",
+                    user_id=self.user_id,
+                    total_files=len(filenames),
+                    collisions_found=len(collision_results),
+                )
+
+                return collision_results
+
+        except Exception as e:
+            log_error(
+                e,
+                {
+                    "operation": "check_multiple_filename_exists",
+                    "user_id": self.user_id,
+                    "total_files": len(filenames),
+                },
+            )
+            raise MetadataError(f"Failed to check multiple filename collisions: {e}") from e
