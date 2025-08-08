@@ -1,305 +1,560 @@
 # ImgStream デプロイメントガイド
 
-このガイドは、ImgStreamの開発環境セットアップから本番デプロイメントまでの完全なプロセスをカバーします。
+## 概要
 
-## 📋 目次
+このガイドでは、ファイル名衝突回避機能を含むImgStreamアプリケーションのデプロイメント手順について説明します。
 
-- [前提条件](#前提条件)
-- [開発環境セットアップ](#開発環境セットアップ)
-- [手動デプロイメント](#手動デプロイメント)
-- [自動デプロイメント（CI/CD）](#自動デプロイメントcicd)
-- [本番デプロイメント](#本番デプロイメント)
-- [デプロイメントスクリプト](#デプロイメントスクリプト)
-- [トラブルシューティング](#トラブルシューティング)
-
-## 🔧 前提条件
-
-### システム要件
-- Python 3.11以上
-- Google Cloud Platform アカウント（課金有効）
-- Docker
-- Terraform >= 1.12
+## 前提条件
 
 ### 必要なツール
+
+- Python 3.9以上
+- uv (Python パッケージマネージャー)
+- Docker & Docker Compose
+- Terraform
+- Google Cloud SDK (gcloud)
+
+### 必要なアカウント・権限
+
+- Google Cloud Platform アカウント
+- 以下のGCP APIが有効化されていること:
+  - Cloud Storage API
+  - Cloud SQL API (本番環境の場合)
+  - Identity and Access Management (IAM) API
+
+## 環境設定
+
+### 1. 開発環境
+
+#### 依存関係のインストール
+
 ```bash
-# Google Cloud SDK
-brew install google-cloud-sdk
-
-# Terraform
-brew install terraform
-
-# uv (Python package manager)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-## 💻 開発環境セットアップ
-
-### 1. リポジトリのクローン
-```bash
-git clone https://github.com/your-org/imgstream.git
-cd imgstream
-```
-
-### 2. Python環境のセットアップ
-```bash
-# 依存関係のインストール
+# uvを使用してPython依存関係をインストール
 uv sync
 
-# 開発ツールのインストール
-uv add --dev black ruff mypy pytest pre-commit
-uv run pre-commit install
+# 開発用依存関係も含める
+uv sync --dev
 ```
 
-### 3. 環境設定
-```bash
-# 環境ファイルの作成
-cp .env.example .env
+#### 環境変数の設定
 
-# 必要な設定を編集
-nano .env
+`.env`ファイルを作成し、以下の変数を設定:
+
+```bash
+# 環境設定
+ENVIRONMENT=development
+
+# Google Cloud設定
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account-key.json
+
+# ストレージ設定
+GCS_BUCKET_NAME=your-bucket-name
+GCS_BUCKET_REGION=asia-northeast1
+
+# データベース設定
+DATABASE_TYPE=duckdb
+LOCAL_DB_PATH=./data/imgstream.db
+
+# Streamlit設定
+STREAMLIT_SERVER_PORT=8501
+STREAMLIT_SERVER_ADDRESS=0.0.0.0
+
+# 衝突検出設定
+COLLISION_CACHE_TTL_SECONDS=3600
+COLLISION_CACHE_MAX_ENTRIES=10000
+COLLISION_DETECTION_BATCH_SIZE=100
+
+# 監視設定
+MONITORING_ENABLED=true
+MONITORING_EVENT_RETENTION_DAYS=30
 ```
 
-### 4. ローカル実行
+#### ローカル開発用Docker環境
+
 ```bash
+# Docker Composeでローカル環境を起動
+docker-compose up -d
+
 # アプリケーションの起動
-uv run streamlit run src/imgstream/main.py
-
-# ヘルスチェック
-curl http://localhost:8501/health
+uv run streamlit run src/main.py
 ```
 
-## 🚀 手動デプロイメント
+### 2. テスト環境
 
-### Google Cloud セットアップ
+#### テスト用インフラの構築
 
-#### 1. プロジェクト作成と認証
 ```bash
-# 1. ユーザー認証
-gcloud auth login
-
-# 2. Application Default Credentials設定（Terraform用）
-gcloud auth application-default login
-
-# 3. プロジェクト作成
-export PROJECT_ID="imgstream-$(date +%s)"
-gcloud projects create $PROJECT_ID
-gcloud config set project $PROJECT_ID
+# Terraformでテスト環境を構築
+cd terraform/test
+terraform init
+terraform plan
+terraform apply
 ```
 
-#### 2. API有効化
+#### テスト環境用の設定
+
 ```bash
-gcloud services enable \
-    run.googleapis.com \
-    storage.googleapis.com \
-    artifactregistry.googleapis.com \
-    monitoring.googleapis.com \
-    logging.googleapis.com \
-    iap.googleapis.com
+# テスト環境変数
+ENVIRONMENT=test
+GOOGLE_CLOUD_PROJECT=your-test-project-id
+GCS_BUCKET_NAME=your-test-bucket-name
+
+# テスト用データベース設定
+DATABASE_TYPE=duckdb
+LOCAL_DB_PATH=./test_data/imgstream_test.db
+
+# テスト用監視設定
+MONITORING_EVENT_RETENTION_DAYS=7
 ```
 
-#### 3. インフラストラクチャ構築
+### 3. 本番環境
+
+#### 本番用インフラの構築
+
 ```bash
-# Terraform初期化
-./scripts/terraform-init.sh dev
-
-# インフラ適用
-cd terraform
-terraform plan -var-file="environments/dev.tfvars" -var="project_id=$PROJECT_ID"
-terraform apply -var-file="environments/dev.tfvars" -var="project_id=$PROJECT_ID"
+# Terraformで本番環境を構築
+cd terraform/production
+terraform init
+terraform plan
+terraform apply
 ```
 
-#### 4. アプリケーションデプロイ
+#### 本番環境用の設定
+
 ```bash
-# Artifact Registry認証設定
-gcloud auth configure-docker asia-northeast1-docker.pkg.dev
+# 本番環境変数
+ENVIRONMENT=production
+GOOGLE_CLOUD_PROJECT=your-prod-project-id
+GCS_BUCKET_NAME=your-prod-bucket-name
 
-# イメージビルド
-./scripts/build-image.sh -p $PROJECT_ID -t latest
+# 本番用データベース設定（Cloud SQLを推奨）
+DATABASE_TYPE=postgresql
+DATABASE_URL=postgresql://user:password@host:port/database
 
-# デプロイ実行
-./scripts/deploy-cloud-run.sh -p $PROJECT_ID -e dev -i asia-northeast1-docker.pkg.dev/$PROJECT_ID/imgstream/imgstream:latest
+# セキュリティ設定
+ADMIN_FUNCTIONS_ENABLED=false
+DEBUG_MODE=false
+
+# パフォーマンス設定
+COLLISION_CACHE_TTL_SECONDS=7200
+COLLISION_CACHE_MAX_ENTRIES=50000
+COLLISION_DETECTION_BATCH_SIZE=500
+
+# 監視設定
+MONITORING_ENABLED=true
+MONITORING_EVENT_RETENTION_DAYS=90
 ```
 
-## 🔄 自動デプロイメント（CI/CD）
+## デプロイメント手順
 
-### GitHub Actions セットアップ
+### 1. コードの準備
 
-#### 1. OIDC認証設定
+#### コード品質チェック
+
 ```bash
-# OIDC設定の自動セットアップ
-./scripts/setup-github-oidc.sh
+# 環境変数を設定してテストを実行
+ENVIRONMENT=production uv run pytest
+
+# コードフォーマット
+uv run black src/ tests/
+
+# リンター実行
+uv run ruff src/ tests/
+
+# 型チェック
+uv run mypy src/
 ```
 
-#### 2. GitHub Secrets設定
-以下のシークレットをGitHubリポジトリに設定：
+#### 依存関係の確認
 
-| Secret Name | Description |
-|-------------|-------------|
-| `WIF_PROVIDER` | Workload Identity Federation Provider |
-| `WIF_SERVICE_ACCOUNT` | GitHub Actions Service Account Email |
-| `GCP_PROJECT_ID` | GCP Project ID |
-| `GCS_BUCKET_DEV` | Development storage bucket |
-| `GCS_BUCKET_PROD` | Production storage bucket |
-
-#### 3. 自動デプロイメント
-- **開発環境**: `develop`ブランチへのプッシュで自動デプロイ
-- **本番環境**: `main`ブランチへのプッシュまたはタグで自動デプロイ
-
-## 🏭 本番デプロイメント
-
-### 1. 本番環境準備
 ```bash
-# 本番用Terraform初期化
-./scripts/terraform-init.sh prod
+# 依存関係の更新確認
+uv sync --upgrade
 
-# 本番インフラ構築
-cd terraform
-terraform apply -var-file="environments/prod.tfvars" -var="project_id=$PROJECT_ID"
+# セキュリティ脆弱性チェック
+uv run safety check
 ```
 
-### 2. Identity-Aware Proxy設定
+### 2. インフラストラクチャのデプロイ
+
+#### Google Cloud リソースの作成
+
 ```bash
-# IAP有効化
-gcloud iap web enable --resource-type=backend-services --service=imgstream-production
+# サービスアカウントの作成
+gcloud iam service-accounts create imgstream-app \
+    --display-name="ImgStream Application Service Account"
 
-# ユーザー追加
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-    --member="user:admin@yourdomain.com" \
-    --role="roles/iap.httpsResourceAccessor"
+# 必要な権限の付与
+gcloud projects add-iam-policy-binding $GOOGLE_CLOUD_PROJECT \
+    --member="serviceAccount:imgstream-app@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com" \
+    --role="roles/storage.admin"
+
+# サービスアカウントキーの作成
+gcloud iam service-accounts keys create service-account-key.json \
+    --iam-account=imgstream-app@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com
 ```
 
-### 3. 本番デプロイ実行
+#### Terraformでのリソース作成
+
 ```bash
-# 本番デプロイ（手動）
-./scripts/deploy-production.sh -p $PROJECT_ID -i asia-northeast1-docker.pkg.dev/$PROJECT_ID/imgstream/imgstream:v1.0.0
+# 本番環境の場合
+cd terraform/production
 
-# または自動デプロイ（GitHub Actions）
-git tag v1.0.0
-git push origin v1.0.0
+# 変数ファイルの設定
+cat > terraform.tfvars << EOF
+project_id = "your-prod-project-id"
+region = "asia-northeast1"
+bucket_name = "your-prod-bucket-name"
+environment = "production"
+EOF
+
+# インフラの作成
+terraform init
+terraform plan -var-file=terraform.tfvars
+terraform apply -var-file=terraform.tfvars
 ```
 
-## 🛠️ デプロイメントスクリプト
+### 3. アプリケーションのデプロイ
 
-### 主要スクリプト
+#### Dockerイメージのビルド
 
-#### `terraform-init.sh`
-環境別Terraform初期化
 ```bash
-./scripts/terraform-init.sh [dev|prod]
+# Dockerイメージのビルド
+docker build -t imgstream:latest .
+
+# イメージのタグ付け（Container Registryを使用する場合）
+docker tag imgstream:latest gcr.io/$GOOGLE_CLOUD_PROJECT/imgstream:latest
+
+# イメージのプッシュ
+docker push gcr.io/$GOOGLE_CLOUD_PROJECT/imgstream:latest
 ```
 
-#### `setup-github-oidc.sh`
-OIDC認証自動セットアップ
+#### Cloud Runへのデプロイ（推奨）
+
 ```bash
-./scripts/setup-github-oidc.sh
+# Cloud Runサービスのデプロイ
+gcloud run deploy imgstream \
+    --image gcr.io/$GOOGLE_CLOUD_PROJECT/imgstream:latest \
+    --platform managed \
+    --region asia-northeast1 \
+    --allow-unauthenticated \
+    --set-env-vars ENVIRONMENT=production \
+    --set-env-vars GOOGLE_CLOUD_PROJECT=$GOOGLE_CLOUD_PROJECT \
+    --set-env-vars GCS_BUCKET_NAME=your-prod-bucket-name \
+    --memory 2Gi \
+    --cpu 2 \
+    --max-instances 10
 ```
 
-#### `build-image.sh`
-Dockerイメージビルド
+#### Compute Engineへのデプロイ
+
 ```bash
-./scripts/build-image.sh -p PROJECT_ID -t TAG [--push]
+# VMインスタンスの作成
+gcloud compute instances create imgstream-app \
+    --zone=asia-northeast1-a \
+    --machine-type=e2-standard-2 \
+    --image-family=ubuntu-2004-lts \
+    --image-project=ubuntu-os-cloud \
+    --boot-disk-size=50GB \
+    --service-account=imgstream-app@$GOOGLE_CLOUD_PROJECT.iam.gserviceaccount.com \
+    --scopes=cloud-platform
+
+# アプリケーションのデプロイ
+gcloud compute scp --recurse . imgstream-app:~/imgstream --zone=asia-northeast1-a
+gcloud compute ssh imgstream-app --zone=asia-northeast1-a --command="cd ~/imgstream && docker-compose up -d"
 ```
 
-#### `deploy-cloud-run.sh`
-Cloud Runデプロイ
+## 設定管理
+
+### 1. 環境別設定
+
+#### Streamlit設定
+
+`.streamlit/config.toml`:
+```toml
+[server]
+port = 8501
+address = "0.0.0.0"
+maxUploadSize = 200
+
+[theme]
+primaryColor = "#FF6B6B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+
+[browser]
+gatherUsageStats = false
+```
+
+#### シークレット管理
+
+`.streamlit/secrets.toml`:
+```toml
+# 本番環境では環境変数またはSecret Managerを使用
+[gcp]
+project_id = "your-project-id"
+bucket_name = "your-bucket-name"
+
+[database]
+type = "postgresql"
+url = "postgresql://user:password@host:port/database"
+
+[monitoring]
+enabled = true
+retention_days = 90
+```
+
+### 2. ログ設定
+
+#### ログレベルの設定
+
+```python
+# logging.conf
+[loggers]
+keys=root,imgstream
+
+[handlers]
+keys=consoleHandler,fileHandler
+
+[formatters]
+keys=simpleFormatter,detailedFormatter
+
+[logger_root]
+level=INFO
+handlers=consoleHandler
+
+[logger_imgstream]
+level=DEBUG
+handlers=consoleHandler,fileHandler
+qualname=imgstream
+propagate=0
+
+[handler_consoleHandler]
+class=StreamHandler
+level=INFO
+formatter=simpleFormatter
+args=(sys.stdout,)
+
+[handler_fileHandler]
+class=FileHandler
+level=DEBUG
+formatter=detailedFormatter
+args=('imgstream.log',)
+
+[formatter_simpleFormatter]
+format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
+
+[formatter_detailedFormatter]
+format=%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s
+```
+
+## 監視とメンテナンス
+
+### 1. ヘルスチェック
+
+#### アプリケーションヘルスチェック
+
 ```bash
-./scripts/deploy-cloud-run.sh -p PROJECT_ID -e ENVIRONMENT -i IMAGE_TAG
+# ヘルスチェックエンドポイント
+curl http://your-app-url/health
+
+# 期待されるレスポンス
+{
+    "status": "healthy",
+    "timestamp": "2025-01-01T00:00:00Z",
+    "version": "1.0.0",
+    "services": {
+        "database": "healthy",
+        "storage": "healthy",
+        "monitoring": "healthy"
+    }
+}
 ```
 
-#### `deploy-production.sh`
-本番環境完全デプロイ
+#### データベースヘルスチェック
+
 ```bash
-./scripts/deploy-production.sh -p PROJECT_ID -i IMAGE_TAG [OPTIONS]
+# 開発環境でのデータベース状態確認
+curl -X POST http://localhost:8501/api/admin/database/status \
+    -H "Content-Type: application/json" \
+    -d '{"user_id": "admin"}'
 ```
 
-### スクリプトオプション
+### 2. ログ監視
 
-各スクリプトの詳細なオプションについては、`-h`フラグで確認：
+#### Cloud Loggingでの監視
+
 ```bash
-./scripts/deploy-cloud-run.sh -h
+# エラーログの確認
+gcloud logging read "resource.type=cloud_run_revision AND severity>=ERROR" \
+    --limit=50 \
+    --format="table(timestamp,severity,textPayload)"
+
+# 衝突検出イベントの監視
+gcloud logging read "resource.type=cloud_run_revision AND textPayload:collision_detected" \
+    --limit=100
 ```
 
-## 🔧 トラブルシューティング
+### 3. パフォーマンス監視
 
-### よくある問題
+#### メトリクスの確認
 
-#### 1. 認証エラー
+```python
+# 衝突検出パフォーマンスの監視
+from imgstream.monitoring.collision_monitor import get_collision_monitor
+
+monitor = get_collision_monitor()
+stats = monitor.get_collision_statistics("user_id")
+print(f"Average detection time: {stats['collision_metrics']['average_detection_time_ms']}ms")
+```
+
+### 4. 定期メンテナンス
+
+#### キャッシュクリア
+
 ```bash
-# ユーザー認証
-gcloud auth login
-
-# Application Default Credentials設定（Terraform/スクリプト用）
-gcloud auth application-default login
-
-# 認証状態確認
-gcloud auth list
-gcloud auth application-default print-access-token
-
-# プロジェクト設定確認
-gcloud config get-value project
+# 定期的なキャッシュクリア（cronジョブとして設定）
+0 2 * * * /usr/local/bin/python -c "from imgstream.utils.collision_detection import clear_collision_cache; clear_collision_cache()"
 ```
 
-#### 2. API未有効化
+#### 古いイベントの削除
+
 ```bash
-# 必要なAPIを有効化
-gcloud services enable run.googleapis.com
+# 古い監視イベントの削除
+0 3 * * 0 /usr/local/bin/python -c "
+from imgstream.monitoring.collision_monitor import get_collision_monitor
+from datetime import timedelta
+monitor = get_collision_monitor()
+monitor.clear_old_events(timedelta(days=30))
+"
 ```
 
-#### 3. 権限不足
+## トラブルシューティング
+
+### 1. 一般的な問題
+
+#### 衝突検出が動作しない
+
 ```bash
-# 権限確認
-gcloud projects get-iam-policy $PROJECT_ID
+# キャッシュの確認
+python -c "from imgstream.utils.collision_detection import get_collision_cache_stats; print(get_collision_cache_stats())"
+
+# キャッシュのクリア
+python -c "from imgstream.utils.collision_detection import clear_collision_cache; clear_collision_cache()"
 ```
 
-#### 4. イメージが見つからない
+#### データベース接続エラー
+
 ```bash
-# イメージビルド・プッシュ
-./scripts/build-image.sh -p $PROJECT_ID -t latest --push
+# 開発環境でのデータベースリセット
+curl -X POST http://localhost:8501/api/admin/database/reset \
+    -H "Content-Type: application/json" \
+    -d '{"user_id": "admin", "confirm_reset": true}'
 ```
 
-### ログ確認
+### 2. パフォーマンス問題
+
+#### 衝突検出の最適化
+
+```python
+# バッチサイズの調整
+from imgstream.utils.collision_detection import check_filename_collisions_optimized
+
+# 大量ファイルの場合はバッチサイズを増やす
+results = check_filename_collisions_optimized(
+    user_id="user_id",
+    filenames=large_file_list,
+    batch_size=500  # デフォルト100から増加
+)
+```
+
+### 3. セキュリティ問題
+
+#### 本番環境での管理機能の無効化
+
 ```bash
-# Cloud Runログ
-gcloud logs read "resource.type=cloud_run_revision" --limit=50
+# 環境変数の確認
+echo $ENVIRONMENT  # "production"であることを確認
 
-# Dockerビルドログ（ローカル）
-docker build --progress=plain -t asia-northeast1-docker.pkg.dev/$PROJECT_ID/imgstream/imgstream:latest .
-
-# サービス状態
-gcloud run services describe imgstream-production --region=us-central1
+# 管理機能が無効化されていることの確認
+python -c "from imgstream.api.database_admin import is_development_environment; print(is_development_environment())"
 ```
 
-### ヘルスチェック
+## バックアップとリストア
+
+### 1. データベースバックアップ
+
 ```bash
-# アプリケーションヘルス
-curl https://your-service-url/health
+# DuckDBファイルのバックアップ
+cp ./data/imgstream.db ./backups/imgstream_$(date +%Y%m%d_%H%M%S).db
 
-# サービス状態確認
-./scripts/deployment-monitor.sh status
+# GCSへのバックアップアップロード
+gsutil cp ./backups/imgstream_*.db gs://your-backup-bucket/database/
 ```
 
-## 📊 監視とメンテナンス
+### 2. 設定ファイルのバックアップ
 
-### 監視設定
 ```bash
-# 監視・アラート設定
-./scripts/setup-monitoring.sh -p $PROJECT_ID -e production
+# 重要な設定ファイルのバックアップ
+tar -czf config_backup_$(date +%Y%m%d_%H%M%S).tar.gz \
+    .env \
+    .streamlit/ \
+    terraform/ \
+    docker-compose.yml
 ```
 
-### 定期メンテナンス
-- 依存関係の更新（月次）
-- セキュリティパッチ適用
-- パフォーマンス監視
-- コスト最適化レビュー
+## セキュリティ考慮事項
 
-## 🔗 関連ドキュメント
+### 1. 認証・認可
 
-- [アーキテクチャガイド](ARCHITECTURE.md)
-- [開発ガイド](DEVELOPMENT.md)
-- [品質チェックガイド](QUALITY_CHECK.md)
-- [トラブルシューティング](TROUBLESHOOTING.md)
-- [GitHub OIDC設定](GITHUB_OIDC_SETUP.md)
+- すべてのAPIエンドポイントで適切な認証を実装
+- 管理機能は開発環境でのみ有効化
+- サービスアカウントの最小権限の原則を適用
 
----
+### 2. データ保護
 
-このガイドは、ImgStreamの完全なデプロイメントプロセスをカバーしています。追加の質問や問題がある場合は、[トラブルシューティングガイド](TROUBLESHOOTING.md)を参照するか、GitHubでIssueを作成してください。
+- 機密情報は環境変数またはSecret Managerで管理
+- データベースファイルの適切な権限設定
+- ログファイルに機密情報を含めない
+
+### 3. ネットワークセキュリティ
+
+- HTTPSの強制使用
+- 適切なCORSポリシーの設定
+- ファイアウォールルールの適切な設定
+
+## 更新とロールバック
+
+### 1. アプリケーション更新
+
+```bash
+# 新しいバージョンのデプロイ
+docker build -t imgstream:v1.1.0 .
+docker tag imgstream:v1.1.0 gcr.io/$GOOGLE_CLOUD_PROJECT/imgstream:v1.1.0
+docker push gcr.io/$GOOGLE_CLOUD_PROJECT/imgstream:v1.1.0
+
+# Cloud Runサービスの更新
+gcloud run deploy imgstream \
+    --image gcr.io/$GOOGLE_CLOUD_PROJECT/imgstream:v1.1.0 \
+    --platform managed \
+    --region asia-northeast1
+```
+
+### 2. ロールバック
+
+```bash
+# 前のバージョンへのロールバック
+gcloud run deploy imgstream \
+    --image gcr.io/$GOOGLE_CLOUD_PROJECT/imgstream:v1.0.0 \
+    --platform managed \
+    --region asia-northeast1
+```
+
+## サポートとドキュメント
+
+- [API仕様書](./api_specification.md)
+- [ユーザーガイド](./collision_handling_user_guide.md)
+- [データベースリセットガイド](./database_reset_guide.md)
+- [トラブルシューティングガイド](./troubleshooting_guide.md)

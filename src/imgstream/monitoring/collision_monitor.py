@@ -1,6 +1,69 @@
-"""Comprehensive monitoring and logging for collision detection operations."""
+"""
+Comprehensive monitoring and logging for collision detection operations.
+
+This module provides detailed monitoring and analytics capabilities for the
+filename collision detection and resolution system. It tracks various metrics
+and events to help understand system performance and user behavior patterns.
+
+Key Features:
+1. Event Tracking: Records all collision detection events with timestamps
+2. Performance Monitoring: Tracks processing times and system performance
+3. User Behavior Analytics: Monitors user decision patterns and preferences
+4. Statistical Analysis: Provides comprehensive statistics and trends
+5. Data Retention: Automatic cleanup of old events to manage memory usage
+
+Event Types:
+- CollisionEvent: Tracks collision detection and resolution events
+- OverwriteEvent: Monitors file overwrite operations
+- UserDecisionEvent: Records user choices for collision resolution
+- BatchProcessingEvent: Tracks batch operation performance
+
+Monitoring Categories:
+1. Collision Metrics:
+   - Total collisions detected
+   - Average detection time
+   - Resolution success rate
+   - Fallback usage statistics
+
+2. User Decision Metrics:
+   - Overwrite vs skip preferences
+   - Decision response times
+   - Pattern analysis by user
+
+3. Performance Metrics:
+   - Processing times by batch size
+   - Cache hit rates
+   - Database query performance
+   - Memory usage patterns
+
+4. System Health Metrics:
+   - Error rates and types
+   - Recovery success rates
+   - Resource utilization
+
+Usage Examples:
+    # Log a collision detection event
+    log_collision_detected("user123", "photo.jpg", "existing_456", 150.0)
+    
+    # Log user decision
+    log_user_decision("user123", "photo.jpg", "overwrite", 2000.0)
+    
+    # Get comprehensive statistics
+    monitor = get_collision_monitor()
+    stats = monitor.get_collision_statistics("user123")
+    
+    # Clean up old events
+    monitor.clear_old_events(timedelta(days=30))
+
+Data Privacy:
+- All monitoring data is anonymized where possible
+- Personal information is not stored in monitoring events
+- Data retention policies are enforced automatically
+- Users can request data deletion through admin functions
+"""
 
 import structlog
+import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
@@ -14,7 +77,29 @@ logger = structlog.get_logger(__name__)
 
 @dataclass
 class CollisionEvent:
-    """Represents a collision detection event."""
+    """
+    Represents a collision detection event with comprehensive metadata.
+    
+    This class captures all relevant information about a collision detection
+    event, including timing, user context, and resolution details. Events
+    are used for analytics, debugging, and performance monitoring.
+    
+    Attributes:
+        user_id: Unique identifier for the user
+        filename: Name of the file that caused the collision
+        event_type: Type of event ('detected', 'resolved', 'skipped', 'overwritten')
+        timestamp: When the event occurred
+        existing_photo_id: ID of the existing photo that caused the collision
+        user_decision: User's decision for resolving the collision
+        processing_time_ms: Time taken to process the collision in milliseconds
+        metadata: Additional context-specific information
+    
+    Event Types:
+        - 'detected': Collision was detected during filename check
+        - 'resolved': Collision was successfully resolved by user action
+        - 'skipped': User chose to skip the conflicting file
+        - 'overwritten': User chose to overwrite the existing file
+    """
     user_id: str
     filename: str
     event_type: str  # 'detected', 'resolved', 'skipped', 'overwritten'
@@ -25,7 +110,12 @@ class CollisionEvent:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert event to dictionary for logging."""
+        """
+        Convert event to dictionary for logging and serialization.
+        
+        Returns:
+            Dictionary representation of the event suitable for JSON serialization
+        """
         return {
             "user_id": self.user_id,
             "filename": self.filename,
@@ -40,7 +130,28 @@ class CollisionEvent:
 
 @dataclass
 class OverwriteEvent:
-    """Represents an overwrite operation event."""
+    """
+    Represents an overwrite operation event with detailed tracking.
+    
+    This class tracks file overwrite operations, including success/failure
+    status, performance metrics, and fallback information. It's essential
+    for monitoring the reliability of overwrite operations.
+    
+    Attributes:
+        user_id: Unique identifier for the user
+        filename: Name of the file being overwritten
+        original_photo_id: ID of the original photo being replaced
+        operation_type: Result of the operation ('success', 'failure', 'fallback')
+        timestamp: When the operation occurred
+        processing_time_ms: Time taken for the operation in milliseconds
+        fallback_filename: Alternative filename used if fallback was triggered
+        error_details: Additional error information for failed operations
+    
+    Operation Types:
+        - 'success': Overwrite completed successfully
+        - 'failure': Overwrite failed due to error
+        - 'fallback': Fallback mechanism was used due to primary failure
+    """
     user_id: str
     filename: str
     original_photo_id: str
@@ -48,6 +159,7 @@ class OverwriteEvent:
     timestamp: datetime = field(default_factory=datetime.now)
     processing_time_ms: Optional[float] = None
     fallback_filename: Optional[str] = None
+    error_details: Optional[str] = None
     error_message: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 

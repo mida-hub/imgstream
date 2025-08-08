@@ -12,7 +12,10 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None
 import pytest
 from PIL import Image
 
@@ -229,6 +232,9 @@ class TestLoadPerformance(E2ETestBase):
         user = test_users["user1"]
         mock_services = self.setup_mock_services(user)
 
+        if psutil is None:
+            pytest.skip("psutil not available")
+            
         # Get initial memory usage
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss

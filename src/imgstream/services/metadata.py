@@ -1,11 +1,62 @@
-"""Metadata service for managing photo metadata with DuckDB."""
+"""
+Metadata service for managing photo metadata with DuckDB and collision detection.
+
+This module provides comprehensive metadata management functionality for the
+ImgStream application, including:
+
+1. Photo metadata storage and retrieval using DuckDB
+2. Filename collision detection and resolution
+3. GCS synchronization for data persistence
+4. Database integrity validation and recovery
+5. Performance optimization through caching and batch operations
+
+Key Features:
+- Efficient filename collision detection with batch processing
+- Automatic database synchronization with Google Cloud Storage
+- Comprehensive error handling and recovery mechanisms
+- Performance monitoring and logging
+- Thread-safe operations for concurrent access
+- Database integrity validation and repair
+
+Collision Detection:
+The service provides multiple methods for detecting filename collisions:
+- check_filename_exists(): Single file collision check
+- check_multiple_filename_exists(): Batch collision check (optimized)
+- Automatic fallback mechanisms for error recovery
+
+Database Operations:
+- save_or_update_photo_metadata(): Save new or update existing metadata
+- force_reload_from_gcs(): Reset local database from GCS backup
+- validate_database_integrity(): Check and repair database consistency
+
+Performance Considerations:
+- Batch operations are preferred for large datasets
+- Database connections are pooled and reused
+- GCS synchronization runs asynchronously
+- Collision detection results can be cached
+
+Usage Examples:
+    # Initialize service
+    service = MetadataService(user_id="user123")
+    
+    # Check for filename collision
+    collision = service.check_filename_exists("photo.jpg")
+    if collision:
+        print(f"Collision detected with photo ID: {collision['existing_photo'].id}")
+    
+    # Batch collision detection
+    collisions = service.check_multiple_filename_exists(["photo1.jpg", "photo2.jpg"])
+    
+    # Save metadata with overwrite support
+    result = service.save_or_update_photo_metadata(photo_metadata, is_overwrite=True)
+"""
 
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from google.cloud.exceptions import NotFound
 
@@ -23,7 +74,16 @@ _sync_executor_lock = threading.Lock()
 
 
 def get_sync_executor() -> ThreadPoolExecutor:
-    """Get or create the global sync executor."""
+    """
+    Get or create the global sync executor for asynchronous operations.
+    
+    This executor is used for background tasks such as GCS synchronization
+    and database maintenance operations. It uses a limited number of threads
+    to prevent resource exhaustion.
+    
+    Returns:
+        ThreadPoolExecutor instance for async operations
+    """
     global _sync_executor
     if _sync_executor is None:
         with _sync_executor_lock:
@@ -33,7 +93,12 @@ def get_sync_executor() -> ThreadPoolExecutor:
 
 
 def shutdown_sync_executor() -> None:
-    """Shutdown the global sync executor."""
+    """
+    Shutdown the global sync executor gracefully.
+    
+    This should be called during application shutdown to ensure
+    all background tasks complete properly and resources are cleaned up.
+    """
     global _sync_executor
     if _sync_executor is not None:
         with _sync_executor_lock:
@@ -47,7 +112,28 @@ MetadataError = DatabaseError
 
 
 class MetadataService:
-    """Service for managing photo metadata with DuckDB and GCS synchronization."""
+    """
+    Service for managing photo metadata with DuckDB and GCS synchronization.
+    
+    This service provides comprehensive metadata management functionality including:
+    - Photo metadata storage and retrieval
+    - Filename collision detection and resolution
+    - Database synchronization with Google Cloud Storage
+    - Performance optimization through caching and batch operations
+    - Error handling and recovery mechanisms
+    
+    The service is designed to be thread-safe and supports concurrent access
+    from multiple users and operations.
+    
+    Attributes:
+        user_id: Unique identifier for the user
+        db_manager: Database manager instance for this user
+        storage_service: GCS storage service instance
+        
+    Thread Safety:
+        All public methods are thread-safe and can be called concurrently.
+        Internal database operations use appropriate locking mechanisms.
+    """
 
     def __init__(self, user_id: str, temp_dir: str = "/tmp"):  # nosec B108
         """
