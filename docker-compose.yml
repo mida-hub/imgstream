@@ -9,12 +9,13 @@ services:
       - .env
     environment:
       - PYTHONPATH=/app/src
+      - GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/key.json
     volumes:
       # Mount source code for development
       - ./src:/app/src:ro
       # Mount temporary directory for DuckDB files
       - ./imgstream_tmp:/tmp
-      - ~/.config/gcloud:/root/.config/gcloud:ro
+      - ./terraform/local/output/secrets/sa-key-imgstream-cloud-run-local.json:/etc/secrets/key.json:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -44,11 +45,12 @@ services:
       - DEV_USER_ID=dev-local-001
       # Disable Cloud IAP requirements for local development
       - SKIP_IAP_AUTH=true
+      - GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/key.json
     volumes:
       - ./src:/app/src
       - ./tests:/app/tests
       - ./.streamlit:/app/.streamlit
       - ./imgstream_tmp:/tmp
-      - ~/.config/gcloud:/root/.config/gcloud:ro
+      - ./terraform/local/output/secrets/sa-key-imgstream-cloud-run-local.json:/etc/secrets/key.json:ro
     profiles:
       - dev
