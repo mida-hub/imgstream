@@ -1224,6 +1224,419 @@ class MetadataService:
         except Exception as e:
             raise MetadataError(f"Failed to search photos by filename: {e}") from e
 
+    def force_reload_from_gcs(self, confirm_reset: bool = False) -> dict[str, Any]:
+        """
+        Force reload database from GCS by deleting local database and re-downloading.
+        
+        This is a destructive operation that will:
+        1. Close current database connections
+        2. Delete local database file
+        3. Re-download database from GCS
+        4. Reinitialize database connections
+        
+        Args:
+            confirm_reset: Must be True to confirm the destructive operation
+            
+        Returns:
+            dict: Reset operation result with status and details
+            
+        Raises:
+            MetadataError: If reset operation fails or not confirmed
+        """
+        if not confirm_reset:
+            raise MetadataError(
+                "Database reset requires explicit confirmation. "
+                "Set confirm_reset=True to proceed with destructive operation."
+            )
+        
+        reset_start_time = time.perf_counter()
+        
+        logger.warning(
+            "database_reset_initiated",
+            user_id=self.user_id,
+            local_db_path=str(self.local_db_path),
+            gcs_db_path=self.gcs_db_path,
+        )
+        
+        # Log user action for audit trail
+        log_user_action(
+            self.user_id,
+            "database_reset_initiated",
+            local_db_path=str(self.local_db_path),
+            gcs_db_path=self.gcs_db_path,
+        )
+        
+        try:
+            # Step 1: Close and cleanup current database connections
+            if self._db_manager is not None:
+                try:
+                    self._db_manager.close()
+                    logger.info("database_connections_closed", user_id=self.user_id)
+                except Exception as e:
+                    logger.warning(
+                        "database_close_warning",
+                        user_id=self.user_id,
+                        error=str(e),
+                    )
+                finally:
+                    self._db_manager = None
+            
+            # Step 2: Delete local database file if it exists
+            local_db_deleted = False
+            if self.local_db_path.exists():
+                try:
+                    self.local_db_path.unlink()
+                    local_db_deleted = True
+                    logger.info(
+                        "local_database_deleted",
+                        user_id=self.user_id,
+                        db_path=str(self.local_db_path),
+                    )
+                except Exception as e:
+                    logger.error(
+                        "local_database_deletion_failed",
+                        user_id=self.user_id,
+                        db_path=str(self.local_db_path),
+                        error=str(e),
+                    )
+                    raise MetadataError(f"Failed to delete local database: {e}") from e
+            else:
+                logger.info(
+                    "local_database_not_found",
+                    user_id=self.user_id,
+                    db_path=str(self.local_db_path),
+                )
+            
+            # Step 3: Reset sync state
+            with self._sync_lock:
+                self._last_sync_time = None
+                self._sync_pending = False
+            
+            # Step 4: Check GCS database existence BEFORE deletion
+            download_successful = False
+            gcs_database_exists = False
+            
+            try:
+                # Check if GCS database exists
+                gcs_database_exists = self.storage_service.file_exists(self.gcs_db_path)
+                
+                if not gcs_database_exists:
+                    logger.warning(
+                        "gcs_database_not_found_data_loss_risk",
+                        user_id=self.user_id,
+                        gcs_path=self.gcs_db_path,
+                        local_db_exists=local_db_deleted,
+                        message="GCS database does not exist. Reset will result in data loss!",
+                    )
+                    
+                    # In development environment, we might proceed with creating a new database
+                    # In production, this should be more restrictive
+                    import os
+                    environment = os.getenv("ENVIRONMENT", "production").lower()
+                    
+                    if environment not in ["development", "dev", "test", "testing"]:
+                        raise MetadataError(
+                            f"Cannot reset database: GCS backup does not exist at {self.gcs_db_path}. "
+                            "This would result in permanent data loss. "
+                            "Please ensure GCS database exists before resetting."
+                        )
+                    
+                    logger.warning(
+                        "proceeding_with_reset_in_dev_environment",
+                        user_id=self.user_id,
+                        environment=environment,
+                        message="Proceeding with reset in development environment despite missing GCS backup",
+                    )
+                
+                if gcs_database_exists:
+                    # Download from GCS
+                    gcs_data = self.storage_service.download_file(self.gcs_db_path)
+                    
+                    # Write to local file
+                    with open(self.local_db_path, "wb") as f:
+                        f.write(gcs_data)
+                    
+                    download_successful = True
+                    logger.info(
+                        "database_downloaded_from_gcs",
+                        user_id=self.user_id,
+                        gcs_path=self.gcs_db_path,
+                        local_path=str(self.local_db_path),
+                        file_size=len(gcs_data),
+                    )
+                else:
+                    logger.warning(
+                        "gcs_database_not_found_creating_new",
+                        user_id=self.user_id,
+                        gcs_path=self.gcs_db_path,
+                        message="Creating new empty database as GCS backup does not exist",
+                    )
+                    
+            except Exception as e:
+                logger.error(
+                    "database_download_failed",
+                    user_id=self.user_id,
+                    gcs_path=self.gcs_db_path,
+                    error=str(e),
+                )
+                # Continue with creating new database
+            
+            # Step 5: Initialize new database
+            try:
+                # This will create a new database if none exists
+                self.ensure_local_database()
+                
+                # Verify database is working
+                conn = self.db_manager.connect()
+                result = conn.execute("SELECT COUNT(*) FROM photos WHERE user_id = ?", (self.user_id,))
+                photo_count = result.fetchone()[0]
+                
+                logger.info(
+                    "database_reinitialized",
+                    user_id=self.user_id,
+                    photo_count=photo_count,
+                )
+                
+            except Exception as e:
+                logger.error(
+                    "database_reinitialization_failed",
+                    user_id=self.user_id,
+                    error=str(e),
+                )
+                raise MetadataError(f"Failed to reinitialize database: {e}") from e
+            
+            # Calculate reset duration
+            reset_duration = time.perf_counter() - reset_start_time
+            
+            # Prepare result with appropriate message
+            if gcs_database_exists and download_successful:
+                message = "Database successfully reset and reloaded from GCS"
+            elif gcs_database_exists and not download_successful:
+                message = "Database reset completed, but GCS download failed. New empty database created."
+            else:
+                message = "Database reset completed. WARNING: No GCS backup found - new empty database created."
+            
+            result = {
+                "success": True,
+                "operation": "database_reset",
+                "user_id": self.user_id,
+                "local_db_deleted": local_db_deleted,
+                "gcs_database_exists": gcs_database_exists,
+                "download_successful": download_successful,
+                "reset_duration_seconds": reset_duration,
+                "message": message,
+                "data_loss_risk": not gcs_database_exists,
+            }
+            
+            # Log successful reset
+            logger.info(
+                "database_reset_completed",
+                duration_seconds=reset_duration,
+                **result,
+            )
+            
+            # Log user action for audit trail
+            result_without_user_id = {k: v for k, v in result.items() if k != "user_id"}
+            log_user_action(
+                self.user_id,
+                "database_reset_completed",
+                duration_seconds=reset_duration,
+                **result_without_user_id,
+            )
+            
+            return result
+            
+        except Exception as e:
+            reset_duration = time.perf_counter() - reset_start_time
+            
+            logger.error(
+                "database_reset_failed",
+                user_id=self.user_id,
+                duration_seconds=reset_duration,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            
+            # Log failed reset for audit trail
+            log_user_action(
+                self.user_id,
+                "database_reset_failed",
+                duration_seconds=reset_duration,
+                error=str(e),
+            )
+            
+            raise MetadataError(f"Database reset failed: {e}") from e
+
+    def get_database_info(self) -> dict[str, Any]:
+        """
+        Get information about the current database state.
+        
+        Returns:
+            dict: Database information including file paths, sizes, and metadata
+        """
+        try:
+            info = {
+                "user_id": self.user_id,
+                "local_db_path": str(self.local_db_path),
+                "gcs_db_path": self.gcs_db_path,
+                "local_db_exists": self.local_db_path.exists(),
+                "local_db_size": None,
+                "gcs_db_exists": None,
+                "photo_count": None,
+                "last_sync_time": self._last_sync_time.isoformat() if self._last_sync_time else None,
+                "sync_enabled": self._sync_enabled,
+            }
+            
+            # Get local database size
+            if info["local_db_exists"]:
+                info["local_db_size"] = self.local_db_path.stat().st_size
+            
+            # Check GCS database existence
+            try:
+                info["gcs_db_exists"] = self.storage_service.file_exists(self.gcs_db_path)
+            except Exception as e:
+                logger.warning(
+                    "gcs_database_check_failed",
+                    user_id=self.user_id,
+                    error=str(e),
+                )
+                info["gcs_db_exists"] = None
+            
+            # Get photo count
+            try:
+                if self._db_manager is not None:
+                    conn = self.db_manager.connect()
+                    result = conn.execute("SELECT COUNT(*) FROM photos WHERE user_id = ?", (self.user_id,))
+                    info["photo_count"] = result.fetchone()[0]
+            except Exception as e:
+                logger.warning(
+                    "photo_count_check_failed",
+                    user_id=self.user_id,
+                    error=str(e),
+                )
+                info["photo_count"] = None
+            
+            return info
+            
+        except Exception as e:
+            logger.error(
+                "database_info_retrieval_failed",
+                user_id=self.user_id,
+                error=str(e),
+            )
+            raise MetadataError(f"Failed to get database info: {e}") from e
+
+    def validate_database_integrity(self) -> dict[str, Any]:
+        """
+        Validate database integrity and consistency.
+        
+        Returns:
+            dict: Validation results with integrity status and any issues found
+        """
+        try:
+            validation_start = time.perf_counter()
+            issues = []
+            
+            logger.info("database_integrity_validation_started", user_id=self.user_id)
+            
+            # Ensure database exists
+            if not self.local_db_path.exists():
+                issues.append("Local database file does not exist")
+                return {
+                    "valid": False,
+                    "issues": issues,
+                    "validation_duration_seconds": time.perf_counter() - validation_start,
+                }
+            
+            conn = self.db_manager.connect()
+            
+            # Check table existence (DuckDB specific)
+            try:
+                result = conn.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'photos'")
+                table_count = result.fetchone()[0]
+                if table_count == 0:
+                    issues.append("Photos table does not exist")
+            except Exception:
+                # Fallback: try to query the table directly
+                try:
+                    conn.execute("SELECT 1 FROM photos LIMIT 1")
+                except Exception:
+                    issues.append("Photos table does not exist")
+            
+            # Check for orphaned records (photos without user_id)
+            result = conn.execute("SELECT COUNT(*) FROM photos WHERE user_id IS NULL OR user_id = ''")
+            orphaned_count = result.fetchone()[0]
+            if orphaned_count > 0:
+                issues.append(f"Found {orphaned_count} orphaned records without user_id")
+            
+            # Check for duplicate filenames for this user
+            result = conn.execute("""
+                SELECT filename, COUNT(*) as count 
+                FROM photos 
+                WHERE user_id = ? 
+                GROUP BY filename 
+                HAVING COUNT(*) > 1
+            """, (self.user_id,))
+            
+            duplicates = result.fetchall()
+            if duplicates:
+                duplicate_files = [f"{row[0]} ({row[1]} copies)" for row in duplicates]
+                issues.append(f"Found duplicate filenames: {', '.join(duplicate_files)}")
+            
+            # Check for invalid file paths
+            result = conn.execute("""
+                SELECT COUNT(*) FROM photos 
+                WHERE user_id = ? AND (
+                    original_path IS NULL OR original_path = '' OR
+                    thumbnail_path IS NULL OR thumbnail_path = ''
+                )
+            """, (self.user_id,))
+            
+            invalid_paths = result.fetchone()[0]
+            if invalid_paths > 0:
+                issues.append(f"Found {invalid_paths} records with invalid file paths")
+            
+            # Check for future dates
+            result = conn.execute("""
+                SELECT COUNT(*) FROM photos 
+                WHERE user_id = ? AND (
+                    created_at > now() OR
+                    uploaded_at > now()
+                )
+            """, (self.user_id,))
+            
+            future_dates = result.fetchone()[0]
+            if future_dates > 0:
+                issues.append(f"Found {future_dates} records with future dates")
+            
+            validation_duration = time.perf_counter() - validation_start
+            is_valid = len(issues) == 0
+            
+            result = {
+                "valid": is_valid,
+                "issues": issues,
+                "validation_duration_seconds": validation_duration,
+                "user_id": self.user_id,
+            }
+            
+            logger.info(
+                "database_integrity_validation_completed",
+                user_id=self.user_id,
+                valid=is_valid,
+                issues_found=len(issues),
+                duration_seconds=validation_duration,
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(
+                "database_integrity_validation_failed",
+                user_id=self.user_id,
+                error=str(e),
+            )
+            raise MetadataError(f"Database integrity validation failed: {e}") from e
+
 
 # Global metadata service instances
 _metadata_services: dict[str, MetadataService] = {}

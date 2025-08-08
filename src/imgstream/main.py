@@ -15,6 +15,7 @@ from imgstream.ui.pages.gallery import render_gallery_page
 from imgstream.ui.pages.home import render_home_page
 from imgstream.ui.pages.settings import render_settings_page
 from imgstream.ui.pages.upload import render_upload_page
+from imgstream.api.database_admin import render_database_admin_panel as render_database_admin_page
 
 # Configure structured logging
 configure_structured_logging()
@@ -64,6 +65,19 @@ def render_main_content() -> None:
             render_gallery_page()
         elif current_page == "settings":
             render_settings_page()
+        elif current_page == "database_admin":
+            # Additional security check for database admin access
+            import os
+            environment = os.getenv("ENVIRONMENT", "production").lower()
+            if environment not in ["development", "dev", "local", "test", "testing"]:
+                error_display.display_error_message(
+                    "🚫 Database Admin パネルは開発環境でのみ利用可能です。"
+                )
+                if st.button("🏠 ホームに戻る", use_container_width=True, type="primary"):
+                    st.session_state.current_page = "home"
+                    st.rerun()
+            else:
+                render_database_admin_page()
         else:
             # Handle unknown page with better error message
             error_display.display_warning_message(f"ページ '{current_page}' が見つかりません。")

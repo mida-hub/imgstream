@@ -198,6 +198,16 @@ def render_sidebar() -> None:
 
             st.divider()
 
+            # Database Admin section (development only)
+            if _is_development_mode():
+                st.markdown("**🔧 Development Tools**")
+                
+                if st.button("🗄️ Database Admin", use_container_width=True, help="Manage database (dev only)"):
+                    st.session_state.current_page = "database_admin"
+                    st.rerun()
+                
+                st.divider()
+
             # Logout button
             if st.button("🚪 Logout", use_container_width=True, type="secondary"):
                 handle_logout()
@@ -231,5 +241,5 @@ def render_sidebar() -> None:
 
 def _is_development_mode() -> bool:
     """Check if running in development mode."""
-    environment = os.getenv("ENVIRONMENT", "development").lower()
-    return environment in ["development", "dev", "local"]
+    environment = os.getenv("ENVIRONMENT", "production").lower()
+    return environment in ["development", "dev", "local", "test", "testing"]
