@@ -66,7 +66,7 @@ class DevelopmentConsoleRenderer:
         file_info = ""
         if filename and lineno:
             # Show only the filename, not the full path
-            short_filename = filename.split('/')[-1] if '/' in filename else filename
+            short_filename = filename.split("/")[-1] if "/" in filename else filename
             file_info = f" [{short_filename}:{lineno}"
             if func_name:
                 file_info += f" in {func_name}()"
@@ -76,11 +76,11 @@ class DevelopmentConsoleRenderer:
         rendered = self.console_renderer(logger, method_name, event_dict_copy)
 
         # Add file info to the end of the first line with gray color
-        lines = rendered.split('\n')
+        lines = rendered.split("\n")
         if lines and file_info:
             lines[0] += f"\033[90m{file_info}\033[0m"  # Gray color for file info
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
 
 def get_log_level() -> int:

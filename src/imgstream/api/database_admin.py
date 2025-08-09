@@ -1,7 +1,7 @@
 """Database administration endpoints for development and testing."""
 
 import os
-from typing import Any, Dict
+from typing import Any
 
 import streamlit as st
 from datetime import datetime
@@ -15,6 +15,7 @@ logger = get_logger(__name__)
 
 class DatabaseAdminError(Exception):
     """Raised when database admin operations fail."""
+
     pass
 
 
@@ -33,7 +34,7 @@ def require_development_environment() -> None:
         )
 
 
-def reset_user_database(user_id: str, confirm_reset: bool = False) -> Dict[str, Any]:
+def reset_user_database(user_id: str, confirm_reset: bool = False) -> dict[str, Any]:
     """
     Reset database for a specific user (development/test only).
 
@@ -68,11 +69,13 @@ def reset_user_database(user_id: str, confirm_reset: bool = False) -> Dict[str, 
         result = metadata_service.force_reload_from_gcs(confirm_reset=True)
 
         # Add admin context to result
-        result.update({
-            "admin_operation": True,
-            "environment": os.getenv("ENVIRONMENT", "production"),
-            "reset_timestamp": datetime.now().isoformat(),
-        })
+        result.update(
+            {
+                "admin_operation": True,
+                "environment": os.getenv("ENVIRONMENT", "production"),
+                "reset_timestamp": datetime.now().isoformat(),
+            }
+        )
 
         logger.info(
             "admin_database_reset_completed",
@@ -90,7 +93,7 @@ def reset_user_database(user_id: str, confirm_reset: bool = False) -> Dict[str, 
         raise DatabaseAdminError(f"Database reset failed: {e}") from e
 
 
-def get_database_status(user_id: str) -> Dict[str, Any]:
+def get_database_status(user_id: str) -> dict[str, Any]:
     """
     Get database status for a user (development/test only).
 
@@ -199,22 +202,16 @@ def render_database_admin_panel() -> None:
     # Database reset section
     st.header("🗑️ Database Reset")
     st.error(
-        "⚠️ **DANGER ZONE**: Database reset will permanently delete all local data. "
-        "This action cannot be undone!"
+        "⚠️ **DANGER ZONE**: Database reset will permanently delete all local data. " "This action cannot be undone!"
     )
 
     # Confirmation checkbox
     confirm_reset = st.checkbox(
-        "I understand this will permanently delete all local data",
-        key="confirm_database_reset"
+        "I understand this will permanently delete all local data", key="confirm_database_reset"
     )
 
     # Reset button
-    if st.button(
-        "🔥 Reset Database",
-        disabled=not confirm_reset,
-        type="primary" if confirm_reset else "secondary"
-    ):
+    if st.button("🔥 Reset Database", disabled=not confirm_reset, type="primary" if confirm_reset else "secondary"):
         if not confirm_reset:
             st.error("Please confirm that you understand the consequences.")
             return
@@ -246,7 +243,8 @@ def render_database_admin_panel() -> None:
     st.header("ℹ️ Information")
 
     with st.expander("What does database reset do?"):
-        st.markdown("""
+        st.markdown(
+            """
         Database reset performs the following actions:
 
         1. **Deletes local database file** - Removes the local DuckDB file completely
@@ -259,11 +257,14 @@ def render_database_admin_panel() -> None:
         - Testing database synchronization
         - Starting fresh with clean state
         - Debugging database-related issues
-        """)
+        """
+        )
 
     with st.expander("Environment Information"):
-        st.markdown(f"""
+        st.markdown(
+            f"""
         - **Environment**: {os.getenv('ENVIRONMENT', 'production')}
         - **User ID**: {user_id}
         - **Admin Panel Available**: {is_development_environment()}
-        """)
+        """
+        )

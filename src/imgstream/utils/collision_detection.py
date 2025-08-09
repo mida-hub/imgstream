@@ -33,11 +33,10 @@ Performance Considerations:
 - Cache statistics can be monitored via get_collision_cache_stats()
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 import time
 import structlog
 import os
-from functools import lru_cache
 from datetime import datetime, timedelta
 
 from ..services.metadata import get_metadata_service, MetadataError
@@ -54,6 +53,7 @@ class CollisionDetectionRecoveryError(Exception):
     and fallback mechanisms fail, indicating a critical system issue
     that requires manual intervention.
     """
+
     pass
 
 
@@ -88,13 +88,13 @@ class CollisionCache:
                         or defaults to 300 seconds (5 minutes).
         """
         if ttl_seconds is None:
-            ttl_seconds = int(os.getenv('COLLISION_CACHE_TTL_SECONDS', 300))
+            ttl_seconds = int(os.getenv("COLLISION_CACHE_TTL_SECONDS", 300))
 
         self.cache = {}
         self.ttl_seconds = ttl_seconds
-        self.max_entries = int(os.getenv('COLLISION_CACHE_MAX_ENTRIES', 10000))
+        self.max_entries = int(os.getenv("COLLISION_CACHE_MAX_ENTRIES", 10000))
 
-    def _get_cache_key(self, user_id: str, filenames: List[str]) -> str:
+    def _get_cache_key(self, user_id: str, filenames: list[str]) -> str:
         """
         Generate a unique cache key for collision detection.
 
@@ -111,7 +111,7 @@ class CollisionCache:
         sorted_filenames = sorted(filenames)
         return f"{user_id}:{':'.join(sorted_filenames)}"
 
-    def get(self, user_id: str, filenames: List[str]) -> Optional[Dict[str, Any]]:
+    def get(self, user_id: str, filenames: list[str]) -> dict[str, Any] | None:
         """
         Get cached collision results if still valid.
 
@@ -337,7 +337,7 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
 
         # Use optimized batch collision detection if available
         try:
-            if hasattr(metadata_service, 'check_multiple_filename_exists'):
+            if hasattr(metadata_service, "check_multiple_filename_exists"):
                 collision_results = metadata_service.check_multiple_filename_exists(filenames)
 
                 # Log detected collisions
@@ -352,6 +352,7 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
                     # Log to collision monitor
                     try:
                         from ..monitoring.collision_monitor import log_collision_detected as log_collision_func
+
                         log_collision_func(
                             user_id=user_id,
                             filename=filename,
@@ -390,6 +391,7 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
                         # Log to collision monitor
                         try:
                             from ..monitoring.collision_monitor import log_collision_detected
+
                             log_collision_detected(
                                 user_id=user_id,
                                 filename=filename,
@@ -441,6 +443,7 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
 
         try:
             from ..monitoring.collision_monitor import log_batch_collision_detection
+
             log_batch_collision_detection(
                 user_id=user_id,
                 filenames=filenames,
@@ -536,8 +539,7 @@ def check_filename_collisions_with_fallback(
                 fallback_error=str(fallback_error),
             )
             raise CollisionDetectionError(
-                f"Both primary and fallback collision detection failed. "
-                f"Primary: {e}, Fallback: {fallback_error}"
+                f"Both primary and fallback collision detection failed. " f"Primary: {e}, Fallback: {fallback_error}"
             ) from e
 
 
@@ -860,7 +862,9 @@ def monitor_collision_detection_performance(func):
 # Apply performance monitoring to key functions
 check_filename_collisions = monitor_collision_detection_performance(check_filename_collisions)
 check_filename_collisions_with_retry = monitor_collision_detection_performance(check_filename_collisions_with_retry)
-check_filename_collisions_with_fallback = monitor_collision_detection_performance(check_filename_collisions_with_fallback)
+check_filename_collisions_with_fallback = monitor_collision_detection_performance(
+    check_filename_collisions_with_fallback
+)
 
 
 def optimize_collision_detection_query(filenames: list[str], batch_size: int = 100) -> list[list[str]]:
@@ -880,7 +884,7 @@ def optimize_collision_detection_query(filenames: list[str], batch_size: int = 1
     # Split filenames into batches for optimal query performance
     batches = []
     for i in range(0, len(filenames), batch_size):
-        batch = filenames[i:i + batch_size]
+        batch = filenames[i : i + batch_size]
         batches.append(batch)
 
     logger.debug(
@@ -893,7 +897,9 @@ def optimize_collision_detection_query(filenames: list[str], batch_size: int = 1
     return batches
 
 
-def check_filename_collisions_optimized(user_id: str, filenames: list[str], batch_size: int = 100) -> dict[str, dict[str, Any]]:
+def check_filename_collisions_optimized(
+    user_id: str, filenames: list[str], batch_size: int = 100
+) -> dict[str, dict[str, Any]]:
     """
     Optimized collision detection with batching and caching.
 

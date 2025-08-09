@@ -68,11 +68,10 @@ def render_main_content() -> None:
         elif current_page == "database_admin":
             # Additional security check for database admin access
             import os
+
             environment = os.getenv("ENVIRONMENT", "production").lower()
             if environment not in ["development", "dev", "local", "test", "testing"]:
-                error_display.display_error_message(
-                    "🚫 Database Admin パネルは開発環境でのみ利用可能です。"
-                )
+                error_display.display_error_message("🚫 Database Admin パネルは開発環境でのみ利用可能です。")
                 if st.button("🏠 ホームに戻る", use_container_width=True, type="primary"):
                     st.session_state.current_page = "home"
                     st.rerun()

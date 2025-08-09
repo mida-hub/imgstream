@@ -256,7 +256,7 @@ def render_photo_thumbnail(photo: dict[str, Any], size: str = "medium") -> None:
 
         if thumbnail_url:
             # Display thumbnail image
-            st.image(thumbnail_url, caption=photo.get("filename", "Unknown"), use_column_width=True)
+            st.image(thumbnail_url, caption=photo.get("filename", "Unknown"), use_container_width=True)
 
             # Photo info overlay
             creation_date = photo.get("created_at")
@@ -469,7 +469,7 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
     if original_url and show_original:
         try:
             # Display original image
-            st.image(original_url, caption=f"Original: {photo.get('filename', 'Unknown')}", use_column_width=True)
+            st.image(original_url, caption=f"Original: {photo.get('filename', 'Unknown')}", use_container_width=True)
 
             # Image info overlay
             if show_info_overlay:
@@ -485,7 +485,7 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
 
     elif thumbnail_url:
         # Display thumbnail as fallback
-        st.image(thumbnail_url, caption=f"Thumbnail: {photo.get('filename', 'Unknown')}", use_column_width=True)
+        st.image(thumbnail_url, caption=f"Thumbnail: {photo.get('filename', 'Unknown')}", use_container_width=True)
 
         if show_info_overlay:
             render_image_info_overlay(photo)

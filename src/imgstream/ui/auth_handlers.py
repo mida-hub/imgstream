@@ -201,11 +201,11 @@ def render_sidebar() -> None:
             # Database Admin section (development only)
             if _is_development_mode():
                 st.markdown("**🔧 Development Tools**")
-                
+
                 if st.button("🗄️ Database Admin", use_container_width=True, help="Manage database (dev only)"):
                     st.session_state.current_page = "database_admin"
                     st.rerun()
-                
+
                 st.divider()
 
             # Logout button

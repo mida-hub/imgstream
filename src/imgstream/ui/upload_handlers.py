@@ -13,11 +13,10 @@ from imgstream.services.metadata import get_metadata_service
 from imgstream.services.storage import get_storage_service
 from imgstream.ui.components import format_file_size
 from imgstream.utils.collision_detection import (
-    check_filename_collisions, 
     check_filename_collisions_with_fallback,
     check_filename_collisions_optimized,
     CollisionDetectionError,
-    CollisionDetectionRecoveryError
+    CollisionDetectionRecoveryError,
 )
 from imgstream.monitoring.collision_monitor import log_user_decision, log_collision_resolved
 
@@ -121,9 +120,7 @@ def validate_uploaded_files_with_collision_check(uploaded_files: list) -> tuple[
         # Use optimized collision detection for better performance
         if len(filenames) > 20:  # Use optimized version for larger batches
             try:
-                collision_results = check_filename_collisions_optimized(
-                    user_info.user_id, filenames, batch_size=50
-                )
+                collision_results = check_filename_collisions_optimized(user_info.user_id, filenames, batch_size=50)
                 fallback_used = False
             except (CollisionDetectionError, CollisionDetectionRecoveryError):
                 # Fall back to regular collision detection with fallback
@@ -164,7 +161,7 @@ def validate_uploaded_files_with_collision_check(uploaded_files: list) -> tuple[
             total_files=len(uploaded_files),
             error_type=type(e).__name__,
         )
-        
+
         # Provide user-friendly error message with recovery options
         error_details = _get_collision_detection_error_message(e)
         validation_errors.append(
@@ -174,10 +171,10 @@ def validate_uploaded_files_with_collision_check(uploaded_files: list) -> tuple[
                 "details": error_details,
                 "recovery_options": [
                     "しばらく待ってから再試行してください",
-                    "ファイル数を減らして再試行してください", 
+                    "ファイル数を減らして再試行してください",
                     "ネットワーク接続を確認してください",
-                    "問題が続く場合は管理者にお問い合わせください"
-                ]
+                    "問題が続く場合は管理者にお問い合わせください",
+                ],
             }
         )
         return valid_files, validation_errors, {}
@@ -189,7 +186,7 @@ def validate_uploaded_files_with_collision_check(uploaded_files: list) -> tuple[
             total_files=len(uploaded_files),
             error_type=type(e).__name__,
         )
-        
+
         # Continue without collision detection on unexpected errors
         validation_errors.append(
             {
@@ -199,8 +196,8 @@ def validate_uploaded_files_with_collision_check(uploaded_files: list) -> tuple[
                 "recovery_options": [
                     "アップロードを続行する（注意が必要）",
                     "ページを再読み込みして再試行する",
-                    "ファイルを個別にアップロードする"
-                ]
+                    "ファイルを個別にアップロードする",
+                ],
             }
         )
         return valid_files, validation_errors, {}
@@ -262,10 +259,9 @@ def render_file_validation_results_with_collisions(
     if collision_results:
         # Check if any collisions are in fallback mode
         fallback_collisions = [
-            filename for filename, info in collision_results.items() 
-            if info.get("fallback_mode", False)
+            filename for filename, info in collision_results.items() if info.get("fallback_mode", False)
         ]
-        
+
         if fallback_collisions:
             st.warning(f"⚠️ {len(collision_results)} file(s) have filename conflicts (安全モードで検出)")
             st.info(
@@ -284,7 +280,7 @@ def render_file_validation_results_with_collisions(
                 # Create a container for each collision
                 with st.container():
                     st.markdown(f"**📷 {filename}**")
-                    
+
                     # Show fallback warning if applicable
                     if collision_info.get("fallback_mode", False):
                         st.warning(f"⚠️ {collision_info.get('warning_message', '安全モードで検出されました')}")
@@ -299,7 +295,9 @@ def render_file_validation_results_with_collisions(
                             )
                             st.write(f"• ファイルサイズ: {format_file_size(existing_file_info['file_size'])}")
                             if existing_file_info["creation_date"]:
-                                st.write(f"• 作成日時: {existing_file_info['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
+                                st.write(
+                                    f"• 作成日時: {existing_file_info['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}"
+                                )
                         else:
                             st.write("• 詳細情報: 安全モードのため取得できません")
                             st.write("• 推奨: 上書きを選択する前に既存ファイルを確認してください")
@@ -338,20 +336,20 @@ def render_file_validation_results_with_collisions(
 def render_collision_error_messages(collision_errors: list) -> None:
     """
     Render enhanced error messages for collision-related errors.
-    
+
     Args:
         collision_errors: List of collision-related error objects
     """
     for error in collision_errors:
         error_type = error.get("error", "")
-        
+
         if "フォールバック" in error_type:
             st.warning("🛡️ **安全モード有効**")
             st.info(error["details"])
         elif "失敗" in error_type:
             st.error("❌ **衝突検出エラー**")
             st.error(error["details"])
-            
+
             # Show recovery options if available
             if "recovery_options" in error:
                 st.markdown("**復旧オプション:**")
@@ -1327,16 +1325,16 @@ def clear_upload_session_state() -> None:
 def _get_collision_detection_error_message(error: Exception) -> str:
     """
     Generate user-friendly error message for collision detection failures.
-    
+
     Args:
         error: The exception that occurred
-        
+
     Returns:
         str: User-friendly error message
     """
     error_type = type(error).__name__
     error_str = str(error)
-    
+
     if "timeout" in error_str.lower():
         return "データベースへの接続がタイムアウトしました。ネットワーク接続を確認してください。"
     elif "connection" in error_str.lower():
@@ -1354,62 +1352,45 @@ def _get_collision_detection_error_message(error: Exception) -> str:
 def handle_overwrite_operation_error(error: Exception, filename: str, operation: str) -> dict[str, Any]:
     """
     Handle errors that occur during overwrite operations with appropriate recovery.
-    
+
     Args:
         error: The exception that occurred
         filename: Name of the file being processed
         operation: Type of operation (e.g., "metadata_update", "file_upload")
-        
+
     Returns:
         dict: Error result with recovery information
     """
     from imgstream.services.metadata import MetadataError
-    from imgstream.services.storage import StorageError
-    
+
     error_type = type(error).__name__
     error_str = str(error)
-    
+
     # Determine error category and recovery options
     if isinstance(error, MetadataError):
         if "not found" in error_str.lower():
             recovery_message = "対象のファイルが見つかりません。ファイルが削除されている可能性があります。"
-            recovery_options = [
-                "新規アップロードとして再試行する",
-                "ファイルリストを更新して確認する"
-            ]
+            recovery_options = ["新規アップロードとして再試行する", "ファイルリストを更新して確認する"]
         elif "permission" in error_str.lower() or "access" in error_str.lower():
             recovery_message = "ファイルへのアクセス権限がありません。"
-            recovery_options = [
-                "管理者に権限の確認を依頼する",
-                "別のファイル名で新規アップロードする"
-            ]
+            recovery_options = ["管理者に権限の確認を依頼する", "別のファイル名で新規アップロードする"]
         elif "database" in error_str.lower():
             recovery_message = "データベースの更新に失敗しました。"
-            recovery_options = [
-                "しばらく待ってから再試行する",
-                "ページを再読み込みして再試行する"
-            ]
+            recovery_options = ["しばらく待ってから再試行する", "ページを再読み込みして再試行する"]
         else:
             recovery_message = f"メタデータの更新に失敗しました: {error_str}"
-            recovery_options = [
-                "再試行する",
-                "新規アップロードとして処理する"
-            ]
+            recovery_options = ["再試行する", "新規アップロードとして処理する"]
     elif "StorageError" in error_type or "StorageError" in error_str:
         recovery_message = "ファイルのアップロードに失敗しました。"
         recovery_options = [
             "ネットワーク接続を確認して再試行する",
             "ファイルサイズを確認する",
-            "しばらく待ってから再試行する"
+            "しばらく待ってから再試行する",
         ]
     else:
         recovery_message = f"上書き操作中に予期しないエラーが発生しました: {error_str}"
-        recovery_options = [
-            "再試行する",
-            "新規アップロードとして処理する",
-            "管理者に問い合わせる"
-        ]
-    
+        recovery_options = ["再試行する", "新規アップロードとして処理する", "管理者に問い合わせる"]
+
     return {
         "success": False,
         "filename": filename,
@@ -1426,27 +1407,28 @@ def handle_overwrite_operation_error(error: Exception, filename: str, operation:
 def clear_upload_session_state() -> None:
     """Clear upload-related session state for fresh start."""
     import streamlit as st
-    
+
     # Clear upload-related session state
     keys_to_clear = [
         "uploaded_files",
-        "validation_results", 
+        "validation_results",
         "collision_results",
         "upload_results",
         "upload_in_progress",
-        "collision_decisions"
+        "collision_decisions",
     ]
-    
+
     for key in keys_to_clear:
         if key in st.session_state:
             del st.session_state[key]
 
 
-def handle_collision_decision_monitoring(user_id: str, filename: str, decision: str, 
-                                       decision_start_time: float = None, **collision_context) -> None:
+def handle_collision_decision_monitoring(
+    user_id: str, filename: str, decision: str, decision_start_time: float = None, **collision_context
+) -> None:
     """
     Handle monitoring of user collision decisions.
-    
+
     Args:
         user_id: ID of the user making the decision
         filename: Name of the file with collision
@@ -1455,64 +1437,60 @@ def handle_collision_decision_monitoring(user_id: str, filename: str, decision: 
         **collision_context: Additional context about the collision
     """
     import time
-    
+
     # Calculate decision time if start time provided
     decision_time_ms = None
     if decision_start_time is not None:
         decision_time_ms = (time.perf_counter() - decision_start_time) * 1000
-    
+
     # Log the user decision
     log_user_decision(
-        user_id=user_id,
-        filename=filename,
-        decision=decision,
-        decision_time_ms=decision_time_ms,
-        **collision_context
+        user_id=user_id, filename=filename, decision=decision, decision_time_ms=decision_time_ms, **collision_context
     )
-    
+
     # If decision is resolved (not pending), also log collision resolution
-    if decision in ['overwrite', 'skip']:
+    if decision in ["overwrite", "skip"]:
         log_collision_resolved(
             user_id=user_id,
             filename=filename,
             user_decision=decision,
             decision_time_ms=decision_time_ms,
-            **collision_context
+            **collision_context,
         )
 
 
 def collect_user_collision_decisions(collision_results: dict, user_id: str) -> dict:
     """
     Collect and monitor user decisions for collision handling.
-    
+
     Args:
         collision_results: Dictionary mapping filename to collision info
         user_id: ID of the user making decisions
-        
+
     Returns:
         dict: Updated collision results with user decisions and monitoring
     """
     import time
     import streamlit as st
-    
+
     updated_results = {}
-    
+
     for filename, collision_info in collision_results.items():
         decision_key = f"collision_decision_{filename}"
-        
+
         # Get current decision from session state
         current_decision = st.session_state.get(decision_key, "pending")
-        
+
         # Check if decision changed from previous state
         previous_decision = collision_info.get("user_decision", "pending")
-        
+
         # Record decision start time if not already recorded
         decision_start_key = f"decision_start_{filename}"
         if decision_start_key not in st.session_state:
             st.session_state[decision_start_key] = time.perf_counter()
-        
+
         decision_start_time = st.session_state[decision_start_key]
-        
+
         # If decision changed, log it
         if current_decision != previous_decision and current_decision != "pending":
             handle_collision_decision_monitoring(
@@ -1523,24 +1501,25 @@ def collect_user_collision_decisions(collision_results: dict, user_id: str) -> d
                 existing_photo_id=collision_info.get("existing_photo", {}).get("id"),
                 fallback_mode=collision_info.get("fallback_mode", False),
                 file_size=collision_info.get("existing_file_info", {}).get("file_size"),
-                upload_date=collision_info.get("existing_file_info", {}).get("upload_date")
+                upload_date=collision_info.get("existing_file_info", {}).get("upload_date"),
             )
-        
+
         # Update collision info with current decision
         updated_collision_info = collision_info.copy()
         updated_collision_info["user_decision"] = current_decision
         updated_results[filename] = updated_collision_info
-    
+
     return updated_results
 
 
 def clear_upload_session_state() -> None:
     """Clear upload-related session state variables."""
     keys_to_clear = [
-        key for key in st.session_state.keys() 
-        if key.startswith(('collision_decision_', 'decision_start_', 'upload_', 'validation_'))
+        key
+        for key in st.session_state.keys()
+        if key.startswith(("collision_decision_", "decision_start_", "upload_", "validation_"))
     ]
-    
+
     for key in keys_to_clear:
         del st.session_state[key]
 
@@ -1548,15 +1527,15 @@ def clear_upload_session_state() -> None:
 def get_collision_decision_statistics(user_id: str) -> dict:
     """
     Get collision decision statistics for a user.
-    
+
     Args:
         user_id: ID of the user
-        
+
     Returns:
         dict: Statistics about user's collision decisions
     """
     from imgstream.monitoring.collision_monitor import get_collision_monitor
-    
+
     monitor = get_collision_monitor()
     return monitor.get_user_behavior_patterns(user_id)
 
@@ -1564,7 +1543,8 @@ def get_collision_decision_statistics(user_id: str) -> dict:
 def render_collision_decision_help() -> None:
     """Render help information for collision decisions."""
     with st.expander("❓ 衝突処理について", expanded=False):
-        st.markdown("""
+        st.markdown(
+            """
         ### 📋 衝突処理オプション
         
         **🔄 上書きする:**
@@ -1581,14 +1561,16 @@ def render_collision_decision_help() -> None:
         - 同じ写真の高画質版がある場合は「上書き」を選択
         - 異なる写真の場合は「スキップ」を選択してファイル名を変更
         - 不明な場合は既存ファイルの詳細を確認してから決定
-        """)
+        """
+        )
 
 
-def monitor_batch_collision_processing(user_id: str, filenames: list, collision_results: dict, 
-                                     processing_time_ms: float) -> None:
+def monitor_batch_collision_processing(
+    user_id: str, filenames: list, collision_results: dict, processing_time_ms: float
+) -> None:
     """
     Monitor batch collision processing metrics.
-    
+
     Args:
         user_id: ID of the user
         filenames: List of filenames processed
@@ -1596,12 +1578,12 @@ def monitor_batch_collision_processing(user_id: str, filenames: list, collision_
         processing_time_ms: Time taken for processing
     """
     from imgstream.monitoring.collision_monitor import log_batch_collision_detection
-    
+
     log_batch_collision_detection(
         user_id=user_id,
         filenames=filenames,
         collisions_found=len(collision_results),
         processing_time_ms=processing_time_ms,
         total_files=len(filenames),
-        collision_rate=len(collision_results) / len(filenames) if filenames else 0
+        collision_rate=len(collision_results) / len(filenames) if filenames else 0,
     )
