@@ -17,9 +17,13 @@ class TestStorageService:
     def setup_method(self):
         """Set up test fixtures."""
         # Mock environment variables
-        self.mock_env = {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"}
+        self.mock_env = {
+            "GCS_PHOTOS_BUCKET": "test-photos-bucket",
+            "GCS_DATABASE_BUCKET": "test-database-bucket",
+            "GOOGLE_CLOUD_PROJECT": "test-project"
+        }
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_init_success(self, mock_client_class):
         """Test successful initialization."""
@@ -30,7 +34,7 @@ class TestStorageService:
 
         service = StorageService()
 
-        assert service.bucket_name == "test-bucket"
+        assert service.bucket_name == "test-photos-bucket"
         assert service.project_id == "test-project"
         assert service.client == mock_client
         assert service.bucket == mock_bucket
@@ -39,16 +43,16 @@ class TestStorageService:
     def test_init_missing_bucket_name(self):
         """Test initialization with missing bucket name."""
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(StorageError, match="GCS_BUCKET environment variable is required"):
+            with pytest.raises(StorageError, match="GCS_PHOTOS_BUCKET environment variable is required"):
                 StorageService()
 
     def test_init_missing_project_id(self):
         """Test initialization with missing project ID."""
-        with patch.dict("os.environ", {"GCS_BUCKET": "test-bucket"}, clear=True):
+        with patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket"}, clear=True):
             with pytest.raises(StorageError, match="GOOGLE_CLOUD_PROJECT environment variable is required"):
                 StorageService()
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_init_client_error(self, mock_client_class):
         """Test initialization with client error."""
@@ -57,7 +61,7 @@ class TestStorageService:
         with pytest.raises(StorageError, match="Failed to initialize GCS client"):
             StorageService()
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_user_original_path(self, mock_client_class):
         """Test user original path generation."""
@@ -74,7 +78,7 @@ class TestStorageService:
         path = service._get_user_original_path("user123", "../../../etc/passwd")
         assert path == "photos/user123/original/passwd"
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_user_thumbnail_path(self, mock_client_class):
         """Test user thumbnail path generation."""
@@ -91,7 +95,7 @@ class TestStorageService:
         path = service._get_user_thumbnail_path("user123", "photo.heic")
         assert path == "photos/user123/thumbs/photo_thumb.jpg"
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_original_photo_success(self, mock_client_class):
         """Test successful original photo upload."""
@@ -126,7 +130,7 @@ class TestStorageService:
         assert mock_blob.metadata["original_filename"] == "photo.jpg"
         assert "uploaded_at" in mock_blob.metadata
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_original_photo_error(self, mock_client_class):
         """Test original photo upload with error."""
@@ -144,7 +148,7 @@ class TestStorageService:
         with pytest.raises(StorageError, match="Failed to upload original photo"):
             service.upload_original_photo("user123", b"data", "photo.jpg")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_thumbnail_success(self, mock_client_class):
         """Test successful thumbnail upload."""
@@ -173,7 +177,7 @@ class TestStorageService:
         mock_bucket.blob.assert_called_once_with("photos/user123/thumbs/photo_thumb.jpg")
         mock_blob.upload_from_string.assert_called_once_with(thumbnail_data, content_type="image/jpeg")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_download_file_success(self, mock_client_class):
         """Test successful file download."""
@@ -195,7 +199,7 @@ class TestStorageService:
         mock_blob.exists.assert_called_once()
         mock_blob.download_as_bytes.assert_called_once()
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_download_file_not_found(self, mock_client_class):
         """Test file download when file doesn't exist."""
@@ -213,7 +217,7 @@ class TestStorageService:
         with pytest.raises(StorageError, match="File not found"):
             service.download_file("photos/user123/original/nonexistent.jpg")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_signed_url_success(self, mock_client_class):
         """Test successful signed URL generation."""
@@ -233,7 +237,7 @@ class TestStorageService:
         assert result == "https://signed-url.example.com"
         mock_blob.generate_signed_url.assert_called_once()
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_delete_file_success(self, mock_client_class):
         """Test successful file deletion."""
@@ -253,7 +257,7 @@ class TestStorageService:
         mock_blob.exists.assert_called_once()
         mock_blob.delete.assert_called_once()
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_delete_file_not_found(self, mock_client_class):
         """Test file deletion when file doesn't exist."""
@@ -274,7 +278,7 @@ class TestStorageService:
         mock_blob.exists.assert_called_once()
         mock_blob.delete.assert_not_called()
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_list_user_files_success(self, mock_client_class):
         """Test successful user files listing."""
@@ -298,7 +302,7 @@ class TestStorageService:
         assert result == ["photos/user123/original/photo1.jpg", "photos/user123/original/photo2.jpg"]
         mock_client.list_blobs.assert_called_once_with(mock_bucket, prefix="photos/user123/original/")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_content_type(self, mock_client_class):
         """Test content type detection."""
@@ -313,7 +317,7 @@ class TestStorageService:
         assert service._get_content_type("photo.heif") == "image/heif"
         assert service._get_content_type("document.pdf") == "application/octet-stream"
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_check_bucket_exists_success(self, mock_client_class):
         """Test successful bucket existence check."""
@@ -330,7 +334,7 @@ class TestStorageService:
         assert result is True
         mock_bucket.reload.assert_called_once()
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_check_bucket_exists_not_found(self, mock_client_class):
         """Test bucket existence check when bucket doesn't exist."""
@@ -351,7 +355,7 @@ class TestStorageService:
 class TestStorageServiceGlobal:
     """Test cases for global storage service functions."""
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_original_photo_with_progress(self, mock_client_class):
         """Test original photo upload with progress callback."""
@@ -384,7 +388,7 @@ class TestStorageServiceGlobal:
         assert progress_calls[0] == (0, len(file_data), "Starting upload...")
         assert progress_calls[1] == (len(file_data), len(file_data), "Upload completed")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_original_photo_overwrite(self, mock_client_class):
         """Test original photo upload with file overwrite."""
@@ -407,7 +411,7 @@ class TestStorageServiceGlobal:
 
         assert result["was_overwrite"] is True
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_multiple_photos_success(self, mock_client_class):
         """Test successful batch photo upload."""
@@ -448,7 +452,7 @@ class TestStorageServiceGlobal:
         assert len(progress_calls) == 3  # 2 individual + 1 completion
         assert progress_calls[-1][0] == 2  # Final progress
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_multiple_photos_partial_failure(self, mock_client_class):
         """Test batch photo upload with partial failures."""
@@ -489,7 +493,7 @@ class TestStorageServiceGlobal:
         assert results[1]["success"] is False
         assert "error" in results[1]
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_upload_url_success(self, mock_client_class):
         """Test successful upload URL generation."""
@@ -513,7 +517,7 @@ class TestStorageServiceGlobal:
         assert kwargs["content_type"] == "image/jpeg"
 
     @patch("src.imgstream.services.storage._storage_service", None)
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_storage_service(self, mock_client_class):
         """Test getting global storage service instance."""
@@ -589,7 +593,7 @@ class TestUploadProgress:
 class TestThumbnailUpload:
     """Test cases for enhanced thumbnail upload functionality."""
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_multiple_thumbnails_success(self, mock_client_class):
         """Test successful batch thumbnail upload."""
@@ -625,7 +629,7 @@ class TestThumbnailUpload:
         assert all(r["success"] for r in results)
         assert len(progress_calls) >= 2  # At least start and completion
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_check_thumbnail_exists_true(self, mock_client_class):
         """Test checking existing thumbnail."""
@@ -654,7 +658,7 @@ class TestThumbnailUpload:
         assert "updated" in result
         assert result["etag"] == "test-etag"
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_check_thumbnail_exists_false(self, mock_client_class):
         """Test checking non-existing thumbnail."""
@@ -674,7 +678,7 @@ class TestThumbnailUpload:
         assert result["exists"] is False
         assert "gcs_path" in result
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_thumbnail_with_deduplication_skip(self, mock_client_class):
         """Test thumbnail upload with deduplication - skip duplicate."""
@@ -702,7 +706,7 @@ class TestThumbnailUpload:
         assert result["reason"] == "duplicate_size"
         assert "existing_info" in result
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_thumbnail_with_deduplication_upload(self, mock_client_class):
         """Test thumbnail upload with deduplication - upload different size."""
@@ -732,7 +736,7 @@ class TestThumbnailUpload:
         assert result["was_duplicate"] is True
         assert "gcs_path" in result
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_thumbnail_with_deduplication_force_overwrite(self, mock_client_class):
         """Test thumbnail upload with forced overwrite."""
@@ -768,7 +772,7 @@ class TestThumbnailUpload:
 class TestSignedUrlGeneration:
     """Test cases for enhanced signed URL generation functionality."""
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_photo_display_url_original(self, mock_client_class):
         """Test generating display URL for original photo."""
@@ -797,7 +801,7 @@ class TestSignedUrlGeneration:
         assert result["expiration_seconds"] == 3600
         assert "expires_at" in result
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_photo_display_url_thumbnail(self, mock_client_class):
         """Test generating display URL for thumbnail."""
@@ -821,7 +825,7 @@ class TestSignedUrlGeneration:
         assert result["photo_type"] == "thumbnail"
         assert result["gcs_path"] == "photos/user123/thumbs/photo_thumb.jpg"
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_photo_display_url_not_found(self, mock_client_class):
         """Test generating display URL for non-existent photo."""
@@ -839,7 +843,7 @@ class TestSignedUrlGeneration:
         with pytest.raises(StorageError, match="Photo not found"):
             service.get_photo_display_url("user123", "nonexistent.jpg", "original")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_photo_display_url_invalid_type(self, mock_client_class):
         """Test generating display URL with invalid photo type."""
@@ -851,7 +855,7 @@ class TestSignedUrlGeneration:
         with pytest.raises(StorageError, match="Invalid photo_type"):
             service.get_photo_display_url("user123", "photo.jpg", "invalid_type")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_batch_photo_urls_success(self, mock_client_class):
         """Test batch photo URL generation."""
@@ -881,7 +885,7 @@ class TestSignedUrlGeneration:
         assert results[0]["filename"] == "photo1.jpg"
         assert results[1]["filename"] == "photo2.jpg"
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_batch_photo_urls_partial_failure(self, mock_client_class):
         """Test batch photo URL generation with partial failures."""
@@ -932,7 +936,7 @@ class TestSignedUrlGeneration:
         invalid_format = "invalid/path/photo.jpg"
         assert service.validate_user_access("user123", invalid_format) is False
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_secure_photo_url_success(self, mock_client_class):
         """Test secure photo URL generation with valid access."""
@@ -952,7 +956,7 @@ class TestSignedUrlGeneration:
 
         assert result == "https://secure-url.example.com"
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_secure_photo_url_access_denied(self, mock_client_class):
         """Test secure photo URL generation with access denied."""
@@ -971,7 +975,7 @@ class TestSignedUrlGeneration:
 class TestStorageServiceErrorHandling:
     """Test cases for comprehensive error handling in storage service."""
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_original_photo_gcs_error(self, mock_client_class):
         """Test original photo upload with GCS error."""
@@ -990,7 +994,7 @@ class TestStorageServiceErrorHandling:
         with pytest.raises(StorageError, match="Failed to upload original photo"):
             service.upload_original_photo("user123", b"test data", "photo.jpg")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_thumbnail_gcs_error(self, mock_client_class):
         """Test thumbnail upload with GCS error."""
@@ -1009,7 +1013,7 @@ class TestStorageServiceErrorHandling:
         with pytest.raises(StorageError, match="Failed to upload thumbnail"):
             service.upload_thumbnail("user123", b"thumbnail data", "photo.jpg")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_download_file_gcs_error(self, mock_client_class):
         """Test file download with GCS error."""
@@ -1027,7 +1031,7 @@ class TestStorageServiceErrorHandling:
         with pytest.raises(StorageError, match="Failed to download file"):
             service.download_file("photos/user123/original/photo.jpg")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_signed_url_gcs_error(self, mock_client_class):
         """Test signed URL generation with GCS error."""
@@ -1045,7 +1049,7 @@ class TestStorageServiceErrorHandling:
         with pytest.raises(StorageError, match="Failed to generate signed URL"):
             service.get_signed_url("photos/user123/original/photo.jpg")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_delete_file_gcs_error(self, mock_client_class):
         """Test file deletion with GCS error."""
@@ -1064,7 +1068,7 @@ class TestStorageServiceErrorHandling:
         with pytest.raises(StorageError, match="Failed to delete file"):
             service.delete_file("photos/user123/original/photo.jpg")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_list_user_files_gcs_error(self, mock_client_class):
         """Test file listing with GCS error."""
@@ -1077,7 +1081,7 @@ class TestStorageServiceErrorHandling:
         with pytest.raises(StorageError, match="Failed to list files"):
             service.list_user_files("user123")
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_check_bucket_exists_gcs_error(self, mock_client_class):
         """Test bucket existence check with GCS error."""
@@ -1097,7 +1101,7 @@ class TestStorageServiceErrorHandling:
 class TestStorageServiceEdgeCases:
     """Test cases for edge cases and boundary conditions."""
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_empty_file(self, mock_client_class):
         """Test uploading empty file."""
@@ -1119,7 +1123,7 @@ class TestStorageServiceEdgeCases:
         result = service.upload_original_photo("user123", b"", "empty.jpg")
         assert result["file_size"] == 0
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_large_filename(self, mock_client_class):
         """Test uploading file with very long filename."""
@@ -1142,7 +1146,7 @@ class TestStorageServiceEdgeCases:
         result = service.upload_original_photo("user123", b"test data", long_filename)
         assert long_filename in result["gcs_path"]
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_upload_special_characters_filename(self, mock_client_class):
         """Test uploading file with special characters in filename."""
@@ -1165,7 +1169,7 @@ class TestStorageServiceEdgeCases:
         result = service.upload_original_photo("user123", b"test data", special_filename)
         assert special_filename in result["gcs_path"]
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_get_content_type_edge_cases(self, mock_client_class):
         """Test content type detection for edge cases."""
@@ -1203,7 +1207,7 @@ class TestStorageServiceEdgeCases:
         # Progress percentage should handle this gracefully
         assert progress.progress_percentage >= 0.0
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_batch_operations_empty_list(self, mock_client_class):
         """Test batch operations with empty lists."""
@@ -1228,7 +1232,7 @@ class TestStorageServiceEdgeCases:
 class TestStorageServiceIntegration:
     """Integration tests for storage service functionality."""
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_complete_photo_workflow(self, mock_client_class):
         """Test complete photo upload and access workflow."""
@@ -1276,7 +1280,7 @@ class TestStorageServiceIntegration:
         # Should have multiple calls (upload + URL generation)
         assert len(actual_calls) >= 4
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_user_isolation_verification(self, mock_client_class):
         """Test that user data isolation is properly enforced."""
@@ -1303,7 +1307,7 @@ class TestStorageServiceIntegration:
         assert service.validate_user_access("user2", user2_original) is True
         assert service.validate_user_access("user2", user1_original) is False
 
-    @patch.dict("os.environ", {"GCS_BUCKET": "test-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
+    @patch.dict("os.environ", {"GCS_PHOTOS_BUCKET": "test-photos-bucket", "GCS_DATABASE_BUCKET": "test-database-bucket", "GOOGLE_CLOUD_PROJECT": "test-project"})
     @patch("src.imgstream.services.storage.storage.Client")
     def test_concurrent_operations_simulation(self, mock_client_class):
         """Test handling of concurrent-like operations."""

@@ -174,6 +174,7 @@ class TestMetadataService:
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
         mock_storage.download_database_file.side_effect = StorageError("Not found")  # GCS doesn't exist
+        mock_storage.file_exists.return_value = False  # GCS database doesn't exist
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -189,11 +190,11 @@ class TestMetadataService:
         info = service.get_database_info()
 
         assert info["user_id"] == self.user_id
-        assert info["local_exists"] is True
-        assert info["gcs_exists"] is False
-        assert info["local_size"] == len(b"fake_db_content")
-        assert "local_modified" in info
-        assert info["table_info"] == {"columns": ["id", "filename"]}
+        assert info["local_db_exists"] is True
+        assert info["gcs_db_exists"] is False
+        assert info["local_db_size"] == len(b"fake_db_content")
+        assert "last_sync_time" in info
+        assert info["sync_enabled"] is True
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     def test_cleanup_local_database(self, mock_get_storage):

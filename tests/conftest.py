@@ -115,7 +115,8 @@ def mock_gcs_bucket() -> str:
 def setup_test_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set up test environment variables."""
     monkeypatch.setenv("TESTING", "true")
-    monkeypatch.setenv("GCS_BUCKET", "test-bucket")
+    monkeypatch.setenv("GCS_PHOTOS_BUCKET", "test-photos-bucket")
+    monkeypatch.setenv("GCS_DATABASE_BUCKET", "test-database-bucket")
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "test-project")
 
 

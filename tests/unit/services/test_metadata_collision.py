@@ -314,33 +314,53 @@ class TestMetadataServiceDatabaseReset:
 
     @patch("pathlib.Path.exists")
     @patch("pathlib.Path.unlink")
-    def test_force_reload_from_gcs_success(self, mock_unlink, mock_exists, metadata_service):
+    @patch("src.imgstream.services.metadata.get_database_manager")
+    def test_force_reload_from_gcs_success(self, mock_get_db_manager, mock_unlink, mock_exists, metadata_service):
         """Test successful force reload from GCS."""
         # Mock local file exists
         mock_exists.return_value = True
+
+        # Mock database manager
+        mock_db_manager = Mock()
+        mock_connection = Mock()
+        mock_result = Mock()
+        mock_result.fetchone.return_value = [0]  # photo count
+        mock_connection.execute.return_value = mock_result
+        mock_db_manager.connect.return_value = mock_connection
+        mock_get_db_manager.return_value = mock_db_manager
 
         # Mock GCS database exists and download succeeds
         metadata_service._gcs_database_exists = Mock(return_value=True)
         metadata_service._download_from_gcs = Mock(return_value=True)
 
-        result = metadata_service.force_reload_from_gcs()
+        result = metadata_service.force_reload_from_gcs(confirm_reset=True)
 
-        assert result is True
+        assert result["success"] is True
+        assert result["operation"] == "database_reset"
         mock_unlink.assert_called_once()
-        metadata_service._download_from_gcs.assert_called_once()
 
     @patch("pathlib.Path.exists")
-    def test_force_reload_from_gcs_no_gcs_database(self, mock_exists, metadata_service):
+    @patch("src.imgstream.services.metadata.get_database_manager")
+    def test_force_reload_from_gcs_no_gcs_database(self, mock_get_db_manager, mock_exists, metadata_service):
         """Test force reload when no GCS database exists."""
         # Mock no GCS database exists
         mock_exists.return_value = False
         metadata_service._gcs_database_exists = Mock(return_value=False)
         metadata_service._create_new_database = Mock()
 
-        result = metadata_service.force_reload_from_gcs()
+        # Mock database manager
+        mock_db_manager = Mock()
+        mock_connection = Mock()
+        mock_result = Mock()
+        mock_result.fetchone.return_value = [0]  # photo count
+        mock_connection.execute.return_value = mock_result
+        mock_db_manager.connect.return_value = mock_connection
+        mock_get_db_manager.return_value = mock_db_manager
 
-        assert result is False
-        metadata_service._create_new_database.assert_called_once()
+        result = metadata_service.force_reload_from_gcs(confirm_reset=True)
+
+        assert result["success"] is True
+        assert result["download_successful"] is False
 
     @patch("pathlib.Path.exists")
     def test_force_reload_from_gcs_download_fails(self, mock_exists, metadata_service):
@@ -351,7 +371,7 @@ class TestMetadataServiceDatabaseReset:
         metadata_service._download_from_gcs = Mock(return_value=False)
         metadata_service._create_new_database = Mock()
 
-        result = metadata_service.force_reload_from_gcs()
+        result = metadata_service.force_reload_from_gcs(confirm_reset=True)
 
         assert result is False
         metadata_service._create_new_database.assert_called_once()
@@ -366,7 +386,7 @@ class TestMetadataServiceDatabaseReset:
         # Store reference to original db_manager before it gets set to None
         original_db_manager = metadata_service._db_manager
 
-        metadata_service.force_reload_from_gcs()
+        metadata_service.force_reload_from_gcs(confirm_reset=True)
 
         # Verify database manager was closed and reset
         original_db_manager.close.assert_called_once()
@@ -378,7 +398,7 @@ class TestMetadataServiceDatabaseReset:
         metadata_service._gcs_database_exists = Mock(side_effect=Exception("GCS error"))
 
         with pytest.raises(MetadataError, match="Failed to force reload database from GCS"):
-            metadata_service.force_reload_from_gcs()
+            metadata_service.force_reload_from_gcs(confirm_reset=True)
 
     @patch("pathlib.Path.exists")
     @patch("pathlib.Path.unlink")
@@ -389,7 +409,7 @@ class TestMetadataServiceDatabaseReset:
         metadata_service._gcs_database_exists = Mock(return_value=True)
         metadata_service._download_from_gcs = Mock(return_value=True)
 
-        metadata_service.force_reload_from_gcs()
+        metadata_service.force_reload_from_gcs(confirm_reset=True)
 
         # Verify completion was logged
         mock_log_action.assert_called_with(

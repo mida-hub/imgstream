@@ -78,7 +78,8 @@ def security_test_environment():
     test_env = {
         "ENVIRONMENT": "test",
         "GOOGLE_CLOUD_PROJECT": "test-project",
-        "GCS_BUCKET_NAME": "test-bucket",
+        "GCS_PHOTOS_BUCKET": "test-photos-bucket",
+        "GCS_DATABASE_BUCKET": "test-database-bucket",
         "DATABASE_URL": "sqlite:///:memory:",
     }
 

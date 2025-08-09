@@ -294,9 +294,8 @@ class TestEdgeCases(E2ETestBase):
                 mock_storage_class.return_value = mock_services["storage"]
                 mock_processor_class.return_value = mock_services["image_processor"]
 
-                storage_service = StorageService(
-                    project_id=self.test_config["project_id"], bucket_name=self.test_config["bucket_name"]
-                )
+                # Use the mocked storage service instead of creating a new instance
+                storage_service = mock_services["storage"]
 
                 image_processor = ImageProcessor()
 
