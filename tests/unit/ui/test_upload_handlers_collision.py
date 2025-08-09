@@ -52,7 +52,7 @@ class TestUploadHandlersCollisionIntegration:
             "warning_shown": False,
         }
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions")
+    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
     @patch("src.imgstream.ui.upload_handlers.get_auth_service")
     @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_no_collisions(
@@ -72,8 +72,8 @@ class TestUploadHandlersCollisionIntegration:
         mock_auth.ensure_authenticated.return_value = mock_user_info
         mock_get_auth.return_value = mock_auth
 
-        # Mock no collisions
-        mock_check_collisions.return_value = {}
+        # Mock no collisions - return tuple (collision_results, fallback_used)
+        mock_check_collisions.return_value = ({}, False)
 
         uploaded_files = [mock_uploaded_file]
         valid_files, validation_errors, collision_results = validate_uploaded_files_with_collision_check(uploaded_files)
@@ -84,9 +84,9 @@ class TestUploadHandlersCollisionIntegration:
         assert valid_files[0]["filename"] == "test_photo.jpg"
 
         # Verify collision check was called
-        mock_check_collisions.assert_called_once_with("test_user_123", ["test_photo.jpg"])
+        mock_check_collisions.assert_called_once_with("test_user_123", ["test_photo.jpg"], enable_fallback=True)
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions")
+    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
     @patch("src.imgstream.ui.upload_handlers.get_auth_service")
     @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_with_collisions(
@@ -106,8 +106,8 @@ class TestUploadHandlersCollisionIntegration:
         mock_auth.ensure_authenticated.return_value = mock_user_info
         mock_get_auth.return_value = mock_auth
 
-        # Mock collision found
-        mock_check_collisions.return_value = {"test_photo.jpg": sample_collision_info}
+        # Mock collision found - return tuple (collision_results, fallback_used)
+        mock_check_collisions.return_value = ({"test_photo.jpg": sample_collision_info}, False)
 
         uploaded_files = [mock_uploaded_file]
         valid_files, validation_errors, collision_results = validate_uploaded_files_with_collision_check(uploaded_files)
@@ -118,7 +118,7 @@ class TestUploadHandlersCollisionIntegration:
         assert "test_photo.jpg" in collision_results
         assert collision_results["test_photo.jpg"] == sample_collision_info
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions")
+    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
     @patch("src.imgstream.ui.upload_handlers.get_auth_service")
     @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_empty_list(
@@ -134,7 +134,7 @@ class TestUploadHandlersCollisionIntegration:
         # Collision check should not be called for empty list
         mock_check_collisions.assert_not_called()
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions")
+    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
     @patch("src.imgstream.ui.upload_handlers.get_auth_service")
     @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_invalid_files(
@@ -156,7 +156,7 @@ class TestUploadHandlersCollisionIntegration:
         # Collision check should not be called when no valid files
         mock_check_collisions.assert_not_called()
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions")
+    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
     @patch("src.imgstream.ui.upload_handlers.get_auth_service")
     @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_collision_error(
@@ -178,27 +178,23 @@ class TestUploadHandlersCollisionIntegration:
 
         # Mock collision detection error
 
-        mock_check_collisions.side_effect = CollisionDetectionError("Database error")
+        # Mock fallback mode due to error - return fallback results
+        fallback_results = {"test_photo.jpg": {"fallback_mode": True, "collision_detected": True}}
+        mock_check_collisions.return_value = (fallback_results, True)
 
         uploaded_files = [mock_uploaded_file]
         valid_files, validation_errors, collision_results = validate_uploaded_files_with_collision_check(uploaded_files)
 
         assert len(valid_files) == 1  # File is still valid
-        assert len(validation_errors) == 1  # Error added for collision detection failure
-        assert collision_results == {}  # No collision results due to error
+        assert len(validation_errors) == 1  # Warning message for fallback mode
+        assert len(collision_results) == 1  # Fallback collision results
 
-        # Check error details
+        # Check fallback warning message
         error = validation_errors[0]
         assert error["filename"] == "システム"
-        # CollisionDetectionError might be caught as Exception, check for either
-        assert ("衝突検出エラー" in error["error"]) or ("予期しないエラー" in error["error"])
-        # For unexpected errors, the original error message is not included in details
-        if "予期しないエラー" in error["error"]:
-            assert "衝突検出中に予期しないエラーが発生しました" in error["details"]
-        else:
-            assert "Database error" in error["details"]
+        assert "フォールバック" in error["error"]
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions")
+    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
     @patch("src.imgstream.ui.upload_handlers.get_auth_service")
     @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_unexpected_error(
@@ -218,22 +214,24 @@ class TestUploadHandlersCollisionIntegration:
         mock_auth.ensure_authenticated.return_value = mock_user_info
         mock_get_auth.return_value = mock_auth
 
-        # Mock unexpected error
-        mock_check_collisions.side_effect = Exception("Unexpected error")
+        # Mock fallback mode due to unexpected error - return fallback results
+        fallback_results = {"test_photo.jpg": {"fallback_mode": True, "collision_detected": True}}
+        mock_check_collisions.return_value = (fallback_results, True)
 
         uploaded_files = [mock_uploaded_file]
         valid_files, validation_errors, collision_results = validate_uploaded_files_with_collision_check(uploaded_files)
 
         assert len(valid_files) == 1  # File is still valid
-        assert len(validation_errors) == 1  # Error added for unexpected error
-        assert collision_results == {}  # No collision results due to error
+        assert len(validation_errors) == 1  # Warning message for fallback mode
+        assert len(collision_results) == 1  # Fallback collision results
+        assert collision_results["test_photo.jpg"]["fallback_mode"] is True
 
-        # Check error details
+        # Check fallback warning message
         error = validation_errors[0]
         assert error["filename"] == "システム"
-        assert "予期しないエラー" in error["error"]
+        assert "フォールバック" in error["error"]
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions")
+    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
     @patch("src.imgstream.ui.upload_handlers.get_auth_service")
     @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_mixed_files(
@@ -269,8 +267,8 @@ class TestUploadHandlersCollisionIntegration:
         mock_auth.ensure_authenticated.return_value = mock_user_info
         mock_get_auth.return_value = mock_auth
 
-        # Mock collision for one file
-        mock_check_collisions.return_value = {"collision_photo.jpg": sample_collision_info}
+        # Mock collision for one file - return tuple (collision_results, fallback_used)
+        mock_check_collisions.return_value = ({"collision_photo.jpg": sample_collision_info}, False)
 
         uploaded_files = [valid_file, invalid_file, collision_file]
         valid_files, validation_errors, collision_results = validate_uploaded_files_with_collision_check(uploaded_files)
@@ -280,7 +278,7 @@ class TestUploadHandlersCollisionIntegration:
         assert len(collision_results) == 1  # collision_photo.jpg
 
         # Verify collision check was called with only valid filenames
-        mock_check_collisions.assert_called_once_with("test_user_123", ["valid_photo.jpg", "collision_photo.jpg"])
+        mock_check_collisions.assert_called_once_with("test_user_123", ["valid_photo.jpg", "collision_photo.jpg"], enable_fallback=True)
 
 
 class TestRenderFileValidationResultsWithCollisions:
