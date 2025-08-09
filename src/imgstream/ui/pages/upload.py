@@ -262,8 +262,19 @@ def render_upload_page() -> None:
                         "processing",
                     )
 
+                    # Get collision results with user decisions
+                    collision_results_with_decisions = None
+                    if st.session_state.collision_results:
+                        user_decisions = get_collision_decisions_from_session(st.session_state.collision_results)
+                        processed_results = process_collision_results(
+                            st.session_state.collision_results, user_decisions
+                        )
+                        collision_results_with_decisions = processed_results["collisions"]
+
                     # Process the batch upload with enhanced progress tracking
-                    batch_result = process_batch_upload(files_to_upload, progress_callback)
+                    batch_result = process_batch_upload(
+                        files_to_upload, collision_results_with_decisions, progress_callback
+                    )
 
                     # Calculate total processing time
                     end_time = datetime.now()
