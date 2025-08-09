@@ -43,6 +43,46 @@ class ColoredJSONRenderer:
         return f"{color}{str(json_output)}{reset_code}"
 
 
+class DevelopmentConsoleRenderer:
+    """Custom console renderer for development with file info."""
+
+    def __init__(self):
+        self.console_renderer = structlog.dev.ConsoleRenderer()
+
+    def __call__(self, logger: Any, method_name: str, event_dict: dict[str, Any]) -> str:
+        """Render log entry with file info for development."""
+        # Extract file info but keep in event_dict for JSON mode
+        filename = event_dict.get("filename", "")
+        lineno = event_dict.get("lineno", "")
+        func_name = event_dict.get("func_name", "")
+
+        # Remove file info from event_dict to avoid duplication in console output
+        event_dict_copy = event_dict.copy()
+        event_dict_copy.pop("filename", None)
+        event_dict_copy.pop("lineno", None)
+        event_dict_copy.pop("func_name", None)
+
+        # Format file info for display
+        file_info = ""
+        if filename and lineno:
+            # Show only the filename, not the full path
+            short_filename = filename.split('/')[-1] if '/' in filename else filename
+            file_info = f" [{short_filename}:{lineno}"
+            if func_name:
+                file_info += f" in {func_name}()"
+            file_info += "]"
+
+        # Get the original rendered output
+        rendered = self.console_renderer(logger, method_name, event_dict_copy)
+
+        # Add file info to the end of the first line with gray color
+        lines = rendered.split('\n')
+        if lines and file_info:
+            lines[0] += f"\033[90m{file_info}\033[0m"  # Gray color for file info
+
+        return '\n'.join(lines)
+
+
 def get_log_level() -> int:
     """
     Get log level from environment variable or default to INFO.
@@ -99,6 +139,14 @@ def configure_structured_logging() -> None:
         # Add logger name and level
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
+        # Add filename and line number
+        structlog.processors.CallsiteParameterAdder(
+            parameters=[
+                structlog.processors.CallsiteParameter.FILENAME,
+                structlog.processors.CallsiteParameter.LINENO,
+                structlog.processors.CallsiteParameter.FUNC_NAME,
+            ]
+        ),
         # Handle positional arguments
         structlog.stdlib.PositionalArgumentsFormatter(),
         # Add timestamp
@@ -117,11 +165,11 @@ def configure_structured_logging() -> None:
         processors.extend(
             [
                 structlog.processors.add_log_level,
-                structlog.dev.ConsoleRenderer() if not use_colors else ColoredJSONRenderer(colors=True),
+                DevelopmentConsoleRenderer(),  # Always use custom renderer in dev
             ]
         )
     else:
-        # Production: use JSON for structured logging
+        # Production: use JSON for structured logging with file info
         processors.append(structlog.processors.JSONRenderer())
 
     # Configure structlog
