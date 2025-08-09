@@ -162,9 +162,7 @@ def _handle_collision_resolution() -> None:
     render_collision_status_indicator(st.session_state.collision_results, user_decisions)
 
     # Validate that all decisions have been made
-    all_decisions_made, pending_files = validate_collision_decisions(
-        st.session_state.collision_results, user_decisions
-    )
+    all_decisions_made, pending_files = validate_collision_decisions(st.session_state.collision_results, user_decisions)
 
     if not all_decisions_made:
         st.warning(f"⚠️ {len(pending_files)} 件のファイルについて決定が必要です: {', '.join(pending_files)}")
@@ -179,6 +177,7 @@ def _handle_collision_resolution() -> None:
     else:
         st.success("✅ すべての衝突について決定が完了しました。アップロードを続行できます。")
         st.session_state.collision_decisions_made = True
+
 
 def _determine_upload_status() -> tuple[bool, str]:
     """Determine if upload can proceed and generate button text.
@@ -229,9 +228,7 @@ def _execute_upload() -> None:
 
     if st.session_state.collision_results:
         user_decisions = get_collision_decisions_from_session(st.session_state.collision_results)
-        processed_results = process_collision_results(
-            st.session_state.collision_results, user_decisions
-        )
+        processed_results = process_collision_results(st.session_state.collision_results, user_decisions)
         filtered_files = filter_files_by_collision_decision(
             st.session_state.valid_files, processed_results["collisions"]
         )
@@ -258,9 +255,7 @@ def _execute_upload() -> None:
         current_file: str, current_step: str, completed: int, total: int, stage: str = "processing"
     ) -> None:
         """Callback function for real-time progress updates."""
-        render_upload_progress(
-            progress_placeholder, current_file, current_step, completed, total, stage
-        )
+        render_upload_progress(progress_placeholder, current_file, current_step, completed, total, stage)
 
         # Update detailed progress info
         render_detailed_progress_info(
@@ -285,15 +280,11 @@ def _execute_upload() -> None:
     collision_results_with_decisions = None
     if st.session_state.collision_results:
         user_decisions = get_collision_decisions_from_session(st.session_state.collision_results)
-        processed_results = process_collision_results(
-            st.session_state.collision_results, user_decisions
-        )
+        processed_results = process_collision_results(st.session_state.collision_results, user_decisions)
         collision_results_with_decisions = processed_results["collisions"]
 
     # Process the batch upload with enhanced progress tracking
-    batch_result = process_batch_upload(
-        files_to_upload, collision_results_with_decisions, progress_callback
-    )
+    batch_result = process_batch_upload(files_to_upload, collision_results_with_decisions, progress_callback)
 
     # Calculate total processing time
     end_time = datetime.now()

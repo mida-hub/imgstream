@@ -241,4 +241,7 @@ exclude_lines = [
 [dependency-groups]
 dev = [
     "bandit>=1.8.6",
+    "black>=25.1.0",
+    "mypy>=1.17.0",
+    "ruff>=0.12.4",
 ]

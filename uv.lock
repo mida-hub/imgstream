@@ -673,6 +673,9 @@ dev = [
 [package.dev-dependencies]
 dev = [
     { name = "bandit" },
+    { name = "black" },
+    { name = "mypy" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -704,7 +707,12 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "bandit", specifier = ">=1.8.6" }]
+dev = [
+    { name = "bandit", specifier = ">=1.8.6" },
+    { name = "black", specifier = ">=25.1.0" },
+    { name = "mypy", specifier = ">=1.17.0" },
+    { name = "ruff", specifier = ">=0.12.4" },
+]
 
 [[package]]
 name = "iniconfig"
