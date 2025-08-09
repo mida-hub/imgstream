@@ -46,12 +46,21 @@ def check_storage_health() -> dict[str, Any]:
         # Initialize storage client
         client = storage.Client()
 
-        # Get the bucket name from environment
-        bucket_name = os.getenv("GCS_BUCKET")
-        if not bucket_name:
+        # Get the bucket names from environment
+        photos_bucket = os.getenv("GCS_PHOTOS_BUCKET")
+        database_bucket = os.getenv("GCS_DATABASE_BUCKET")
+
+        if not photos_bucket:
             return {
                 "status": "unhealthy",
-                "message": "GCS_BUCKET environment variable not set",
+                "message": "GCS_PHOTOS_BUCKET environment variable not set",
+                "timestamp": time.time(),
+            }
+
+        if not database_bucket:
+            return {
+                "status": "unhealthy",
+                "message": "GCS_DATABASE_BUCKET environment variable not set",
                 "timestamp": time.time(),
             }
 
@@ -82,7 +91,8 @@ def check_environment_health() -> dict[str, Any]:
         if os.getenv("ENVIRONMENT") == "prod":
             required_env_vars.extend(
                 [
-                    "GCS_BUCKET",
+                    "GCS_PHOTOS_BUCKET",
+                    "GCS_DATABASE_BUCKET",
                 ]
             )
 

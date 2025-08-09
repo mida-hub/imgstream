@@ -168,9 +168,14 @@ def get_project_id() -> str:
     return str(get_required_env("GOOGLE_CLOUD_PROJECT"))
 
 
-def get_gcs_bucket() -> str:
-    """Get GCS bucket name."""
-    return str(get_required_env("GCS_BUCKET"))
+def get_gcs_photos_bucket() -> str:
+    """Get GCS photos bucket name."""
+    return str(get_required_env("GCS_PHOTOS_BUCKET"))
+
+
+def get_gcs_database_bucket() -> str:
+    """Get GCS database bucket name."""
+    return str(get_required_env("GCS_DATABASE_BUCKET"))
 
 
 def get_environment() -> str:

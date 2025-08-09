@@ -72,10 +72,16 @@ class StorageService:
         Initialize the storage service.
 
         Args:
-            bucket_name: GCS bucket name (defaults to environment variable)
-            project_id: GCP project ID (defaults to environment variable)
+            bucket_name: GCS photos bucket name (defaults to GCS_PHOTOS_BUCKET environment variable)
+            project_id: GCP project ID (defaults to GOOGLE_CLOUD_PROJECT environment variable)
+
+        Environment Variables:
+            GCS_PHOTOS_BUCKET: Bucket for storing photos and thumbnails
+            GCS_DATABASE_BUCKET: Bucket for storing database files
+            GOOGLE_CLOUD_PROJECT: GCP project ID
         """
-        self.bucket_name = bucket_name or os.getenv("GCS_BUCKET")
+        # Photos bucket configuration
+        self.bucket_name = bucket_name or os.getenv("GCS_PHOTOS_BUCKET")
         self.project_id = project_id or os.getenv("GOOGLE_CLOUD_PROJECT")
 
         # Database bucket configuration
@@ -89,23 +95,23 @@ class StorageService:
         self.coldline_days = int(os.getenv("GCS_COLDLINE_DAYS", "30"))
 
         if not self.bucket_name:
-            raise StorageError("GCS_BUCKET environment variable is required")
+            raise StorageError("GCS_PHOTOS_BUCKET environment variable is required")
         if not self.project_id:
             raise StorageError("GOOGLE_CLOUD_PROJECT environment variable is required")
+
+        if not self.database_bucket_name:
+            raise StorageError("GCS_DATABASE_BUCKET environment variable is required")
 
         try:
             self.client = storage.Client(project=self.project_id)
             self.bucket = self.client.bucket(self.bucket_name)
 
-            # Initialize database bucket if configured
-            if self.database_bucket_name:
-                self.database_bucket = self.client.bucket(self.database_bucket_name)
-            else:
-                # Fallback to main bucket for backward compatibility
-                self.database_bucket = self.bucket
+            # Initialize database bucket
+            self.database_bucket = self.client.bucket(self.database_bucket_name)
             logger.info(
                 "storage_service_initialized",
-                bucket_name=self.bucket_name,
+                photos_bucket=self.bucket_name,
+                database_bucket=self.database_bucket_name,
                 region=self.region,
                 project_id=self.project_id,
                 storage_class=self.storage_class,

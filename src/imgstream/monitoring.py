@@ -320,7 +320,8 @@ class HealthChecker:
             storage = get_storage_service()
             # Test bucket accessibility
             bucket_exists = storage.check_bucket_exists()
-            bucket_name = self.config.get("GCS_BUCKET", "unknown")
+            photos_bucket = self.config.get("GCS_PHOTOS_BUCKET", "unknown")
+            database_bucket = self.config.get("GCS_DATABASE_BUCKET", "unknown")
 
             return {
                 "healthy": bucket_exists,

@@ -52,7 +52,7 @@ ImgStreamは、Python、Streamlit、Google Cloud Platformで構築された現�
    ```bash
    # uvがインストールされていない場合はインストール
    curl -LsSf https://astral.sh/uv/install.sh | sh
-   
+
    # プロジェクトの依存関係をインストール
    uv sync
    ```
@@ -85,19 +85,19 @@ graph TB
     CR --> GCS[📦 Cloud Storage]
     CR --> DB[(🗄️ Database)]
     CR --> MON[📊 Cloud Monitoring]
-    
+
     subgraph "Cloud Run Service"
         CR --> APP[📱 Streamlit App]
         APP --> AUTH[🔑 Auth Service]
         APP --> STORAGE[💾 Storage Service]
         APP --> IMG[🖼️ Image Processing]
     end
-    
+
     subgraph "CI/CD Pipeline"
         GH[📚 GitHub] --> GA[⚡ GitHub Actions]
         GA --> CR
     end
-    
+
     subgraph "Monitoring & Alerting"
         MON --> DASH[📈 Dashboards]
         MON --> ALERT[🚨 Alerts]
@@ -128,14 +128,14 @@ graph LR
     CDN --> WAF[🛡️ Web Application Firewall]
     WAF --> IAP[🔐 Identity-Aware Proxy]
     IAP --> CR[☁️ Cloud Run]
-    
+
     subgraph "Security Layers"
         IAP --> JWT[🎫 JWT Validation]
         CR --> RBAC[👥 Role-Based Access]
         CR --> CSRF[🔒 CSRF Protection]
         CR --> RATE[⏱️ Rate Limiting]
     end
-    
+
     subgraph "Data Security"
         CR --> GCS_ENC[🔐 GCS Default Encryption]
         CR --> TLS[🔒 TLS in Transit]
@@ -170,7 +170,7 @@ graph LR
    ```bash
    # Using uv (recommended)
    uv sync
-   
+
    # Or using pip
    pip install -r requirements.txt
    ```
@@ -179,7 +179,7 @@ graph LR
    ```bash
    # Code formatting and linting
    uv add --dev black ruff mypy
-   
+
    # Testing tools
    uv add --dev pytest pytest-cov pytest-asyncio
    ```
@@ -202,7 +202,8 @@ ImgStream uses environment-specific YAML configuration files located in `config/
 |----------|-------------|----------|---------|
 | `ENVIRONMENT` | Deployment environment | Yes | `development` |
 | `GOOGLE_CLOUD_PROJECT` | GCP project ID | Yes | - |
-| `GCS_BUCKET_*` | Storage bucket per environment | Yes | - |
+| `GCS_PHOTOS_BUCKET` | Photos storage bucket | Yes | - |
+| `GCS_DATABASE_BUCKET` | Database storage bucket | Yes | - |
 | `IAP_AUDIENCE` | IAP audience for authentication | Production | - |
 
 ### Configuration Example
@@ -224,7 +225,8 @@ auth:
 
 storage:
   type: "gcs"
-  gcs_bucket: "${GCS_BUCKET_PRODUCTION}"
+  photos_bucket: "${GCS_PHOTOS_BUCKET}"
+  database_bucket: "${GCS_DATABASE_BUCKET}"
   signed_url_expiration: 1800
 
 performance:
@@ -323,11 +325,11 @@ ENVIRONMENT=production ./scripts/setup-monitoring.sh
    ```bash
    # Run tests
    uv run pytest
-   
+
    # Code formatting
    uv run black .
    uv run ruff check .
-   
+
    # Type checking
    uv run mypy src/
    ```
@@ -447,7 +449,7 @@ warn_unused_configs = true
    ```bash
    # 自動修正可能な問題を修正
    uv run ruff check --fix src/ tests/
-   
+
    # 手動修正が必要な問題を確認
    uv run ruff check src/ tests/
    ```
@@ -456,7 +458,7 @@ warn_unused_configs = true
    ```bash
    # 詳細なエラー情報を確認
    uv run mypy src/ --show-error-codes
-   
+
    # 型アノテーションを追加または修正
    ```
 
