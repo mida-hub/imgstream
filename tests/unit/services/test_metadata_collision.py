@@ -476,23 +476,24 @@ class TestMetadataServiceDatabaseReset:
         mock_storage = Mock()
         mock_storage.file_exists.return_value = True
 
-        # Mock successful download by returning valid database bytes
-        def mock_download_file(gcs_path):
-            # Create a valid DuckDB database file in memory
-            import tempfile
-            import duckdb
-            with tempfile.NamedTemporaryFile() as temp_file:
-                conn = duckdb.connect(temp_file.name)
-                conn.execute("CREATE TABLE IF NOT EXISTS photos (id INTEGER)")
-                conn.close()
-                with open(temp_file.name, 'rb') as f:
-                    return f.read()
+        # Mock successful download by returning fake database bytes
+        mock_storage.download_database_file.return_value = b"fake_database_content"
 
-        mock_storage.download_file.side_effect = mock_download_file
-        mock_storage.download_database_file.side_effect = lambda user_id, filename: mock_download_file(f"databases/{user_id}/{filename}")
-        metadata_service.storage_service = mock_storage
+        # Mock database manager and verification
+        with patch('src.imgstream.services.metadata.get_database_manager') as mock_get_db:
+            mock_db_manager = Mock()
+            mock_db_manager.verify_schema.return_value = True
+            mock_db_manager.__enter__ = Mock(return_value=mock_db_manager)
+            mock_db_manager.__exit__ = Mock(return_value=None)
+            mock_connection = Mock()
+            mock_result = Mock()
+            mock_result.fetchone.return_value = (0,)  # photo count
+            mock_connection.execute.return_value = mock_result
+            mock_db_manager.connect.return_value = mock_connection
+            mock_get_db.return_value = mock_db_manager
+            metadata_service.storage_service = mock_storage
 
-        result = metadata_service.force_reload_from_gcs(confirm_reset=True)
+            result = metadata_service.force_reload_from_gcs(confirm_reset=True)
 
         # Verify initiation was logged
         mock_log_action.assert_any_call(

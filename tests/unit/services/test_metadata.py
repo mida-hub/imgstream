@@ -1057,12 +1057,10 @@ class TestMetadataServiceIntegration:
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
 
-        # First call: local DB doesn't exist, GCS has backup
-        # Second call: download the backup
-        mock_storage.download_database_file.side_effect = [
-            b"fake_backup_data",  # GCS has backup
-            b"fake_backup_data",  # Download backup
-        ]
+        # Mock file_exists for GCS database existence check
+        mock_storage.file_exists.return_value = True
+        # Mock download_database_file for actual download
+        mock_storage.download_database_file.return_value = b"fake_backup_data"
 
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -1079,8 +1077,8 @@ class TestMetadataServiceIntegration:
         # Verify local file was created
         assert service.local_db_path.exists()
 
-        # Verify download was called
-        assert mock_storage.download_database_file.call_count == 2
+        # Verify download was called (once for actual download, existence check uses file_exists)
+        assert mock_storage.download_database_file.call_count == 1
 
     @patch("src.imgstream.services.metadata.get_storage_service")
     def test_sync_disable_enable_cycle(self, mock_get_storage):

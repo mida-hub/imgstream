@@ -146,7 +146,7 @@ class TestMetadataServiceDatabaseReset:
         """Test database reset when GCS download fails."""
         # Mock GCS operations to fail
         self.mock_storage_service.file_exists.return_value = True
-        self.mock_storage_service.download_file.side_effect = Exception("Download failed")
+        self.mock_storage_service.download_database_file.side_effect = Exception("Download failed")
 
         # Mock database manager
         mock_db_manager = MagicMock()
@@ -338,13 +338,15 @@ class TestDatabaseResetIntegration:
 
         # Mock database operations
         with patch.object(metadata_service, 'ensure_local_database'), \
-             patch.object(metadata_service, '_db_manager') as mock_db_manager:
+             patch.object(type(metadata_service), 'db_manager', new_callable=PropertyMock) as mock_db_prop:
 
+            mock_db_manager = MagicMock()
             mock_connection = MagicMock()
-            mock_connection.__enter__ = MagicMock(return_value=mock_connection)
-            mock_connection.__exit__ = MagicMock(return_value=None)
-            mock_connection.execute.return_value.fetchone.return_value = [0]
-            mock_db_manager.get_connection.return_value = mock_connection
+            mock_result = MagicMock()
+            mock_result.fetchone.return_value = (0,)  # photo count
+            mock_connection.execute.return_value = mock_result
+            mock_db_manager.connect.return_value = mock_connection
+            mock_db_prop.return_value = mock_db_manager
 
             # Perform reset
             result = metadata_service.force_reload_from_gcs(confirm_reset=True)

@@ -17,6 +17,16 @@ from src.imgstream.models.photo import PhotoMetadata
 class TestCollisionDetectionUtilities:
     """Test collision detection utility functions."""
 
+    def setup_method(self):
+        """Clear cache before each test."""
+        from src.imgstream.utils.collision_detection import clear_collision_cache
+        clear_collision_cache()
+
+    def teardown_method(self):
+        """Clear cache after each test."""
+        from src.imgstream.utils.collision_detection import clear_collision_cache
+        clear_collision_cache()
+
     @pytest.fixture
     def sample_collision_info(self):
         """Create sample collision info for testing."""
