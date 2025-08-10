@@ -34,7 +34,7 @@ resource "google_artifact_registry_repository_iam_member" "github_actions_reader
 # This will be configured per environment via variables
 resource "google_artifact_registry_repository_iam_member" "cloud_run_readers" {
   for_each = toset(var.cloud_run_service_accounts)
-  
+
   location   = google_artifact_registry_repository.imgstream.location
   repository = google_artifact_registry_repository.imgstream.name
   role       = "roles/artifactregistry.reader"

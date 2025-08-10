@@ -2,11 +2,13 @@
 
 # Cloud Run service
 resource "google_cloud_run_v2_service" "imgstream" {
-  # provider    = google-beta
-  name          = "${var.app_name}-${var.environment}"
-  location      = var.region
-  # iap_enabled = true
-  # ingress     = "INGRESS_TRAFFIC_ALL"
+  provider     = google-beta
+  project      = var.project_id
+  name         = "${var.app_name}-${var.environment}"
+  location     = var.region
+  ingress      = "INGRESS_TRAFFIC_ALL"
+  iap_enabled  = var.enable_iap ? true : null
+  launch_stage = var.enable_iap ? "BETA" : null
 
   template {
     # Service account for the container
@@ -121,19 +123,17 @@ resource "google_cloud_run_v2_service" "imgstream" {
         value = var.environment == "dev" ? "true" : "false"
       }
 
-      env {
-        name  = "dev_auth_default_email"
-        value = "developer@example.com"
-      }
+      dynamic env {
+        for_each = var.environment == "dev" ? {
+          "dev_auth_default_email" : "developer@example.com",
+          "dev_auth_default_name" : "Cloud Run Developer",
+          "dev_auth_default_user_id" : "cloudrun-dev-001",
+        } : {}
 
-      env {
-        name  = "dev_auth_default_name"
-        value = "Cloud Run Developer"
-      }
-
-      env {
-        name  = "dev_auth_default_user_id"
-        value = "cloudrun-dev-001"
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
 
       # Health check configuration
@@ -191,30 +191,7 @@ resource "google_cloud_run_v2_service" "imgstream" {
   ]
 }
 
-# IAM policy for Cloud Run service
-resource "google_cloud_run_v2_service_iam_binding" "public_access" {
-  count = var.enable_public_access && !var.enable_iap ? 1 : 0
-
-  location = google_cloud_run_v2_service.imgstream.location
-  name     = google_cloud_run_v2_service.imgstream.name
-  role     = "roles/run.invoker"
-  members  = ["allUsers"]
-}
-
-# IAM policy for IAP access (when IAP is enabled)
-resource "google_cloud_run_v2_service_iam_binding" "iap_access" {
-  count = var.enable_iap ? 1 : 0
-
-  location = google_cloud_run_v2_service.imgstream.location
-  name     = google_cloud_run_v2_service.imgstream.name
-  role     = "roles/run.invoker"
-  members  = ["serviceAccount:service-${data.google_project.current.number}@gcp-sa-iap.iam.gserviceaccount.com"]
-}
-
-# IAM policy for authenticated access (when neither public nor IAP is enabled)
 resource "google_cloud_run_v2_service_iam_binding" "authenticated_access" {
-  count = !var.enable_public_access && !var.enable_iap ? 1 : 0
-
   location = google_cloud_run_v2_service.imgstream.location
   name     = google_cloud_run_v2_service.imgstream.name
   role     = "roles/run.invoker"

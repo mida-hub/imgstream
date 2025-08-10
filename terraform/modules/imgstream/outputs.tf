@@ -20,8 +20,6 @@ output "database_bucket_name" {
   value       = google_storage_bucket.database.name
 }
 
-
-
 output "cloud_run_service_account_email" {
   description = "Email of the Cloud Run service account"
   value       = google_service_account.cloud_run.email
@@ -38,14 +36,4 @@ output "notification_channels" {
     email = google_monitoring_notification_channel.email.name
     slack = var.slack_webhook_url != "" ? google_monitoring_notification_channel.slack[0].name : null
   }
-}
-
-output "iap_ip_address" {
-  description = "Static IP address for IAP (if enabled)"
-  value       = var.enable_iap ? google_compute_global_address.imgstream_ip[0].address : null
-}
-
-output "iap_domain" {
-  description = "Custom domain for IAP (if configured)"
-  value       = var.custom_domain != "" ? var.custom_domain : null
 }

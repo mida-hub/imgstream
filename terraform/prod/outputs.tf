@@ -51,13 +51,3 @@ output "notification_channels" {
   description = "Created notification channels"
   value       = module.imgstream.notification_channels
 }
-
-output "iap_ip_address" {
-  description = "Static IP address for IAP (if enabled)"
-  value       = module.imgstream.iap_ip_address
-}
-
-output "iap_domain" {
-  description = "Custom domain for IAP (if configured)"
-  value       = module.imgstream.iap_domain
-}

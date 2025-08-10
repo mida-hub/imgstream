@@ -8,7 +8,7 @@ variable "project_id" {
 variable "region" {
   description = "The GCP region for resources"
   type        = string
-  default     = "us-central1"
+  default     = "asia-northeast1"
 }
 
 variable "environment" {
@@ -25,7 +25,7 @@ variable "app_name" {
 variable "bucket_location" {
   description = "Location for GCS buckets"
   type        = string
-  default     = "US"
+  default     = "ASIA"
 }
 
 variable "lifecycle_coldline_days" {
@@ -46,16 +46,16 @@ variable "lifecycle_delete_days" {
   default     = 0
 }
 
-variable "allowed_domains" {
-  description = "List of allowed domains for IAP authentication"
-  type        = list(string)
-  default     = []
-}
-
 variable "allowed_users" {
   description = "List of allowed user emails for IAP authentication"
   type        = list(string)
   default     = []
+}
+
+variable "custom_domain" {
+  description = "Custom domain for Cloud Run service"
+  type        = string
+  default     = ""
 }
 
 variable "container_image" {
@@ -70,18 +70,6 @@ variable "container_image_tag" {
   default     = null
 }
 
-variable "enable_public_access" {
-  description = "Enable public access to Cloud Run service (disable for IAP)"
-  type        = bool
-  default     = false
-}
-
-variable "custom_domain" {
-  description = "Custom domain for Cloud Run service"
-  type        = string
-  default     = ""
-}
-
 variable "min_instances" {
   description = "Minimum number of instances"
   type        = number
@@ -91,7 +79,7 @@ variable "min_instances" {
 variable "max_instances" {
   description = "Maximum number of instances"
   type        = number
-  default     = 10
+  default     = 1
 }
 
 variable "cpu_limit" {
@@ -106,25 +94,8 @@ variable "memory_limit" {
   default     = "2Gi"
 }
 
-variable "iap_support_email" {
-  description = "Support email for IAP OAuth consent screen"
-  type        = string
-}
-
 variable "enable_iap" {
   description = "Enable Cloud IAP for the application"
-  type        = bool
-  default     = true
-}
-
-variable "enable_security_policy" {
-  description = "Enable Cloud Armor security policy"
-  type        = bool
-  default     = true
-}
-
-variable "enable_waf_rules" {
-  description = "Enable WAF rules in security policy"
   type        = bool
   default     = true
 }
@@ -133,18 +104,6 @@ variable "rate_limit_requests_per_minute" {
   description = "Rate limit requests per minute per IP"
   type        = number
   default     = 100
-}
-
-variable "allowed_countries" {
-  description = "List of allowed country codes (ISO 3166-1 alpha-2)"
-  type        = list(string)
-  default     = []
-}
-
-variable "session_duration" {
-  description = "IAP session duration in seconds"
-  type        = number
-  default     = 3600
 }
 
 variable "alert_email" {

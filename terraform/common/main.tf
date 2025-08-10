@@ -6,7 +6,7 @@ terraform {
       version = "~> 6.46.0"
     }
   }
-  
+
   backend "gcs" {
     bucket = "tfstate-apps-466614"
     prefix = "imgstream/common"
@@ -17,3 +17,5 @@ provider "google" {
   project = "apps-466614"
   region  = "asia-northeast1"
 }
+
+data "google_project" "current" {}
