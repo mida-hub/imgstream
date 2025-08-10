@@ -196,7 +196,7 @@ class CollisionCache:
         valid_entries = 0
         expired_entries = 0
 
-        for cached_data, timestamp in self.cache.values():
+        for _cached_data, timestamp in self.cache.values():
             if now - timestamp < timedelta(seconds=self.ttl_seconds):
                 valid_entries += 1
             else:

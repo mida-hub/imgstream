@@ -81,6 +81,7 @@ class TestMetadataService:
         """Test ensure_local_database downloading from GCS."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
+        mock_storage.file_exists.return_value = True
         mock_storage.download_database_file.return_value = b"fake_db_data"
         mock_db_manager = MagicMock()
         mock_get_db_manager.return_value = mock_db_manager
@@ -94,8 +95,8 @@ class TestMetadataService:
 
         assert result is True  # Downloaded from GCS
         assert service.local_db_path.exists()
-        # download_database_file is called twice: once for existence check, once for actual download
-        assert mock_storage.download_database_file.call_count == 2
+        # download_database_file is called once for actual download (existence check uses file_exists)
+        assert mock_storage.download_database_file.call_count == 1
         mock_storage.download_database_file.assert_called_with(self.user_id, "metadata.db")
 
     @patch("src.imgstream.services.metadata.get_storage_service")
@@ -118,7 +119,7 @@ class TestMetadataService:
         """Test _gcs_database_exists when database exists."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_database_file.return_value = b"fake_data"
+        mock_storage.file_exists.return_value = True
 
         service = MetadataService(self.user_id, self.temp_dir)
 
@@ -131,7 +132,7 @@ class TestMetadataService:
         """Test _gcs_database_exists when database doesn't exist."""
         mock_storage = MagicMock()
         mock_get_storage.return_value = mock_storage
-        mock_storage.download_database_file.side_effect = StorageError("Not found")
+        mock_storage.file_exists.return_value = False
 
         service = MetadataService(self.user_id, self.temp_dir)
 
@@ -181,6 +182,11 @@ class TestMetadataService:
         mock_db_manager.__enter__ = MagicMock(return_value=mock_db_manager)
         mock_db_manager.__exit__ = MagicMock(return_value=None)
         mock_db_manager.get_table_info.return_value = {"columns": ["id", "filename"]}
+
+        # Mock connection for photo count query
+        mock_connection = MagicMock()
+        mock_db_manager.connect.return_value = mock_connection
+        mock_connection.execute.return_value.fetchone.return_value = (0,)  # photo count
 
         service = MetadataService(self.user_id, self.temp_dir)
 

@@ -240,9 +240,13 @@ class MetadataService:
 
             return True
 
-        except NotFound:
-            logger.debug("gcs_database_not_found", user_id=self.user_id, gcs_path=self.gcs_db_path)
-            return False
+        except (NotFound, StorageError) as e:
+            if "not found" in str(e).lower():
+                logger.debug("gcs_database_not_found", user_id=self.user_id, gcs_path=self.gcs_db_path)
+                return False
+            else:
+                # Re-raise other storage errors
+                raise
         except Exception as e:
             # Clean up partial download
             if self.local_db_path.exists():
@@ -252,14 +256,7 @@ class MetadataService:
 
     def _gcs_database_exists(self) -> bool:
         """Check if database exists in GCS."""
-        try:
-            # Try to get file metadata from database bucket
-            self.storage_service.download_database_file(self.user_id, "metadata.db")
-            return True
-        except (StorageError, NotFound):
-            return False
-        except Exception:
-            return False
+        return self.storage_service.file_exists(self.gcs_db_path)
 
     def _create_new_database(self) -> None:
         """Create a new local database with schema."""
@@ -346,26 +343,48 @@ class MetadataService:
             MetadataError: If getting info fails
         """
         try:
+            # Check GCS database existence
+            try:
+                gcs_db_exists = self._gcs_database_exists()
+            except Exception as e:
+                logger.warning(
+                    "gcs_database_check_failed",
+                    user_id=self.user_id,
+                    error=str(e),
+                )
+                gcs_db_exists = None
+
             info = {
                 "user_id": self.user_id,
-                "local_path": str(self.local_db_path),
-                "gcs_path": self.gcs_db_path,
-                "local_exists": self.local_db_path.exists(),
-                "gcs_exists": self._gcs_database_exists(),
+                "local_db_path": str(self.local_db_path),
+                "gcs_db_path": self.gcs_db_path,
+                "local_db_exists": self.local_db_path.exists(),
+                "gcs_db_exists": gcs_db_exists,
+                "photo_count": None,
+                "local_db_size": None,
+                "last_sync_time": self._last_sync_time.isoformat() if self._last_sync_time else None,
+                "sync_enabled": self._sync_enabled,
             }
 
-            if info["local_exists"]:
+            if info["local_db_exists"]:
                 stat = self.local_db_path.stat()
-                info.update({"local_size": stat.st_size, "local_modified": stat.st_mtime})
+                info.update({"local_db_size": stat.st_size, "local_modified": stat.st_mtime})
 
-                # Get table info
+                # Get table info and photo count
                 try:
                     with self.db_manager as db:
                         table_info = db.get_table_info()
                         info["table_info"] = table_info
+
+                        # Get photo count
+                        conn = db.connect()
+                        result = conn.execute("SELECT COUNT(*) FROM photos WHERE user_id = ?", (self.user_id,))
+                        row = result.fetchone()
+                        info["photo_count"] = row[0] if row else 0
                 except Exception as e:
                     logger.warning("table_info_failed", user_id=self.user_id, error=str(e))
                     info["table_info"] = None
+                    info["photo_count"] = None
 
             return info
 
@@ -392,69 +411,6 @@ class MetadataService:
                 e,
                 {"operation": "cleanup_local_database", "user_id": self.user_id, "local_path": str(self.local_db_path)},
             )
-
-    def force_reload_from_gcs(self) -> bool:
-        """
-        Force reload database from GCS by deleting local file and re-downloading.
-
-        This is useful for development/testing when the local database becomes corrupted
-        or when you want to reset to the GCS version.
-
-        Returns:
-            bool: True if successfully reloaded from GCS, False if no GCS database exists
-
-        Raises:
-            MetadataError: If reload fails
-        """
-        try:
-            logger.info("force_reload_from_gcs_started", user_id=self.user_id, local_path=str(self.local_db_path))
-
-            # Close existing database connection
-            if self._db_manager:
-                self._db_manager.close()
-                self._db_manager = None
-
-            # Remove local database file if it exists
-            if self.local_db_path.exists():
-                self.local_db_path.unlink()
-                logger.info(
-                    "local_database_removed_for_reload", user_id=self.user_id, local_path=str(self.local_db_path)
-                )
-
-            # Check if GCS database exists
-            if not self._gcs_database_exists():
-                logger.warning("force_reload_no_gcs_database", user_id=self.user_id, gcs_path=self.gcs_db_path)
-                # Create new database since no GCS version exists
-                self._create_new_database()
-                log_user_action(self.user_id, "force_reload_created_new_database", local_path=str(self.local_db_path))
-                return False
-
-            # Download from GCS
-            if self._download_from_gcs():
-                log_user_action(
-                    self.user_id,
-                    "force_reload_from_gcs_completed",
-                    gcs_path=self.gcs_db_path,
-                    local_path=str(self.local_db_path),
-                )
-                return True
-            else:
-                # Fallback to creating new database
-                self._create_new_database()
-                log_user_action(self.user_id, "force_reload_fallback_new_database", local_path=str(self.local_db_path))
-                return False
-
-        except Exception as e:
-            log_error(
-                e,
-                {
-                    "operation": "force_reload_from_gcs",
-                    "user_id": self.user_id,
-                    "local_path": str(self.local_db_path),
-                    "gcs_path": self.gcs_db_path,
-                },
-            )
-            raise MetadataError(f"Failed to force reload database from GCS: {e}") from e
 
     # Async Sync Methods
 
@@ -714,7 +670,7 @@ class MetadataService:
                     # Update with preserved creation info
                     db.execute_query(
                         """UPDATE photos SET
-                           original_path = ?, thumbnail_path = ?, uploaded_at = ?, 
+                           original_path = ?, thumbnail_path = ?, uploaded_at = ?,
                            file_size = ?, mime_type = ?
                            WHERE id = ? AND user_id = ?""",
                         (
@@ -740,7 +696,7 @@ class MetadataService:
                     # Standard update without preservation
                     db.execute_query(
                         """UPDATE photos SET
-                           original_path = ?, thumbnail_path = ?, created_at = ?, uploaded_at = ?, 
+                           original_path = ?, thumbnail_path = ?, created_at = ?, uploaded_at = ?,
                            file_size = ?, mime_type = ?
                            WHERE id = ? AND user_id = ?""",
                         (
@@ -1484,7 +1440,8 @@ class MetadataService:
                 # Verify database is working
                 conn = self.db_manager.connect()
                 result = conn.execute("SELECT COUNT(*) FROM photos WHERE user_id = ?", (self.user_id,))
-                photo_count = result.fetchone()[0]
+                row = result.fetchone()
+                photo_count = row[0] if row else 0
 
                 logger.info(
                     "database_reinitialized",
@@ -1562,65 +1519,6 @@ class MetadataService:
 
             raise MetadataError(f"Database reset failed: {e}") from e
 
-    def get_database_info(self) -> dict[str, Any]:
-        """
-        Get information about the current database state.
-
-        Returns:
-            dict: Database information including file paths, sizes, and metadata
-        """
-        try:
-            info = {
-                "user_id": self.user_id,
-                "local_db_path": str(self.local_db_path),
-                "gcs_db_path": self.gcs_db_path,
-                "local_db_exists": self.local_db_path.exists(),
-                "local_db_size": None,
-                "gcs_db_exists": None,
-                "photo_count": None,
-                "last_sync_time": self._last_sync_time.isoformat() if self._last_sync_time else None,
-                "sync_enabled": self._sync_enabled,
-            }
-
-            # Get local database size
-            if info["local_db_exists"]:
-                info["local_db_size"] = self.local_db_path.stat().st_size
-
-            # Check GCS database existence
-            try:
-                info["gcs_db_exists"] = self.storage_service.file_exists(self.gcs_db_path)
-            except Exception as e:
-                logger.warning(
-                    "gcs_database_check_failed",
-                    user_id=self.user_id,
-                    error=str(e),
-                )
-                info["gcs_db_exists"] = None
-
-            # Get photo count
-            try:
-                if self._db_manager is not None:
-                    conn = self.db_manager.connect()
-                    result = conn.execute("SELECT COUNT(*) FROM photos WHERE user_id = ?", (self.user_id,))
-                    info["photo_count"] = result.fetchone()[0]
-            except Exception as e:
-                logger.warning(
-                    "photo_count_check_failed",
-                    user_id=self.user_id,
-                    error=str(e),
-                )
-                info["photo_count"] = None
-
-            return info
-
-        except Exception as e:
-            logger.error(
-                "database_info_retrieval_failed",
-                user_id=self.user_id,
-                error=str(e),
-            )
-            raise MetadataError(f"Failed to get database info: {e}") from e
-
     def validate_database_integrity(self) -> dict[str, Any]:
         """
         Validate database integrity and consistency.
@@ -1648,7 +1546,8 @@ class MetadataService:
             # Check table existence (DuckDB specific)
             try:
                 result = conn.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'photos'")
-                table_count = result.fetchone()[0]
+                row = result.fetchone()
+                table_count = row[0] if row else 0
                 if table_count == 0:
                     issues.append("Photos table does not exist")
             except Exception:
@@ -1660,17 +1559,18 @@ class MetadataService:
 
             # Check for orphaned records (photos without user_id)
             result = conn.execute("SELECT COUNT(*) FROM photos WHERE user_id IS NULL OR user_id = ''")
-            orphaned_count = result.fetchone()[0]
+            row = result.fetchone()
+            orphaned_count = row[0] if row else 0
             if orphaned_count > 0:
                 issues.append(f"Found {orphaned_count} orphaned records without user_id")
 
             # Check for duplicate filenames for this user
             result = conn.execute(
                 """
-                SELECT filename, COUNT(*) as count 
-                FROM photos 
-                WHERE user_id = ? 
-                GROUP BY filename 
+                SELECT filename, COUNT(*) as count
+                FROM photos
+                WHERE user_id = ?
+                GROUP BY filename
                 HAVING COUNT(*) > 1
             """,
                 (self.user_id,),
@@ -1684,7 +1584,7 @@ class MetadataService:
             # Check for invalid file paths
             result = conn.execute(
                 """
-                SELECT COUNT(*) FROM photos 
+                SELECT COUNT(*) FROM photos
                 WHERE user_id = ? AND (
                     original_path IS NULL OR original_path = '' OR
                     thumbnail_path IS NULL OR thumbnail_path = ''
@@ -1693,14 +1593,15 @@ class MetadataService:
                 (self.user_id,),
             )
 
-            invalid_paths = result.fetchone()[0]
+            row = result.fetchone()
+            invalid_paths = row[0] if row else 0
             if invalid_paths > 0:
                 issues.append(f"Found {invalid_paths} records with invalid file paths")
 
             # Check for future dates
             result = conn.execute(
                 """
-                SELECT COUNT(*) FROM photos 
+                SELECT COUNT(*) FROM photos
                 WHERE user_id = ? AND (
                     created_at > now() OR
                     uploaded_at > now()
@@ -1709,7 +1610,8 @@ class MetadataService:
                 (self.user_id,),
             )
 
-            future_dates = result.fetchone()[0]
+            row = result.fetchone()
+            future_dates = row[0] if row else 0
             if future_dates > 0:
                 issues.append(f"Found {future_dates} records with future dates")
 
@@ -1792,7 +1694,7 @@ def cleanup_metadata_services() -> None:
             query = f"""
                 SELECT id, user_id, filename, original_path, thumbnail_path,
                        created_at, uploaded_at, file_size, mime_type
-                FROM photos 
+                FROM photos
                 WHERE user_id = ? AND filename IN ({placeholders})
             """
 

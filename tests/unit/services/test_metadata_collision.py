@@ -362,62 +362,158 @@ class TestMetadataServiceDatabaseReset:
         assert result["success"] is True
         assert result["download_successful"] is False
 
-    @patch("pathlib.Path.exists")
-    def test_force_reload_from_gcs_download_fails(self, mock_exists, metadata_service):
-        """Test force reload when GCS download fails."""
-        # Mock GCS database exists but download fails
-        mock_exists.return_value = False
-        metadata_service._gcs_database_exists = Mock(return_value=True)
-        metadata_service._download_from_gcs = Mock(return_value=False)
-        metadata_service._create_new_database = Mock()
+    def test_force_reload_from_gcs_download_fails(self, metadata_service):
+        """Test force reload when GCS download fails but continues with new database creation."""
+        # Clean up any existing test database file
+        import os
+        test_db_path = "/tmp/test/metadata_test_user_123.db"
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+        # Mock local database path operations
+        with patch("pathlib.Path.exists") as mock_exists, \
+             patch("pathlib.Path.unlink") as mock_unlink, \
+             patch("src.imgstream.models.database.get_database_manager") as mock_get_db_manager:
+
+            mock_exists.return_value = False  # Local database doesn't exist
+
+            # Mock storage service methods directly on the instance
+            metadata_service.storage_service.file_exists = Mock(return_value=True)
+            metadata_service.storage_service.download_file = Mock(side_effect=Exception("Download failed"))
+
+            # Mock ensure_local_database
+            metadata_service.ensure_local_database = Mock()
+
+            # Mock db_manager for the final verification
+            mock_db_manager = Mock()
+            mock_conn = Mock()
+            mock_result = Mock()
+            mock_result.fetchone.return_value = [0]  # photo count
+            mock_conn.execute.return_value = mock_result
+            mock_db_manager.connect.return_value = mock_conn
+            mock_get_db_manager.return_value = mock_db_manager
+
+            # Set the private _db_manager directly
+            metadata_service._db_manager = mock_db_manager
+
+            result = metadata_service.force_reload_from_gcs(confirm_reset=True)
+
+            # Should succeed despite download failure by creating new database
+            assert result["success"] is True
+            assert result["gcs_database_exists"] is True
+            assert result["download_successful"] is False
+            assert "GCS download failed" in result["message"]
+
+    def test_force_reload_from_gcs_closes_db_manager(self, metadata_service):
+        """Test that force reload properly closes database manager."""
+        # Clean up any existing test database file
+        import os
+        test_db_path = "/tmp/test/metadata_test_user_123.db"
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+        with patch("pathlib.Path.exists") as mock_exists, \
+             patch("src.imgstream.models.database.get_database_manager") as mock_get_db_manager:
+
+            mock_exists.return_value = False
+
+            # Mock storage service
+            metadata_service.storage_service.file_exists = Mock(return_value=False)
+
+            # Mock ensure_local_database
+            metadata_service.ensure_local_database = Mock()
+
+            # Store reference to original db_manager before it gets closed
+            original_db_manager = metadata_service._db_manager
+
+            # Mock new db_manager for the final verification
+            new_db_manager = Mock()
+            mock_conn = Mock()
+            mock_result = Mock()
+            mock_result.fetchone.return_value = [0]  # photo count
+            mock_conn.execute.return_value = mock_result
+            new_db_manager.connect.return_value = mock_conn
+            mock_get_db_manager.return_value = new_db_manager
+
+            metadata_service.force_reload_from_gcs(confirm_reset=True)
+
+            # Verify original database manager was closed
+            original_db_manager.close.assert_called_once()
+
+            # Verify new database manager was created (accessed via property)
+            assert metadata_service._db_manager is not None
+
+    def test_force_reload_from_gcs_error_handling(self, metadata_service):
+        """Test error handling in force reload when database creation fails."""
+        # Clean up any existing test database file
+        import os
+        test_db_path = "/tmp/test/metadata_test_user_123.db"
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+        with patch("pathlib.Path.exists") as mock_exists, \
+             patch("src.imgstream.models.database.get_database_manager") as mock_get_db_manager:
+
+            mock_exists.return_value = False
+
+            # Mock storage service to succeed
+            metadata_service.storage_service.file_exists = Mock(return_value=False)
+
+            # Mock ensure_local_database to fail
+            metadata_service.ensure_local_database = Mock(side_effect=Exception("Database creation failed"))
+
+            with pytest.raises(MetadataError, match="Database reset failed"):
+                metadata_service.force_reload_from_gcs(confirm_reset=True)
+
+    @patch("src.imgstream.services.metadata.log_user_action")
+    def test_force_reload_from_gcs_logging(self, mock_log_action, metadata_service):
+        """Test that force reload events are properly logged."""
+        # Clean up any existing database file
+        if metadata_service.local_db_path.exists():
+            metadata_service.local_db_path.unlink()
+
+        # Mock storage service directly on the metadata service instance
+        mock_storage = Mock()
+        mock_storage.file_exists.return_value = True
+
+        # Mock successful download by returning valid database bytes
+        def mock_download_file(gcs_path):
+            # Create a valid DuckDB database file in memory
+            import tempfile
+            import duckdb
+            with tempfile.NamedTemporaryFile() as temp_file:
+                conn = duckdb.connect(temp_file.name)
+                conn.execute("CREATE TABLE IF NOT EXISTS photos (id INTEGER)")
+                conn.close()
+                with open(temp_file.name, 'rb') as f:
+                    return f.read()
+
+        mock_storage.download_file.side_effect = mock_download_file
+        mock_storage.download_database_file.side_effect = lambda user_id, filename: mock_download_file(f"databases/{user_id}/{filename}")
+        metadata_service.storage_service = mock_storage
 
         result = metadata_service.force_reload_from_gcs(confirm_reset=True)
 
-        assert result is False
-        metadata_service._create_new_database.assert_called_once()
-
-    @patch("pathlib.Path.exists")
-    def test_force_reload_from_gcs_closes_db_manager(self, mock_exists, metadata_service):
-        """Test that force reload properly closes database manager."""
-        mock_exists.return_value = False
-        metadata_service._gcs_database_exists = Mock(return_value=False)
-        metadata_service._create_new_database = Mock()
-
-        # Store reference to original db_manager before it gets set to None
-        original_db_manager = metadata_service._db_manager
-
-        metadata_service.force_reload_from_gcs(confirm_reset=True)
-
-        # Verify database manager was closed and reset
-        original_db_manager.close.assert_called_once()
-        assert metadata_service._db_manager is None
-
-    def test_force_reload_from_gcs_error_handling(self, metadata_service):
-        """Test error handling in force reload."""
-        # Mock exception during reload
-        metadata_service._gcs_database_exists = Mock(side_effect=Exception("GCS error"))
-
-        with pytest.raises(MetadataError, match="Failed to force reload database from GCS"):
-            metadata_service.force_reload_from_gcs(confirm_reset=True)
-
-    @patch("pathlib.Path.exists")
-    @patch("pathlib.Path.unlink")
-    @patch("src.imgstream.services.metadata.log_user_action")
-    def test_force_reload_from_gcs_logging(self, mock_log_action, mock_unlink, mock_exists, metadata_service):
-        """Test that force reload events are properly logged."""
-        mock_exists.return_value = True
-        metadata_service._gcs_database_exists = Mock(return_value=True)
-        metadata_service._download_from_gcs = Mock(return_value=True)
-
-        metadata_service.force_reload_from_gcs(confirm_reset=True)
-
-        # Verify completion was logged
-        mock_log_action.assert_called_with(
+        # Verify initiation was logged
+        mock_log_action.assert_any_call(
             "test_user_123",
-            "force_reload_from_gcs_completed",
-            gcs_path=metadata_service.gcs_db_path,
-            local_path=str(metadata_service.local_db_path),
+            "database_reset_initiated",
+            local_db_path=str(metadata_service.local_db_path),
+            gcs_db_path=metadata_service.gcs_db_path,
         )
+
+        # Verify completion was logged - check that it was called at least once
+        assert mock_log_action.call_count >= 2  # At least initiation and completion
+
+        # Check that database_reset_initiated was called
+        initiation_calls = [call for call in mock_log_action.call_args_list
+                           if len(call[0]) >= 2 and call[0][1] == "database_reset_initiated"]
+        assert len(initiation_calls) == 1
+
+        # Check that database_reset_completed was called
+        completion_calls = [call for call in mock_log_action.call_args_list
+                           if len(call[0]) >= 2 and call[0][1] == "database_reset_completed"]
+        assert len(completion_calls) == 1
 
 
 class TestUploadHandlersOverwriteSupport:

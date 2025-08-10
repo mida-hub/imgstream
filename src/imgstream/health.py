@@ -65,14 +65,14 @@ def check_storage_health() -> dict[str, Any]:
             }
 
         # Try to access the specific bucket
-        bucket = client.bucket(bucket_name)
+        bucket = client.bucket(database_bucket)
         bucket.exists()  # This will check if the bucket exists and we have access
 
         return {
             "status": "healthy",
-            "message": f"Storage connection successful to bucket: {bucket_name}",
+            "message": f"Storage connection successful to bucket: {database_bucket}",
             "timestamp": time.time(),
-            "bucket": bucket_name,
+            "bucket": database_bucket,
         }
     except Exception as e:
         logger.error("storage_health_check_failed", error=str(e))

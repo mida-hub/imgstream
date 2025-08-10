@@ -865,6 +865,33 @@ class StorageService:
             logger.error(f"Error checking bucket: {e}")
             return False
 
+    def file_exists(self, gcs_path: str) -> bool:
+        """
+        Check if a file exists in GCS.
+
+        Args:
+            gcs_path: Path to the file in GCS
+
+        Returns:
+            bool: True if file exists, False otherwise
+        """
+        try:
+            # For database files, use the database bucket
+            if gcs_path.startswith("databases/"):
+                if not self.database_bucket_name:
+                    raise StorageError("Database bucket not configured")
+                database_client = storage.Client(project=self.project_id)
+                database_bucket = database_client.bucket(self.database_bucket_name)
+                blob = database_bucket.blob(gcs_path)
+            else:
+                # For regular files, use the photos bucket
+                blob = self.bucket.blob(gcs_path)
+
+            return blob.exists()
+        except Exception as e:
+            logger.error(f"Error checking file existence for '{gcs_path}': {e}")
+            raise StorageError(f"Failed to check file existence: {e}") from e
+
     def upload_database_file(self, user_id: str, file_data: bytes, filename: str) -> dict[str, str]:
         """
         Upload database file to the database bucket.

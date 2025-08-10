@@ -287,7 +287,7 @@ class CollisionMetricsCollector:
             successful_operations = len([m for m in recent_overwrites if m.success])
 
             # User statistics
-            unique_users = len(set(event.user_id for event in recent_events))
+            unique_users = len({event.user_id for event in recent_events})
 
             # Performance statistics
             if recent_overwrites:

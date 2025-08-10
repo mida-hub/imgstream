@@ -1314,12 +1314,23 @@ def clear_upload_session_state() -> None:
         "upload_validated",
         "upload_in_progress",
         "upload_results",
-        "last_upload_result",  # Add this to clear the upload result
+        "last_upload_result",
+        "upload_progress",
     ]
 
+    # Clear specific keys
     for key in session_keys_to_clear:
         if key in st.session_state:
             del st.session_state[key]
+
+    # Clear collision decision keys (pattern-based)
+    keys_to_remove = []
+    for key in st.session_state.keys():
+        if key.startswith("collision_decision_") or key.startswith("decision_start_"):
+            keys_to_remove.append(key)
+
+    for key in keys_to_remove:
+        del st.session_state[key]
 
 
 def _get_collision_detection_error_message(error: Exception) -> str:
@@ -1332,7 +1343,6 @@ def _get_collision_detection_error_message(error: Exception) -> str:
     Returns:
         str: User-friendly error message
     """
-    error_type = type(error).__name__
     error_str = str(error)
 
     if "timeout" in error_str.lower():
@@ -1402,25 +1412,6 @@ def handle_overwrite_operation_error(error: Exception, filename: str, operation:
         "recovery_options": recovery_options,
         "message": f"Failed to {operation} {filename}: {recovery_message}",
     }
-
-
-def clear_upload_session_state() -> None:
-    """Clear upload-related session state for fresh start."""
-    import streamlit as st
-
-    # Clear upload-related session state
-    keys_to_clear = [
-        "uploaded_files",
-        "validation_results",
-        "collision_results",
-        "upload_results",
-        "upload_in_progress",
-        "collision_decisions",
-    ]
-
-    for key in keys_to_clear:
-        if key in st.session_state:
-            del st.session_state[key]
 
 
 def handle_collision_decision_monitoring(
@@ -1512,18 +1503,6 @@ def collect_user_collision_decisions(collision_results: dict, user_id: str) -> d
     return updated_results
 
 
-def clear_upload_session_state() -> None:
-    """Clear upload-related session state variables."""
-    keys_to_clear = [
-        key
-        for key in st.session_state.keys()
-        if key.startswith(("collision_decision_", "decision_start_", "upload_", "validation_"))
-    ]
-
-    for key in keys_to_clear:
-        del st.session_state[key]
-
-
 def get_collision_decision_statistics(user_id: str) -> dict:
     """
     Get collision decision statistics for a user.
@@ -1546,17 +1525,17 @@ def render_collision_decision_help() -> None:
         st.markdown(
             """
         ### 📋 衝突処理オプション
-        
+
         **🔄 上書きする:**
         - 既存のファイルを新しいファイルで置き換えます
         - 元の作成日時とファイルIDは保持されます
         - メタデータ（ファイルサイズ、撮影日時など）は新しいファイルの情報に更新されます
-        
+
         **⏭️ スキップする:**
         - 既存のファイルをそのまま保持します
         - 新しいファイルはアップロードされません
         - 後でファイル名を変更してアップロードすることができます
-        
+
         ### 💡 推奨事項
         - 同じ写真の高画質版がある場合は「上書き」を選択
         - 異なる写真の場合は「スキップ」を選択してファイル名を変更
