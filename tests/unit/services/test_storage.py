@@ -34,10 +34,10 @@ class TestStorageService:
 
         service = StorageService()
 
-        assert service.bucket_name == "test-photos-bucket"
+        assert service.photos_bucket_name == "test-photos-bucket"
         assert service.project_id == "test-project"
         assert service.client == mock_client
-        assert service.bucket == mock_bucket
+        assert service.photos_bucket == mock_bucket
         mock_client_class.assert_called_once_with(project="test-project")
 
     def test_init_missing_bucket_name(self):

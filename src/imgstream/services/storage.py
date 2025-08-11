@@ -81,7 +81,7 @@ class StorageService:
             GOOGLE_CLOUD_PROJECT: GCP project ID
         """
         # Photos bucket configuration
-        self.bucket_name = bucket_name or os.getenv("GCS_PHOTOS_BUCKET")
+        self.photos_bucket_name = bucket_name or os.getenv("GCS_PHOTOS_BUCKET")
         self.project_id = project_id or os.getenv("GOOGLE_CLOUD_PROJECT")
 
         # Database bucket configuration
@@ -94,7 +94,7 @@ class StorageService:
         self.lifecycle_enabled = os.getenv("GCS_LIFECYCLE_ENABLED", "true").lower() == "true"
         self.coldline_days = int(os.getenv("GCS_COLDLINE_DAYS", "30"))
 
-        if not self.bucket_name:
+        if not self.photos_bucket_name:
             raise StorageError("GCS_PHOTOS_BUCKET environment variable is required")
         if not self.project_id:
             raise StorageError("GOOGLE_CLOUD_PROJECT environment variable is required")
@@ -104,13 +104,13 @@ class StorageService:
 
         try:
             self.client = storage.Client(project=self.project_id)
-            self.bucket = self.client.bucket(self.bucket_name)
+            self.photos_bucket = self.client.bucket(self.photos_bucket_name)
 
             # Initialize database bucket
             self.database_bucket = self.client.bucket(self.database_bucket_name)
             logger.info(
                 "storage_service_initialized",
-                photos_bucket=self.bucket_name,
+                photos_bucket=self.photos_bucket_name,
                 database_bucket=self.database_bucket_name,
                 region=self.region,
                 project_id=self.project_id,
@@ -174,7 +174,7 @@ class StorageService:
         """
         try:
             gcs_path = self._get_user_original_path(user_id, filename)
-            blob = self.bucket.blob(gcs_path)
+            blob = self.photos_bucket.blob(gcs_path)
 
             # Check if file already exists
             file_exists = blob.exists()
@@ -262,7 +262,7 @@ class StorageService:
         """
         try:
             gcs_path = self._get_user_thumbnail_path(user_id, original_filename)
-            blob = self.bucket.blob(gcs_path)
+            blob = self.photos_bucket.blob(gcs_path)
 
             # Check if thumbnail already exists
             file_exists = blob.exists()
@@ -386,7 +386,7 @@ class StorageService:
         """
         try:
             gcs_path = self._get_user_thumbnail_path(user_id, original_filename)
-            blob = self.bucket.blob(gcs_path)
+            blob = self.photos_bucket.blob(gcs_path)
 
             if not blob.exists():
                 return {"exists": False, "gcs_path": gcs_path}
@@ -478,7 +478,7 @@ class StorageService:
             StorageError: If download fails
         """
         try:
-            blob = self.bucket.blob(gcs_path)
+            blob = self.photos_bucket.blob(gcs_path)
 
             if not blob.exists():
                 raise StorageError(f"File not found: {gcs_path}")
@@ -509,7 +509,7 @@ class StorageService:
             StorageError: If URL generation fails
         """
         try:
-            blob = self.bucket.blob(gcs_path)
+            blob = self.photos_bucket.blob(gcs_path)
 
             # Use configured default if expiration not specified
             if expiration is None:
@@ -557,7 +557,7 @@ class StorageService:
                 gcs_path = self._get_user_thumbnail_path(user_id, filename)
 
             # Check if file exists
-            blob = self.bucket.blob(gcs_path)
+            blob = self.photos_bucket.blob(gcs_path)
             if not blob.exists():
                 raise StorageError(f"Photo not found: {filename} ({photo_type})")
 
@@ -699,7 +699,7 @@ class StorageService:
             StorageError: If deletion fails
         """
         try:
-            blob = self.bucket.blob(gcs_path)
+            blob = self.photos_bucket.blob(gcs_path)
 
             if not blob.exists():
                 logger.warning(f"File not found for deletion: {gcs_path}")
@@ -732,7 +732,7 @@ class StorageService:
             if prefix:
                 user_prefix += prefix
 
-            blobs = self.client.list_blobs(self.bucket, prefix=user_prefix)
+            blobs = self.client.list_blobs(self.photos_bucket, prefix=user_prefix)
             file_paths = [blob.name for blob in blobs]
 
             logger.debug(f"Listed {len(file_paths)} files for user {user_id} with prefix '{prefix}'")
@@ -832,7 +832,7 @@ class StorageService:
         """
         try:
             gcs_path = self._get_user_original_path(user_id, filename)
-            blob = self.bucket.blob(gcs_path)
+            blob = self.photos_bucket.blob(gcs_path)
 
             # Generate signed URL for PUT operation
             expiration_time = datetime.now() + timedelta(seconds=expiration)
@@ -856,10 +856,10 @@ class StorageService:
             bool: True if bucket exists and is accessible
         """
         try:
-            self.bucket.reload()
+            self.photos_bucket.reload()
             return True
         except NotFound:
-            logger.error(f"Bucket not found: {self.bucket_name}")
+            logger.error(f"Bucket not found: {self.photos_bucket_name}")
             return False
         except Exception as e:
             logger.error(f"Error checking bucket: {e}")
@@ -885,9 +885,10 @@ class StorageService:
                 blob = database_bucket.blob(gcs_path)
             else:
                 # For regular files, use the photos bucket
-                blob = self.bucket.blob(gcs_path)
+                blob = self.photos_bucket.blob(gcs_path)
 
-            return blob.exists()
+            exists: bool = blob.exists()
+            return exists
         except Exception as e:
             logger.error(f"Error checking file existence for '{gcs_path}': {e}")
             raise StorageError(f"Failed to check file existence: {e}") from e
