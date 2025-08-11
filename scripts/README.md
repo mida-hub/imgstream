@@ -1,289 +1,61 @@
 # デプロイメントスクリプト
 
-このディレクトリには、imgstreamを様々な環境にデプロイするためのスクリプトが含まれています。
+このディレクトリには、imgstream を様々な環境にデプロイするためのスクリプトが含まれています。
 
 ## スクリプト概要
 
-### インフラストラクチャ管理
-
-- **`terraform-init.sh`**: 環境別Terraform初期化（GCSバックエンド対応）
-- **`setup-github-oidc.sh`**: GitHub Actions OIDC認証の自動セットアップ
-
-### 本番デプロイメント
-
-- **`deploy-production.sh`**: 完全な本番デプロイメントスクリプト
-- **`deploy-cloud-run.sh`**: Cloud Runへのアプリケーションデプロイ（全環境対応）
-
-**注意**: ImgStreamは現在Google Cloud Secret Managerを使用していません。認証にはGoogle Cloud IAP、設定管理には環境変数を使用しています。
-
-### 開発とテスト
-
-- **`build-image.sh`**: アプリケーション用Dockerイメージのビルド
+- **`build-image.sh`**: アプリケーション用 Docker イメージのビルド
+- **`cloud-run-image-update.sh`**: Cloud Run サービスのイメージ更新
 - **`run-e2e-tests.sh`**: エンドツーエンドテストの実行
 
-## クイックスタート
+## cloud-run-image-update.sh
 
-### 1. 本番デプロイメント
+Cloud Run サービスを指定された環境とイメージタグで更新します。
 
-```bash
-# プロジェクトIDを設定
-export PROJECT_ID="your-gcp-project-id"
-
-# イメージをビルドしてプッシュ
-./scripts/build-image.sh -p $PROJECT_ID -t latest --push
-
-# 本番環境にデプロイ
-./scripts/deploy-production.sh -p $PROJECT_ID -i asia-northeast1-docker.pkg.dev/$PROJECT_ID/imgstream/imgstream:latest
-```
-
-### 2. 開発環境デプロイメント
+### 使用方法
 
 ```bash
-# イメージをビルド
-./scripts/build-image.sh
-
-# 開発環境にデプロイ
-./scripts/deploy-cloud-run.sh -p $PROJECT_ID -e dev -i asia-northeast1-docker.pkg.dev/$PROJECT_ID/imgstream/imgstream:latest
+./cloud-run-image-update.sh <environment> [image_tag]
 ```
 
-## Script Details
+### パラメータ
 
-### インフラストラクチャ管理スクリプト
+- `environment`: 必須。`dev` または `prod`
+- `image_tag`: オプション。デフォルトは `latest`
 
-#### terraform-init.sh
+### 使用例
 
-環境別のTerraform初期化スクリプト（GCSバックエンド対応）。
-
-**Usage:**
 ```bash
-./scripts/terraform-init.sh [dev|prod]
+# dev環境にlatestイメージをデプロイ
+./cloud-run-image-update.sh dev
+
+# prod環境にlatestイメージをデプロイ
+./cloud-run-image-update.sh prod
+
+# dev環境に特定のタグをデプロイ
+./cloud-run-image-update.sh dev v1.2.3
+
+# prod環境に特定のタグをデプロイ
+./cloud-run-image-update.sh prod v1.2.3
 ```
 
-**機能:**
-- 前提条件の検証（Terraform、gcloud）
-- Terraformステートバケットの確認・作成
-- 環境別バックエンド設定での初期化
-- ステート保護のためのバケットバージョニング有効化
+## ワークフロー
 
-**例:**
-```bash
-# 開発環境の初期化
-./scripts/terraform-init.sh dev
+1. まず、イメージをビルドしてプッシュ：
 
-# 本番環境の初期化
-./scripts/terraform-init.sh prod
-```
-
-#### setup-github-oidc.sh
-
-GitHub Actions OIDC認証とGoogle Cloudの自動セットアップスクリプト。
-
-**Usage:**
-```bash
-./scripts/setup-github-oidc.sh
-```
-
-**機能:**
-- 現在のプロジェクトとGitHubリポジトリの検出
-- Terraform設定ファイルの更新
-- OIDCインフラストラクチャの適用
-- GitHub Secrets設定手順の表示
-
-**前提条件:**
-- Terraform >= 1.12
-- gcloud CLI認証済み
-- GitHubリモートを持つGitリポジトリ
-
-### デプロイメントスクリプト
-
-#### deploy-production.sh
-
-Complete production deployment script that:
-- Validates prerequisites
-- Deploys infrastructure with Terraform (using GCS backend)
-- Deploys application to Cloud Run
-- Performs health checks
-- Provides deployment summary
-
-**Usage:**
-```bash
-./scripts/deploy-production.sh -p PROJECT_ID -i IMAGE_TAG [OPTIONS]
-
-Options:
-  -p PROJECT_ID    GCP project ID (required)
-  -i IMAGE_TAG     Docker image tag to deploy (required)
-  -r REGION        GCP region [default: us-central1]
-  -f               Force deployment without confirmation
-  --dry-run        Show deployment commands without executing
-  --skip-terraform Skip Terraform infrastructure deployment
-  --skip-health    Skip health check after deployment
-  -h               Show help message
-```
-
-**Examples:**
-```bash
-# Standard production deployment
-./scripts/deploy-production.sh -p my-project -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:v1.0.0
-
-# Dry run to see what would be deployed
-./scripts/deploy-production.sh -p my-project -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:latest --dry-run
-
-# Force deployment without confirmation
-./scripts/deploy-production.sh -p my-project -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:latest -f
-
-# Skip Terraform (only deploy Cloud Run)
-./scripts/deploy-production.sh -p my-project -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:latest --skip-terraform
-```
-
-
-
-### deploy-cloud-run.sh
-
-Deploys the application to Cloud Run for any environment:
-- Validates Docker image exists
-- Configures environment-specific settings
-- Deploys to Cloud Run
-- Performs health checks
-
-**Usage:**
-```bash
-./scripts/deploy-cloud-run.sh -p PROJECT_ID -e ENVIRONMENT -i IMAGE_TAG [OPTIONS]
-
-Options:
-  -p PROJECT_ID    GCP project ID (required)
-  -e ENVIRONMENT   Environment (dev|prod) (required)
-  -i IMAGE_TAG     Docker image tag to deploy (required)
-  -r REGION        GCP region [default: us-central1]
-  -s SERVICE_NAME  Cloud Run service name [default: imgstream-{env}]
-  -f               Force deployment without confirmation
-  --dry-run        Show deployment command without executing
-  -h               Show help message
-```
-
-**Examples:**
-```bash
-# Deploy to development
-./scripts/deploy-cloud-run.sh -p my-project -e dev -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:latest
-
-# Deploy to production
-./scripts/deploy-cloud-run.sh -p my-project -e prod -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:v1.0.0
-
-# Dry run
-./scripts/deploy-cloud-run.sh -p my-project -e prod -i asia-northeast1-docker.pkg.dev/my-project/imgstream/imgstream:latest --dry-run
-```
-
-## Prerequisites
-
-Before using these scripts, ensure you have:
-
-1. **Google Cloud SDK**: Installed and authenticated
    ```bash
-   gcloud auth login
-   gcloud config set project YOUR_PROJECT_ID
+   ./build-image.sh
    ```
 
-2. **Required Tools**:
-   - `terraform` (>= 1.12)
-   - `docker` (for building images)
-   - `curl` (for health checks)
+2. 次に、目的の環境に Cloud Run サービスを更新：
 
-3. **Permissions**: Owner or Editor role on the GCP project
-
-4. **APIs Enabled**: The scripts will enable required APIs automatically
-
-## Environment Variables
-
-The scripts use these environment variables:
-
-- `PROJECT_ID`: Your GCP project ID
-- `GOOGLE_CLOUD_PROJECT`: Alternative to PROJECT_ID
-- `ENVIRONMENT`: Deployment environment (dev/prod)
-
-## Security Considerations
-
-### Production Deployments
-
-- All production deployments require explicit confirmation
-- IAP authentication is enabled by default
-- Secrets are stored in Google Secret Manager
-- All traffic is encrypted in transit
-
-### Development Deployments
-
-- Public access is enabled for easier testing
-- Reduced security policies for development convenience
-- Secrets can be provided via environment variables
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Permission Denied**:
    ```bash
-   # Ensure you're authenticated
-   gcloud auth login
-   gcloud auth application-default login
+   # 開発環境の場合
+   ./cloud-run-image-update.sh dev
+
+   # 本番環境の場合
+   ./cloud-run-image-update.sh prod
+
+   # 特定のイメージタグを使用する場合
+   ./cloud-run-image-update.sh prod v1.2.3
    ```
-
-2. **Image Not Found**:
-   ```bash
-   # Build and push the image first
-   ./scripts/build-image.sh -p $PROJECT_ID -t latest --push
-   ```
-
-3. **API Not Enabled**:
-   ```bash
-   # Enable required APIs
-   gcloud services enable run.googleapis.com storage.googleapis.com
-   ```
-
-4. **Terraform State Issues**:
-   ```bash
-   # Initialize Terraform with environment-specific backend
-   ./scripts/terraform-init.sh dev  # or prod
-   
-   # Or manually initialize
-   cd terraform
-   terraform init -backend-config=backend-dev.tf
-   ```
-
-### Getting Help
-
-1. **Check Script Help**:
-   ```bash
-   ./scripts/deploy-production.sh -h
-   ```
-
-2. **Enable Debug Mode**:
-   ```bash
-   # Add debug flag to see detailed output
-   bash -x ./scripts/deploy-production.sh -p $PROJECT_ID -i $IMAGE_TAG
-   ```
-
-3. **Check Logs**:
-   ```bash
-   # View Cloud Run logs
-   gcloud logs read "resource.type=cloud_run_revision" --limit=50
-   ```
-
-## Best Practices
-
-1. **Use Specific Image Tags**: Avoid using `latest` in production
-2. **Test in Development First**: Always test deployments in dev environment
-3. **Use Dry Run**: Use `--dry-run` to preview changes
-4. **Monitor Deployments**: Check health endpoints after deployment
-5. **Keep Scripts Updated**: Regularly update scripts with new features
-
-## Contributing
-
-When modifying these scripts:
-
-1. Test in development environment first
-2. Update documentation for any new options
-3. Follow existing error handling patterns
-4. Add appropriate logging and status messages
-5. Ensure backward compatibility when possible
-
----
-
-For more detailed information, see the [Production Deployment Guide](../docs/PRODUCTION_DEPLOYMENT.md).
