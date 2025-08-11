@@ -38,7 +38,7 @@ class UserInfo:
 class CloudIAPAuthService:
     """Service for handling Cloud IAP authentication."""
 
-    IAP_HEADER_NAME = "X-Goog-IAP-JWT-Assertion"
+    IAP_HEADER_NAME = "X-Goog-Iap-Jwt-Assertion"
 
     def __init__(self) -> None:
         """Initialize the Cloud IAP authentication service."""

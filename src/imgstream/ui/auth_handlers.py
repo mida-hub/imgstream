@@ -48,6 +48,7 @@ def authenticate_user() -> bool:
         # Try to get IAP header from Streamlit context
         if hasattr(st, "context") and hasattr(st.context, "headers"):
             headers = dict(st.context.headers)
+            logger.info(headers)
 
         # Attempt real authentication
         if auth_service.authenticate_request(headers):
