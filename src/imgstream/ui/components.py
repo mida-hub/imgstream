@@ -123,12 +123,13 @@ def render_header() -> None:
         st.markdown("# 📸 imgstream")
 
     with col2:
+        # 不要な表示に思える
         # Breadcrumb navigation
         current_page = st.session_state.current_page
         page_titles = {"home": "ホーム", "upload": "写真アップロード", "gallery": "写真ギャラリー", "settings": "設定"}
 
-        if current_page in page_titles:
-            st.markdown(f"### {page_titles[current_page]}")
+        # if current_page in page_titles:
+        #     st.markdown(f"### {page_titles[current_page]}")
 
     with col3:
         # Status indicators
@@ -138,7 +139,6 @@ def render_header() -> None:
             st.error("🔴 未認証")
 
     # Subtitle and divider
-    st.markdown("*クラウドストレージを使った個人写真管理*")
     st.divider()
 
 
@@ -146,49 +146,10 @@ def render_footer() -> None:
     """Render the application footer with improved layout and information."""
     st.divider()
 
-    # Footer content in columns
-    col1, col2, col3 = st.columns([1, 2, 1])
-
-    with col1:
-        st.markdown(
-            """
-        <div style='text-align: left; color: #666; font-size: 0.8em;'>
-            <strong>imgstream</strong><br>
-            Version 0.1.0
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
-
-    with col2:
-        st.markdown(
-            """
-        <div style='text-align: center; color: #666; font-size: 0.8em;'>
-            個人写真管理<br>
-            Streamlit & Google Cloud Platform で構築
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
-
-    with col3:
-        st.markdown(
-            """
-        <div style='text-align: right; color: #666; font-size: 0.8em;'>
-            🌏 asia-northeast1<br>
-            🔒 セキュア & プライベート
-        </div>
-        """,
-            unsafe_allow_html=True,
-        )
-
-    # Additional footer information
     st.markdown(
         """
-    <div style='text-align: center; color: #888; font-size: 0.7em; margin-top: 1rem;'>
-        個人写真管理のために❤️で構築 |
-        データはGoogle Cloud Storageに安全に保存 |
-        Cloud IAPで認証
+    <div style='text-align: center; color: #666; font-size: 0.8em;'>
+        <strong>imgstream v0.1</strong>
     </div>
     """,
         unsafe_allow_html=True,

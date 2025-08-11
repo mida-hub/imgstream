@@ -122,13 +122,13 @@ def require_authentication() -> bool:
         )
 
         # Provide helpful guidance
-        render_info_card(
-            "認証方法",
-            "このアプリケーションはGoogle Cloud Identity-Aware Proxy (IAP)を使用しています。"
-            "正しいURLからアプリケーションにアクセスし、"
-            "認証されたGoogleアカウントでサインインしていることを確認してください。",
-            "💡",
-        )
+        # render_info_card(
+        #     "認証方法",
+        #     "このアプリケーションはGoogle Cloud Identity-Aware Proxy (IAP)を使用しています。"
+        #     "正しいURLからアプリケーションにアクセスし、"
+        #     "認証されたGoogleアカウントでサインインしていることを確認してください。",
+        #     "💡",
+        # )
 
         # Quick action to go back to home
         if st.button("🏠 ホームページに戻る", use_container_width=True):
@@ -145,7 +145,6 @@ def render_sidebar() -> None:
     with st.sidebar:
         # App branding in sidebar
         st.markdown("### 📸 imgstream")
-        st.markdown("*個人写真管理*")
         st.divider()
 
         # Navigation menu with current page highlighting
@@ -172,17 +171,17 @@ def render_sidebar() -> None:
 
         # User info section with improved layout
         if st.session_state.authenticated:
-            st.subheader("👤 ユーザープロフィール")
+            # st.subheader("👤 ユーザープロフィール")
 
             # User avatar placeholder
-            st.markdown("🔵")  # Placeholder for user avatar
+            # st.markdown("🔵")  # Placeholder for user avatar
 
             # User information
-            user_name = st.session_state.user_name or "不明なユーザー"
-            user_email = st.session_state.user_email or "unknown@example.com"
-
-            st.markdown(f"**{user_name}**")
-            st.markdown(f"📧 {user_email}")
+            # user_name = st.session_state.user_name or "不明なユーザー"
+            # user_email = st.session_state.user_email or "unknown@example.com"
+            #
+            # # st.markdown(f"**{user_name}**")
+            # st.markdown(f"📧 {user_email}")
 
             from ..config import get_config
 
@@ -190,7 +189,7 @@ def render_sidebar() -> None:
             if config.get("debug", False, bool):
                 st.markdown(f"🆔 {st.session_state.user_id or '不明'}")
 
-            st.divider()
+            # st.divider()
 
             # Quick stats in sidebar
             st.markdown("**📊 クイック統計**")
@@ -211,34 +210,14 @@ def render_sidebar() -> None:
                 st.divider()
 
             # Logout button
-            if st.button("🚪 ログアウト", use_container_width=True, type="secondary"):
-                handle_logout()
+            # if st.button("🚪 ログアウト", use_container_width=True, type="secondary"):
+            #     handle_logout()
         else:
             st.subheader("🔐 認証")
             st.info("写真にアクセスするには認証してください")
 
             if st.session_state.auth_error:
                 st.error(f"**エラー:** {st.session_state.auth_error}")
-
-            # Help information for unauthenticated users
-            with st.expander("ℹ️ 認証方法"):
-                st.markdown(
-                    """
-                **Cloud IAP認証**
-
-                このアプリケーションは、セキュアな認証にGoogle Cloud Identity-Aware Proxy (IAP)を使用しています。
-
-                **手順:**
-                1. 正しいURLからアクセスしていることを確認
-                2. Googleアカウントでサインイン
-                3. 認証の完了を待つ
-
-                **トラブルシューティング:**
-                - ブラウザのクッキーをクリアして再試行
-                - 必要な権限があるかを確認
-                - 問題が続く場合は管理者に連絡
-                """
-                )
 
 
 def _is_development_mode() -> bool:

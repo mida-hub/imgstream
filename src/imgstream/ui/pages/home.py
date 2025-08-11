@@ -11,41 +11,18 @@ def render_home_page() -> None:
         # Unauthenticated state
         render_empty_state(
             title="認証が必要です",
-            description="個人の写真コレクションにアクセスするには、Cloud IAPで認証してください。",
+            description="未認証状態のため認証してください",
             icon="🔐",
         )
 
         # Getting started information
         render_info_card(
             "はじめに",
-            "このアプリはセキュアな認証にCloud IAPを使用しています。HEICやJPEG写真をアップロードし、"
-            "時系列でギャラリーを閲覧し、Google Cloud Storageに安全に保存できます。",
+            "このアプリはセキュアな認証で保護されています。写真をアップロードすると、"
+            "時系列でギャラリーを閲覧することができます。画像はクラウドに安全に保存されます。",
             "🚀",
         )
 
-        # Feature highlights
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            render_info_card(
-                "セキュアな認証",
-                "Cloud IAPにより、認証されたユーザーのみが写真にアクセスできます。",
-                "🔒",
-            )
-
-        with col2:
-            render_info_card(
-                "スマートストレージ",
-                "自動ライフサイクル管理により、時間の経過とともにストレージコストを最適化します。",
-                "💾",
-            )
-
-        with col3:
-            render_info_card(
-                "高速ブラウジング",
-                "サムネイルベースのインターフェースで、写真の素早い発見と閲覧が可能です。",
-                "⚡",
-            )
     else:
         # Authenticated user dashboard
         user_name = st.session_state.user_name or "ユーザー"
