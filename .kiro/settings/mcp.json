@@ -2,7 +2,18 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["-y", "@executeautomation/playwright-mcp-server"]
+      "args": [
+        "-y",
+        "@executeautomation/playwright-mcp-server"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "playwright_navigate",
+        "playwright_screenshot",
+        "playwright_get_visible_text",
+        "playwright_click",
+        "playwright_close"
+      ]
     }
   }
 }

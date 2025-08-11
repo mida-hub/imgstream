@@ -55,7 +55,7 @@ def _render_upload_header_and_info() -> tuple[int, int]:
     Returns:
         tuple: (min_size, max_size) file size limits
     """
-    st.markdown("### 📤 Upload Your Photos")
+    st.markdown("### 📤 写真をアップロード")
 
     # Get file size limits for display
     min_size, max_size = get_file_size_limits()
@@ -66,16 +66,16 @@ def _render_upload_header_and_info() -> tuple[int, int]:
 
     with col1:
         render_info_card(
-            "Supported Formats",
-            f"• HEIC (iPhone/iPad photos)\n• JPEG/JPG (Standard photos)\n"
-            f"• Maximum file size: {max_size_mb:.0f}MB per photo",
+            "対応フォーマット",
+            f"• HEIC (iPhone/iPad写真)\n• JPEG/JPG (標準写真)\n"
+            f"• 最大ファイルサイズ: {max_size_mb:.0f}MB/写真",
             "📋",
         )
 
     with col2:
         render_info_card(
-            "Smart Processing",
-            "• Automatic EXIF data extraction\n• Thumbnail generation\n• Secure cloud storage",
+            "スマート処理",
+            "• 自動EXIF データ抽出\n• サムネイル生成\n• セキュアクラウドストレージ",
             "⚙️",
         )
 
@@ -91,13 +91,13 @@ def _render_file_uploader(max_size_mb: float) -> Any:
     Returns:
         Uploaded files from Streamlit file uploader
     """
-    st.markdown("#### Choose Photos to Upload")
+    st.markdown("#### アップロードする写真を選択")
 
     return st.file_uploader(
-        "Drag and drop photos here, or click to browse",
+        "写真をここにドラッグ&ドロップするか、クリックして参照",
         type=["heic", "heif", "jpg", "jpeg"],
         accept_multiple_files=True,
-        help=f"Supported formats: HEIC, HEIF, JPG, JPEG. Max size: {max_size_mb:.0f}MB per file",
+        help=f"対応フォーマット: HEIC, HEIF, JPG, JPEG. 最大サイズ: {max_size_mb:.0f}MB/ファイル",
         key="photo_uploader",
     )
 
@@ -331,7 +331,7 @@ def _render_upload_button() -> None:
 
         # Show upload in progress indicator
         if st.session_state.upload_in_progress:
-            st.info("🔄 Upload in progress... Please do not refresh the page.")
+            st.info("🔄 アップロード中です... ページを更新しないでください。")
 
 
 def _render_results_or_empty_state() -> None:
@@ -339,11 +339,11 @@ def _render_results_or_empty_state() -> None:
     # Show last upload result if available
     if st.session_state.last_upload_result and not st.session_state.upload_in_progress:
         st.divider()
-        st.markdown("### 📋 Previous Upload Results")
+        st.markdown("### 📋 前回のアップロード結果")
         render_upload_results(st.session_state.last_upload_result)
 
         # Clear results button
-        if st.button("🗑️ Clear Results", use_container_width=True):
+        if st.button("🗑️ 結果をクリア", use_container_width=True):
             # Clear all upload-related session state
             from imgstream.ui.upload_handlers import clear_upload_session_state
 
@@ -352,8 +352,8 @@ def _render_results_or_empty_state() -> None:
     else:
         # Show empty state when no files are uploaded
         render_empty_state(
-            title="No Photos Selected",
-            description="Choose photos from your device to upload to your personal collection.",
+            title="写真が選択されていません",
+            description="デバイスから写真を選択して、個人コレクションにアップロードしてください。",
             icon="📁",
         )
 
@@ -367,37 +367,37 @@ def _render_help_and_storage_info(max_size_mb: float, min_size: int) -> None:
     """
 
     # Upload tips
-    with st.expander("💡 Upload Tips"):
+    with st.expander("💡 アップロードのコツ"):
         st.markdown(
             f"""
-        **For Best Results:**
+        **最良の結果を得るために:**
 
-        - 📱 **iPhone Users**: HEIC format is fully supported
-        - 📷 **Camera Photos**: EXIF data will be preserved for date sorting
-        - 🗂️ **Batch Upload**: Select multiple photos at once
-        - 📶 **Connection**: Ensure stable internet for large uploads
-        - 💾 **Storage**: Photos are automatically organized by date
-        - 🔒 **Privacy**: All uploads are private to your account
+        - 📱 **iPhoneユーザー**: HEIC形式は完全にサポートされています
+        - 📷 **カメラ写真**: 日付ソート用にEXIFデータが保持されます
+        - 🗂️ **バッチアップロード**: 複数の写真を一度に選択
+        - 📶 **接続**: 大きなアップロードには安定したインターネット接続を確保
+        - 💾 **ストレージ**: 写真は自動的に日付で整理されます
+        - 🔒 **プライバシー**: すべてのアップロードはあなたのアカウント専用です
 
-        **File Requirements:**
-        - Supported formats: HEIC, HEIF, JPG, JPEG
-        - Maximum file size: {max_size_mb:.0f}MB per photo
-        - Minimum file size: {min_size} bytes
+        **ファイル要件:**
+        - 対応フォーマット: HEIC, HEIF, JPG, JPEG
+        - 最大ファイルサイズ: {max_size_mb:.0f}MB/写真
+        - 最小ファイルサイズ: {min_size} バイト
         """
         )
 
     # Storage information
     st.divider()
-    st.markdown("### 💾 Storage Information")
+    st.markdown("### 💾 ストレージ情報")
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric("Available Storage", "Unlimited*", help="Subject to GCP quotas")
+        st.metric("利用可能ストレージ", "無制限*", help="GCPクォータの制限あり")
     with col2:
-        st.metric("Current Usage", "0 MB", help="Total storage used")
+        st.metric("現在の使用量", "0 MB", help="使用している総ストレージ")
     with col3:
-        st.metric("Photos Uploaded", "0", help="Total number of photos")
+        st.metric("アップロード済み写真", "0", help="写真の総数")
 
 
 def render_upload_page() -> None:

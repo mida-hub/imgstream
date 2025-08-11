@@ -11,75 +11,75 @@ def render_settings_page() -> None:
         return
 
     # Development notice
-    st.info("🚧 Settings functionality will be implemented in a later task")
+    st.info("🚧 設定機能は後のタスクで実装予定です")
 
     # Settings sections
-    st.markdown("### ⚙️ Application Settings")
+    st.markdown("### ⚙️ アプリケーション設定")
 
     # Account settings
-    with st.expander("👤 Account Settings", expanded=True):
-        st.markdown("**Profile Information**")
+    with st.expander("👤 アカウント設定", expanded=True):
+        st.markdown("**プロフィール情報**")
 
         col1, col2 = st.columns(2)
         with col1:
-            st.text_input("Display Name", value=st.session_state.user_name or "", disabled=True)
+            st.text_input("表示名", value=st.session_state.user_name or "", disabled=True)
         with col2:
-            st.text_input("Email", value=st.session_state.user_email or "", disabled=True)
+            st.text_input("メールアドレス", value=st.session_state.user_email or "", disabled=True)
 
-        st.markdown("**Account Actions**")
+        st.markdown("**アカウント操作**")
         col1, col2 = st.columns(2)
         with col1:
-            st.button("🔄 Refresh Profile", disabled=True)
+            st.button("🔄 プロフィール更新", disabled=True)
         with col2:
-            st.button("📧 Update Email Preferences", disabled=True)
+            st.button("📧 メール設定更新", disabled=True)
 
     # Display settings
-    with st.expander("🎨 Display Settings"):
-        st.markdown("**Appearance**")
-        st.selectbox("Theme", ["Light", "Dark", "Auto"], disabled=True)
-        st.selectbox("Language", ["English", "日本語"], disabled=True)
+    with st.expander("🎨 表示設定"):
+        st.markdown("**外観**")
+        st.selectbox("テーマ", ["ライト", "ダーク", "自動"], disabled=True)
+        st.selectbox("言語", ["English", "日本語"], disabled=True)
 
-        st.markdown("**Gallery View**")
-        st.slider("Photos per page", 10, 100, 50, disabled=True)
-        st.selectbox("Default sort order", ["Newest First", "Oldest First"], disabled=True)
+        st.markdown("**ギャラリー表示**")
+        st.slider("ページあたりの写真数", 10, 100, 50, disabled=True)
+        st.selectbox("デフォルト並び順", ["新しい順", "古い順"], disabled=True)
 
     # Notification settings
-    with st.expander("🔔 Notification Settings"):
-        st.checkbox("Enable upload notifications", disabled=True)
-        st.checkbox("Enable storage alerts", disabled=True)
-        st.checkbox("Enable weekly summary", disabled=True)
+    with st.expander("🔔 通知設定"):
+        st.checkbox("アップロード通知を有効化", disabled=True)
+        st.checkbox("ストレージアラートを有効化", disabled=True)
+        st.checkbox("週次サマリーを有効化", disabled=True)
 
     # Privacy and security
-    with st.expander("🔒 Privacy & Security"):
-        st.markdown("**Data Management**")
-        st.button("📊 Download My Data", disabled=True)
-        st.button("🗑️ Delete All Photos", disabled=True, type="secondary")
+    with st.expander("🔒 プライバシー & セキュリティ"):
+        st.markdown("**データ管理**")
+        st.button("📊 マイデータをダウンロード", disabled=True)
+        st.button("🗑️ すべての写真を削除", disabled=True, type="secondary")
 
-        st.markdown("**Security**")
-        st.write("Authentication: Cloud IAP ✅")
-        st.write("Data Encryption: Enabled ✅")
-        st.write("Access Logs: Available ✅")
+        st.markdown("**セキュリティ**")
+        st.write("認証: Cloud IAP ✅")
+        st.write("データ暗号化: 有効 ✅")
+        st.write("アクセスログ: 利用可能 ✅")
 
     # Storage settings
-    with st.expander("💾 Storage Settings"):
-        st.markdown("**Storage Management**")
+    with st.expander("💾 ストレージ設定"):
+        st.markdown("**ストレージ管理**")
 
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("Total Storage Used", "0 MB")
-            st.metric("Number of Photos", "0")
+            st.metric("総使用ストレージ", "0 MB")
+            st.metric("写真数", "0")
         with col2:
-            st.metric("Thumbnail Storage", "0 MB")
-            st.metric("Original Photos", "0 MB")
+            st.metric("サムネイルストレージ", "0 MB")
+            st.metric("オリジナル写真", "0 MB")
 
-        st.markdown("**Lifecycle Settings**")
-        st.info("Original photos automatically move to Coldline storage after 30 days to reduce costs.")
+        st.markdown("**ライフサイクル設定**")
+        st.info("オリジナル写真は30日後に自動的にColdlineストレージに移動してコストを削減します。")
 
-        st.button("🧹 Optimize Storage", disabled=True)
+        st.button("🧹 ストレージを最適化", disabled=True)
 
     # Advanced settings
-    with st.expander("🔧 Advanced Settings"):
-        st.markdown("**Debug Information**")
+    with st.expander("🔧 高度な設定"):
+        st.markdown("**デバッグ情報**")
         from ...config import get_config
 
         config = get_config()
@@ -93,9 +93,9 @@ def render_settings_page() -> None:
                 }
             )
         else:
-            st.info("Debug mode is disabled")
+            st.info("デバッグモードは無効です")
 
-        st.markdown("**System Information**")
-        st.write("Application Version: 0.1.0")
-        st.write("Last Updated: Development Build")
-        st.write("Region: asia-northeast1")
+        st.markdown("**システム情報**")
+        st.write("アプリケーションバージョン: 0.1.0")
+        st.write("最終更新: 開発ビルド")
+        st.write("リージョン: asia-northeast1")

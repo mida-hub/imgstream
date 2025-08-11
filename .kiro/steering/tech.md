@@ -9,3 +9,14 @@ uv run black
 uv run ruff
 uv run mypy
 ```
+
+# source code path
+main.py など、主なソースコードのパスを共有します
+指示を出す時はたいてい src/imgstream は省略されます
+
+- src/imgstream/main.py
+- src/imgstream/api
+- src/imgstream/models
+- src/imgstream/services
+- src/imgstream/ui
+- src/imgstream/utils

@@ -125,7 +125,7 @@ def render_header() -> None:
     with col2:
         # Breadcrumb navigation
         current_page = st.session_state.current_page
-        page_titles = {"home": "Home", "upload": "Upload Photos", "gallery": "Photo Gallery", "settings": "Settings"}
+        page_titles = {"home": "ホーム", "upload": "写真アップロード", "gallery": "写真ギャラリー", "settings": "設定"}
 
         if current_page in page_titles:
             st.markdown(f"### {page_titles[current_page]}")
@@ -133,12 +133,12 @@ def render_header() -> None:
     with col3:
         # Status indicators
         if st.session_state.authenticated:
-            st.success("🟢 Authenticated")
+            st.success("🟢 認証済み")
         else:
-            st.error("🔴 Not Authenticated")
+            st.error("🔴 未認証")
 
     # Subtitle and divider
-    st.markdown("*Personal Photo Management with Cloud Storage*")
+    st.markdown("*クラウドストレージを使った個人写真管理*")
     st.divider()
 
 
@@ -164,8 +164,8 @@ def render_footer() -> None:
         st.markdown(
             """
         <div style='text-align: center; color: #666; font-size: 0.8em;'>
-            Personal Photo Management<br>
-            Powered by Streamlit & Google Cloud Platform
+            個人写真管理<br>
+            Streamlit & Google Cloud Platform で構築
         </div>
         """,
             unsafe_allow_html=True,
@@ -176,7 +176,7 @@ def render_footer() -> None:
             """
         <div style='text-align: right; color: #666; font-size: 0.8em;'>
             🌏 asia-northeast1<br>
-            🔒 Secure & Private
+            🔒 セキュア & プライベート
         </div>
         """,
             unsafe_allow_html=True,
@@ -186,9 +186,9 @@ def render_footer() -> None:
     st.markdown(
         """
     <div style='text-align: center; color: #888; font-size: 0.7em; margin-top: 1rem;'>
-        Built with ❤️ for personal photo management |
-        Data stored securely in Google Cloud Storage |
-        Authenticated via Cloud IAP
+        個人写真管理のために❤️で構築 |
+        データはGoogle Cloud Storageに安全に保存 |
+        Cloud IAPで認証
     </div>
     """,
         unsafe_allow_html=True,

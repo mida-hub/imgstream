@@ -115,23 +115,23 @@ def require_authentication() -> bool:
     if not st.session_state.authenticated:
         # Render authentication error with better UX
         render_error_message(
-            error_type="Authentication Required",
-            message="You must be authenticated to access this page.",
+            error_type="認証が必要です",
+            message="このページにアクセスするには認証が必要です。",
             details=st.session_state.auth_error if st.session_state.auth_error else None,
             show_retry=True,
         )
 
         # Provide helpful guidance
         render_info_card(
-            "How to Authenticate",
-            "This application uses Google Cloud Identity-Aware Proxy (IAP). "
-            "Please ensure you're accessing the application through the correct URL and "
-            "have signed in with your authorized Google account.",
+            "認証方法",
+            "このアプリケーションはGoogle Cloud Identity-Aware Proxy (IAP)を使用しています。"
+            "正しいURLからアプリケーションにアクセスし、"
+            "認証されたGoogleアカウントでサインインしていることを確認してください。",
             "💡",
         )
 
         # Quick action to go back to home
-        if st.button("🏠 Go to Home Page", use_container_width=True):
+        if st.button("🏠 ホームページに戻る", use_container_width=True):
             st.session_state.current_page = "home"
             st.rerun()
 
@@ -145,12 +145,12 @@ def render_sidebar() -> None:
     with st.sidebar:
         # App branding in sidebar
         st.markdown("### 📸 imgstream")
-        st.markdown("*Personal Photo Management*")
+        st.markdown("*個人写真管理*")
         st.divider()
 
         # Navigation menu with current page highlighting
-        st.subheader("Navigation")
-        pages = {"🏠 Home": "home", "📤 Upload": "upload", "🖼️ Gallery": "gallery", "⚙️ Settings": "settings"}
+        st.subheader("ナビゲーション")
+        pages = {"🏠 ホーム": "home", "📤 アップロード": "upload", "🖼️ ギャラリー": "gallery", "⚙️ 設定": "settings"}
 
         current_page = st.session_state.current_page
 
@@ -172,13 +172,13 @@ def render_sidebar() -> None:
 
         # User info section with improved layout
         if st.session_state.authenticated:
-            st.subheader("👤 User Profile")
+            st.subheader("👤 ユーザープロフィール")
 
             # User avatar placeholder
             st.markdown("🔵")  # Placeholder for user avatar
 
             # User information
-            user_name = st.session_state.user_name or "Unknown User"
+            user_name = st.session_state.user_name or "不明なユーザー"
             user_email = st.session_state.user_email or "unknown@example.com"
 
             st.markdown(f"**{user_name}**")
@@ -188,55 +188,55 @@ def render_sidebar() -> None:
 
             config = get_config()
             if config.get("debug", False, bool):
-                st.markdown(f"🆔 {st.session_state.user_id or 'Unknown'}")
+                st.markdown(f"🆔 {st.session_state.user_id or '不明'}")
 
             st.divider()
 
             # Quick stats in sidebar
-            st.markdown("**📊 Quick Stats**")
-            st.markdown("📷 Photos: 0")
-            st.markdown("💾 Storage: 0 MB")
-            st.markdown("📅 Last upload: Never")
+            st.markdown("**📊 クイック統計**")
+            st.markdown("📷 写真: 0")
+            st.markdown("💾 ストレージ: 0 MB")
+            st.markdown("📅 最終アップロード: なし")
 
             st.divider()
 
             # Database Admin section (development only)
             if _is_development_mode():
-                st.markdown("**🔧 Development Tools**")
+                st.markdown("**🔧 開発ツール**")
 
-                if st.button("🗄️ Database Admin", use_container_width=True, help="Manage database (dev only)"):
+                if st.button("🗄️ データベース管理", use_container_width=True, help="データベース管理（開発専用）"):
                     st.session_state.current_page = "database_admin"
                     st.rerun()
 
                 st.divider()
 
             # Logout button
-            if st.button("🚪 Logout", use_container_width=True, type="secondary"):
+            if st.button("🚪 ログアウト", use_container_width=True, type="secondary"):
                 handle_logout()
         else:
-            st.subheader("🔐 Authentication")
-            st.info("Please authenticate to access your photos")
+            st.subheader("🔐 認証")
+            st.info("写真にアクセスするには認証してください")
 
             if st.session_state.auth_error:
-                st.error(f"**Error:** {st.session_state.auth_error}")
+                st.error(f"**エラー:** {st.session_state.auth_error}")
 
             # Help information for unauthenticated users
-            with st.expander("ℹ️ How to authenticate"):
+            with st.expander("ℹ️ 認証方法"):
                 st.markdown(
                     """
-                **Cloud IAP Authentication**
+                **Cloud IAP認証**
 
-                This application uses Google Cloud Identity-Aware Proxy (IAP) for secure authentication.
+                このアプリケーションは、セキュアな認証にGoogle Cloud Identity-Aware Proxy (IAP)を使用しています。
 
-                **Steps:**
-                1. Ensure you're accessing through the correct URL
-                2. Sign in with your Google account
-                3. Wait for authentication to complete
+                **手順:**
+                1. 正しいURLからアクセスしていることを確認
+                2. Googleアカウントでサインイン
+                3. 認証の完了を待つ
 
-                **Troubleshooting:**
-                - Clear browser cookies and try again
-                - Check if you have the required permissions
-                - Contact your administrator if issues persist
+                **トラブルシューティング:**
+                - ブラウザのクッキーをクリアして再試行
+                - 必要な権限があるかを確認
+                - 問題が続く場合は管理者に連絡
                 """
                 )
 

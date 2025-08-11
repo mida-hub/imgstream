@@ -29,13 +29,13 @@ def render_gallery_page() -> None:
         col1, col2, col3 = st.columns([2, 1, 1])
 
         with col1:
-            st.markdown("### 🖼️ Your Photo Collection")
+            st.markdown("### 🖼️ あなたの写真コレクション")
 
         with col2:
-            view_mode = st.selectbox("View", ["Grid", "List"], index=0)
+            view_mode = st.selectbox("表示", ["グリッド", "リスト"], index=0)
 
         with col3:
-            sort_order = st.selectbox("Sort by", ["Newest First", "Oldest First"], index=0)
+            sort_order = st.selectbox("並び順", ["新しい順", "古い順"], index=0)
 
         st.divider()
 
@@ -55,10 +55,10 @@ def render_gallery_page() -> None:
         if total_count == 0:
             # Empty state for photos
             render_empty_state(
-                title="No Photos Yet",
-                description="Your photo collection is empty. Upload some photos to get started!",
+                title="まだ写真がありません",
+                description="写真コレクションが空です。写真をアップロードして始めましょう！",
                 icon="📷",
-                action_text="Upload Photos",
+                action_text="写真をアップロード",
                 action_page="upload",
             )
         else:
@@ -69,7 +69,7 @@ def render_gallery_page() -> None:
             render_gallery_header(photos, total_count, has_more)
 
             # Render photos based on view mode
-            if view_mode == "Grid":
+            if view_mode == "グリッド":
                 render_photo_grid(photos)
             else:
                 render_photo_list(photos)
@@ -139,7 +139,7 @@ def load_user_photos_paginated(
         photo_dicts = [photo.to_dict() for photo in photos]
 
         # Sort photos based on user preference
-        if sort_order == "Oldest First":
+        if sort_order == "古い順":
             photo_dicts.reverse()
 
         # Get total count (for display purposes)
@@ -272,7 +272,7 @@ def render_photo_thumbnail(photo: dict[str, Any], size: str = "medium") -> None:
                     st.caption(f"📅 {creation_date.strftime('%Y-%m-%d')}")
 
             # Enhanced click handler for photo details
-            if st.button("🔍 View Details", key=f"view_{photo.get('id', 'unknown')}", use_container_width=True):
+            if st.button("🔍 詳細を表示", key=f"view_{photo.get('id', 'unknown')}", use_container_width=True):
                 st.session_state.selected_photo = photo
                 st.session_state.show_photo_details = True
 
@@ -290,13 +290,13 @@ def render_photo_thumbnail(photo: dict[str, Any], size: str = "medium") -> None:
 
         else:
             # Fallback for missing thumbnail
-            st.error("📷 Thumbnail not available")
-            st.caption(photo.get("filename", "Unknown"))
+            st.error("📷 サムネイルが利用できません")
+            st.caption(photo.get("filename", "不明"))
 
     except Exception as e:
         logger.error("render_thumbnail_error", photo_id=photo.get("id"), error=str(e))
-        st.error("❌ Failed to load thumbnail")
-        st.caption(photo.get("filename", "Unknown"))
+        st.error("❌ サムネイルの読み込みに失敗しました")
+        st.caption(photo.get("filename", "不明"))
 
 
 def render_photo_details(photo: dict[str, Any]) -> None:
@@ -307,7 +307,7 @@ def render_photo_details(photo: dict[str, Any]) -> None:
         photo: Photo metadata dictionary
     """
     # Photo filename
-    filename = photo.get("filename", "Unknown")
+    filename = photo.get("filename", "不明")
     st.markdown(f"**📷 {filename}**")
 
     # Creation date
@@ -316,11 +316,11 @@ def render_photo_details(photo: dict[str, Any]) -> None:
         if isinstance(creation_date, str):
             try:
                 creation_date = datetime.fromisoformat(creation_date.replace("Z", "+00:00"))
-                st.write(f"📅 **Created:** {creation_date.strftime('%Y-%m-%d %H:%M:%S')}")
+                st.write(f"📅 **作成日:** {creation_date.strftime('%Y-%m-%d %H:%M:%S')}")
             except (ValueError, TypeError):
-                st.write(f"📅 **Created:** {creation_date}")
+                st.write(f"📅 **作成日:** {creation_date}")
         else:
-            st.write(f"📅 **Created:** {creation_date.strftime('%Y-%m-%d %H:%M:%S')}")
+            st.write(f"📅 **作成日:** {creation_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # Upload date
     upload_date = photo.get("uploaded_at")
@@ -328,22 +328,22 @@ def render_photo_details(photo: dict[str, Any]) -> None:
         if isinstance(upload_date, str):
             try:
                 upload_date = datetime.fromisoformat(upload_date.replace("Z", "+00:00"))
-                st.write(f"📤 **Uploaded:** {upload_date.strftime('%Y-%m-%d %H:%M:%S')}")
+                st.write(f"📤 **アップロード日:** {upload_date.strftime('%Y-%m-%d %H:%M:%S')}")
             except (ValueError, TypeError):
-                st.write(f"📤 **Uploaded:** {upload_date}")
+                st.write(f"📤 **アップロード日:** {upload_date}")
         else:
-            st.write(f"📤 **Uploaded:** {upload_date.strftime('%Y-%m-%d %H:%M:%S')}")
+            st.write(f"📤 **アップロード日:** {upload_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
     # File size
     file_size = photo.get("file_size")
     if file_size:
         file_size_mb = file_size / (1024 * 1024)
-        st.write(f"💾 **Size:** {file_size_mb:.1f} MB")
+        st.write(f"💾 **サイズ:** {file_size_mb:.1f} MB")
 
     # MIME type
     mime_type = photo.get("mime_type")
     if mime_type:
-        st.write(f"📄 **Type:** {mime_type}")
+        st.write(f"📄 **タイプ:** {mime_type}")
 
 
 def get_photo_thumbnail_url(photo: dict[str, Any]) -> str | None:
