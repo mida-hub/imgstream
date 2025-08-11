@@ -335,39 +335,9 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
             cache_enabled=use_cache,
         )
 
-        # Use optimized batch collision detection if available
+        # Use individual collision detection for each filename
+        collision_results = {}
         try:
-            if hasattr(metadata_service, "check_multiple_filename_exists"):
-                collision_results = metadata_service.check_multiple_filename_exists(filenames)
-
-                # Log detected collisions
-                for filename, collision_info in collision_results.items():
-                    logger.debug(
-                        "collision_detected_in_batch",
-                        user_id=user_id,
-                        filename=filename,
-                        existing_photo_id=collision_info["existing_photo"].id,
-                    )
-
-                    # Log to collision monitor
-                    try:
-                        from ..monitoring.collision_monitor import log_collision_detected as log_collision_func
-
-                        log_collision_func(
-                            user_id=user_id,
-                            filename=filename,
-                            existing_photo_id=collision_info["existing_photo"].id,
-                            file_size=collision_info["existing_file_info"].get("file_size"),
-                            upload_date=collision_info["existing_file_info"].get("upload_date"),
-                        )
-                    except ImportError:
-                        pass  # Monitoring not available
-            else:
-                # Fall back to individual checks
-                raise MetadataError("Batch collision detection not available")
-
-        except MetadataError as e:
-            # If batch operation fails, fall back to individual checks
             logger.warning(
                 "batch_collision_check_failed_fallback_to_individual",
                 user_id=user_id,
