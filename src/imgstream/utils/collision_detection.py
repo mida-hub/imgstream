@@ -337,62 +337,55 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
 
         # Use individual collision detection for each filename
         collision_results = {}
-        try:
-            logger.warning(
-                "batch_collision_check_failed_fallback_to_individual",
-                user_id=user_id,
-                error=str(e),
-                total_files=len(filenames),
-            )
+        failed_files = []
 
-            collision_results = {}
-            for filename in filenames:
-                try:
-                    collision_info = metadata_service.check_filename_exists(filename)
-                    if collision_info:
-                        collision_results[filename] = collision_info
-                        logger.debug(
-                            "collision_detected_in_individual_fallback",
+        for filename in filenames:
+            try:
+                collision_info = metadata_service.check_filename_exists(filename)
+                if collision_info:
+                    collision_results[filename] = collision_info
+                    logger.debug(
+                        "collision_detected_in_individual_fallback",
+                        user_id=user_id,
+                        filename=filename,
+                        existing_photo_id=collision_info["existing_photo"].id,
+                    )
+
+                    # Log to collision monitor
+                    try:
+                        from ..monitoring.collision_monitor import log_collision_detected
+
+                        log_collision_detected(
                             user_id=user_id,
                             filename=filename,
                             existing_photo_id=collision_info["existing_photo"].id,
+                            file_size=collision_info["existing_file_info"].get("file_size"),
+                            upload_date=collision_info["existing_file_info"].get("upload_date"),
                         )
+                    except ImportError:
+                        pass  # Monitoring not available
 
-                        # Log to collision monitor
-                        try:
-                            from ..monitoring.collision_monitor import log_collision_detected
-
-                            log_collision_detected(
-                                user_id=user_id,
-                                filename=filename,
-                                existing_photo_id=collision_info["existing_photo"].id,
-                                file_size=collision_info["existing_file_info"].get("file_size"),
-                                upload_date=collision_info["existing_file_info"].get("upload_date"),
-                            )
-                        except ImportError:
-                            pass  # Monitoring not available
-
-                except MetadataError as e:
-                    failed_files.append(filename)
-                    logger.warning(
-                        "collision_check_failed_for_file",
-                        user_id=user_id,
-                        filename=filename,
-                        error=str(e),
-                    )
-                    # Continue with other files even if one fails
-                    continue
-                except Exception as e:
-                    failed_files.append(filename)
-                    logger.error(
-                        "collision_check_unexpected_error_for_file",
-                        user_id=user_id,
-                        filename=filename,
-                        error=str(e),
-                        error_type=type(e).__name__,
-                    )
-                    # Continue with other files
-                    continue
+            except MetadataError as e:
+                failed_files.append(filename)
+                logger.warning(
+                    "collision_check_failed_for_file",
+                    user_id=user_id,
+                    filename=filename,
+                    error=str(e),
+                )
+                # Continue with other files even if one fails
+                continue
+            except Exception as e:
+                failed_files.append(filename)
+                logger.error(
+                    "collision_check_unexpected_error_for_file",
+                    user_id=user_id,
+                    filename=filename,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
+                # Continue with other files
+                continue
 
         # Log summary including failures
         logger.info(

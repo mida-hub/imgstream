@@ -471,6 +471,122 @@ def process_single_upload(file_info: dict[str, Any], is_overwrite: bool = False)
         }
 
 
+def _update_progress_before_processing(progress_callback: Any, filename: str, index: int, total_files: int) -> None:
+    """Update progress before processing a file."""
+    if progress_callback:
+        progress_callback(
+            current_file=filename,
+            current_step="Starting processing...",
+            completed=index,
+            total=total_files,
+            stage="processing",
+        )
+
+
+def _determine_processing_action(filename: str, collision_results: dict[str, Any]) -> dict[str, Any]:
+    """
+    Determine what action to take for a file based on collision status.
+
+    Returns:
+        dict: Action information with 'action', 'is_overwrite', and 'reason' keys
+    """
+    collision_info = collision_results.get(filename)
+    if not collision_info:
+        return {"action": "process", "is_overwrite": False, "reason": "no_collision"}
+
+    user_decision = collision_info.get("user_decision", "pending")
+
+    if user_decision == "skip":
+        return {"action": "skip", "is_overwrite": False, "reason": "user_decision"}
+    elif user_decision == "overwrite":
+        logger.info("file_marked_for_overwrite", filename=filename)
+        return {"action": "process", "is_overwrite": True, "reason": "user_overwrite"}
+    else:
+        logger.warning("file_collision_decision_pending", filename=filename)
+        return {"action": "error", "is_overwrite": False, "reason": "decision_pending"}
+
+
+def _handle_skip_file(filename: str, reason: str) -> dict[str, Any]:
+    """Handle skipping a file."""
+    logger.info("file_skipped_by_user_decision", filename=filename)
+    return {
+        "success": True,
+        "filename": filename,
+        "skipped": True,
+        "is_overwrite": False,
+        "message": f"Skipped {filename} (user decision)",
+    }
+
+
+def _handle_processing_error(filename: str, reason: str) -> dict[str, Any]:
+    """Handle processing error for a file."""
+    return {
+        "success": False,
+        "filename": filename,
+        "error": "User decision pending for collision",
+        "is_overwrite": False,
+        "message": f"Failed to process {filename}: User decision required for collision",
+    }
+
+
+def _update_progress_after_skip(progress_callback: Any, filename: str, index: int, total_files: int) -> None:
+    """Update progress after skipping a file."""
+    if progress_callback:
+        progress_callback(
+            current_file=filename,
+            current_step="⏭️ Skipped by user",
+            completed=index + 1,
+            total=total_files,
+            stage="skipped",
+        )
+
+
+def _update_progress_after_error(progress_callback: Any, filename: str, index: int, total_files: int) -> None:
+    """Update progress after a processing error."""
+    if progress_callback:
+        progress_callback(
+            current_file=filename,
+            current_step="❌ Decision pending",
+            completed=index + 1,
+            total=total_files,
+            stage="failed",
+        )
+
+
+def _update_upload_counters(
+    result: dict[str, Any], is_overwrite: bool, successful_uploads: int, failed_uploads: int, overwrite_uploads: int
+) -> tuple[int, int, int]:
+    """Update upload counters based on result."""
+    if result["success"]:
+        successful_uploads += 1
+        if is_overwrite:
+            overwrite_uploads += 1
+    else:
+        failed_uploads += 1
+    return successful_uploads, failed_uploads, overwrite_uploads
+
+
+def _update_progress_after_processing(
+    progress_callback: Any, filename: str, result: dict[str, Any], is_overwrite: bool, index: int, total_files: int
+) -> None:
+    """Update progress after processing a file."""
+    if progress_callback:
+        if result["success"]:
+            status = "✅ Overwritten" if is_overwrite else "✅ Uploaded"
+            stage = "completed"
+        else:
+            status = "❌ Failed"
+            stage = "failed"
+
+        progress_callback(
+            current_file=filename,
+            current_step=status,
+            completed=index + 1,
+            total=total_files,
+            stage=stage,
+        )
+
+
 def process_batch_upload(
     valid_files: list[dict[str, Any]], collision_results: dict[str, Any] | None = None, progress_callback: Any = None
 ) -> dict[str, Any]:
@@ -512,101 +628,39 @@ def process_batch_upload(
         filename = file_info["filename"]
 
         # Update progress before processing
-        if progress_callback:
-            progress_callback(
-                current_file=filename,
-                current_step="Starting processing...",
-                completed=index,
-                total=total_files,
-                stage="processing",
-            )
+        _update_progress_before_processing(progress_callback, filename, index, total_files)
 
-        # Check if this file has a collision and user decision
-        collision_info = collision_results.get(filename)
-        if collision_info:
-            user_decision = collision_info.get("user_decision", "pending")
+        # Determine processing action based on collision status
+        processing_action = _determine_processing_action(filename, collision_results)
 
-            if user_decision == "skip":
-                # Skip this file
-                logger.info("file_skipped_by_user_decision", filename=filename)
-                result = {
-                    "success": True,
-                    "filename": filename,
-                    "skipped": True,
-                    "is_overwrite": False,
-                    "message": f"Skipped {filename} (user decision)",
-                }
-                results.append(result)
-                skipped_uploads += 1
+        if processing_action["action"] == "skip":
+            result = _handle_skip_file(filename, processing_action["reason"])
+            results.append(result)
+            skipped_uploads += 1
+            _update_progress_after_skip(progress_callback, filename, index, total_files)
+            continue
 
-                if progress_callback:
-                    progress_callback(
-                        current_file=filename,
-                        current_step="⏭️ Skipped by user",
-                        completed=index + 1,
-                        total=total_files,
-                        stage="skipped",
-                    )
-                continue
-            elif user_decision == "overwrite":
-                # Process as overwrite
-                is_overwrite = True
-                logger.info("file_marked_for_overwrite", filename=filename)
-            else:
-                # Pending decision - treat as error
-                logger.warning("file_collision_decision_pending", filename=filename)
-                result = {
-                    "success": False,
-                    "filename": filename,
-                    "error": "User decision pending for collision",
-                    "is_overwrite": False,
-                    "message": f"Failed to process {filename}: User decision required for collision",
-                }
-                results.append(result)
-                failed_uploads += 1
-
-                if progress_callback:
-                    progress_callback(
-                        current_file=filename,
-                        current_step="❌ Decision pending",
-                        completed=index + 1,
-                        total=total_files,
-                        stage="failed",
-                    )
-                continue
-        else:
-            # No collision, process as new upload
-            is_overwrite = False
+        if processing_action["action"] == "error":
+            result = _handle_processing_error(filename, processing_action["reason"])
+            results.append(result)
+            failed_uploads += 1
+            _update_progress_after_error(progress_callback, filename, index, total_files)
+            continue
 
         # Process the file with detailed step tracking
+        is_overwrite = processing_action["is_overwrite"]
         result = process_single_upload_with_progress(
             file_info, progress_callback, index, total_files, is_overwrite=is_overwrite
         )
         results.append(result)
 
-        if result["success"]:
-            successful_uploads += 1
-            if is_overwrite:
-                overwrite_uploads += 1
-        else:
-            failed_uploads += 1
+        # Update counters
+        successful_uploads, failed_uploads, overwrite_uploads = _update_upload_counters(
+            result, is_overwrite, successful_uploads, failed_uploads, overwrite_uploads
+        )
 
         # Update progress after processing
-        if progress_callback:
-            if result["success"]:
-                status = "✅ Overwritten" if is_overwrite else "✅ Uploaded"
-                stage = "completed"
-            else:
-                status = "❌ Failed"
-                stage = "failed"
-
-            progress_callback(
-                current_file=filename,
-                current_step=status,
-                completed=index + 1,
-                total=total_files,
-                stage=stage,
-            )
+        _update_progress_after_processing(progress_callback, filename, result, is_overwrite, index, total_files)
 
     # Create summary
     batch_result = {
@@ -911,21 +965,14 @@ def render_upload_statistics(
                     st.metric("Success Rate", "N/A")
 
 
-def render_upload_results(batch_result: dict[str, Any], processing_time: float | None = None) -> None:
-    """
-    Render enhanced results of batch upload processing with detailed feedback.
-
-    Args:
-        batch_result: Dictionary containing batch processing results
-        processing_time: Total processing time in seconds
-    """
+def _render_overall_status(batch_result: dict[str, Any]) -> None:
+    """Render the overall status message for batch upload results."""
     total_files = batch_result["total_files"]
     successful_uploads = batch_result["successful_uploads"]
     failed_uploads = batch_result["failed_uploads"]
     skipped_uploads = batch_result.get("skipped_uploads", 0)
     overwrite_uploads = batch_result.get("overwrite_uploads", 0)
 
-    # Enhanced overall status with more context including overwrites and skips
     if batch_result["success"]:
         if total_files == 1:
             if overwrite_uploads > 0:
@@ -963,7 +1010,15 @@ def render_upload_results(batch_result: dict[str, Any], processing_time: float |
     else:
         st.error(f"❌ Upload failed: All {failed_uploads} files encountered errors")
 
-    # Enhanced summary metrics with additional information
+
+def _render_summary_metrics(batch_result: dict[str, Any], processing_time: float | None = None) -> None:
+    """Render summary metrics for batch upload results."""
+    total_files = batch_result["total_files"]
+    successful_uploads = batch_result["successful_uploads"]
+    failed_uploads = batch_result["failed_uploads"]
+    skipped_uploads = batch_result.get("skipped_uploads", 0)
+    overwrite_uploads = batch_result.get("overwrite_uploads", 0)
+
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric("Total Files", total_files)
@@ -988,171 +1043,211 @@ def render_upload_results(batch_result: dict[str, Any], processing_time: float |
         elif failed_uploads > 0 and not (overwrite_uploads > 0 or skipped_uploads > 0):
             st.metric("Failed", failed_uploads, delta=-failed_uploads)
 
-    # Enhanced detailed results with better organization
-    if batch_result["results"]:
-        # Separate results by type
-        successful_results = [r for r in batch_result["results"] if r["success"] and not r.get("skipped", False)]
-        skipped_results = [r for r in batch_result["results"] if r.get("skipped", False)]
-        failed_results = [r for r in batch_result["results"] if not r["success"]]
 
-        # Further separate successful results into new uploads and overwrites
-        new_upload_results = [r for r in successful_results if not r.get("is_overwrite", False)]
-        overwrite_results = [r for r in successful_results if r.get("is_overwrite", False)]
+def _render_new_uploads(new_upload_results: list[dict[str, Any]]) -> None:
+    """Render new upload results."""
+    if not new_upload_results:
+        return
 
-        # Show new uploads
-        if new_upload_results:
-            with st.expander(f"✅ New Uploads ({len(new_upload_results)})", expanded=len(new_upload_results) <= 3):
-                for result in new_upload_results:
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.success(f"📷 **{result['filename']}**")
-                        if "creation_date" in result:
-                            st.write(f"   📅 Created: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
-                        if "file_size" in result:
-                            file_size_mb = result["file_size"] / (1024 * 1024)
-                            st.write(f"   💾 Size: {file_size_mb:.1f} MB")
-                        if "processing_steps" in result:
-                            with st.expander(f"Processing steps for {result['filename']}", expanded=False):
-                                for step in result["processing_steps"]:
-                                    st.write(f"• {step}")
-                    with col2:
-                        st.markdown("✅ **New Upload**")
+    with st.expander(f"✅ New Uploads ({len(new_upload_results)})", expanded=len(new_upload_results) <= 3):
+        for result in new_upload_results:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.success(f"📷 **{result['filename']}**")
+                if "creation_date" in result:
+                    st.write(f"   📅 Created: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
+                if "file_size" in result:
+                    file_size_mb = result["file_size"] / (1024 * 1024)
+                    st.write(f"   💾 Size: {file_size_mb:.1f} MB")
+                if "processing_steps" in result:
+                    with st.expander(f"Processing steps for {result['filename']}", expanded=False):
+                        for step in result["processing_steps"]:
+                            st.write(f"• {step}")
+            with col2:
+                st.markdown("✅ **New Upload**")
 
-        # Show overwrites with enhanced information
-        if overwrite_results:
-            with st.expander(f"🔄 Overwrites ({len(overwrite_results)})", expanded=len(overwrite_results) <= 3):
-                st.markdown("**以下のファイルは既存の写真を上書きしました:**")
-                st.divider()
 
-                for result in overwrite_results:
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.info(f"📷 **{result['filename']}**")
+def _render_overwrites(overwrite_results: list[dict[str, Any]]) -> None:
+    """Render overwrite results."""
+    if not overwrite_results:
+        return
 
-                        # Show new file information
-                        st.markdown("**新しいファイル情報:**")
-                        if "creation_date" in result:
-                            st.write(f"   📅 撮影日時: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
-                        if "file_size" in result:
-                            file_size_mb = result["file_size"] / (1024 * 1024)
-                            st.write(f"   💾 ファイルサイズ: {file_size_mb:.1f} MB")
+    with st.expander(f"🔄 Overwrites ({len(overwrite_results)})", expanded=len(overwrite_results) <= 3):
+        st.markdown("**以下のファイルは既存の写真を上書きしました:**")
+        st.divider()
 
-                        # Show overwrite confirmation
-                        st.success("   ✅ **上書き完了 - 既存の写真が新しいバージョンに置き換えられました**")
+        for result in overwrite_results:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.info(f"📷 **{result['filename']}**")
 
-                        # Show what was preserved
-                        st.markdown("**保持された情報:**")
-                        st.write("   🔒 元の作成日時とファイルIDは保持されています")
-                        st.write("   📊 メタデータは新しいファイルの情報に更新されました")
+                # Show new file information
+                st.markdown("**新しいファイル情報:**")
+                if "creation_date" in result:
+                    st.write(f"   📅 撮影日時: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
+                if "file_size" in result:
+                    file_size_mb = result["file_size"] / (1024 * 1024)
+                    st.write(f"   💾 ファイルサイズ: {file_size_mb:.1f} MB")
 
-                        if "processing_steps" in result:
-                            with st.expander(f"上書き処理ステップ: {result['filename']}", expanded=False):
-                                for step in result["processing_steps"]:
-                                    st.write(f"• {step}")
-                    with col2:
-                        st.markdown("🔄 **上書き完了**")
-                        st.markdown("---")
-                        st.markdown("**操作結果:**")
-                        st.write("✅ 成功")
-                        st.write("🔄 既存ファイル更新")
-                        st.write("🔒 ID・作成日保持")
+                # Show overwrite confirmation
+                st.success("   ✅ **上書き完了 - 既存の写真が新しいバージョンに置き換えられました**")
 
-        # Show skipped files with enhanced information
-        if skipped_results:
-            with st.expander(f"⏭️ スキップされたファイル ({len(skipped_results)})", expanded=len(skipped_results) <= 3):
-                st.markdown("**以下のファイルはユーザーの選択によりスキップされました:**")
-                st.divider()
+                # Show what was preserved
+                st.markdown("**保持された情報:**")
+                st.write("   🔒 元の作成日時とファイルIDは保持されています")
+                st.write("   📊 メタデータは新しいファイルの情報に更新されました")
 
-                for result in skipped_results:
-                    col1, col2 = st.columns([3, 1])
-                    with col1:
-                        st.warning(f"📷 **{result['filename']}**")
-                        st.markdown("**スキップ理由:**")
-                        st.write("   ⚠️ 同名のファイルが既に存在していました")
-                        st.write("   👤 ユーザーが上書きを選択せず、スキップを選択しました")
-                        st.write("   🔒 既存のファイルは変更されていません")
+                if "processing_steps" in result:
+                    with st.expander(f"上書き処理ステップ: {result['filename']}", expanded=False):
+                        for step in result["processing_steps"]:
+                            st.write(f"• {step}")
+            with col2:
+                st.markdown("🔄 **上書き完了**")
+                st.markdown("---")
+                st.markdown("**操作結果:**")
+                st.write("✅ 成功")
+                st.write("🔄 既存ファイル更新")
+                st.write("🔒 ID・作成日保持")
 
-                        st.info(
-                            "💡 **ヒント:** 同じファイルを後でアップロードしたい場合は、ファイル名を変更するか、上書きを選択してください。"
-                        )
-                    with col2:
-                        st.markdown("⏭️ **スキップ済み**")
-                        st.markdown("---")
-                        st.markdown("**状態:**")
-                        st.write("⏭️ 処理スキップ")
-                        st.write("🔒 既存ファイル保護")
-                        st.write("👤 ユーザー選択")
 
-        # Show failed uploads with detailed error information and overwrite-specific handling
-        if failed_results:
-            with st.expander(f"❌ 失敗したアップロード ({len(failed_results)})", expanded=True):
-                # Separate overwrite failures from regular failures
-                overwrite_failures = [r for r in failed_results if r.get("is_overwrite", False)]
-                regular_failures = [r for r in failed_results if not r.get("is_overwrite", False)]
+def _render_skipped_files(skipped_results: list[dict[str, Any]]) -> None:
+    """Render skipped files results."""
+    if not skipped_results:
+        return
 
-                # Show overwrite-specific failures first
-                if overwrite_failures:
-                    st.markdown("**🔄 上書き操作の失敗:**")
-                    for result in overwrite_failures:
-                        st.error(f"📷 **{result['filename']}** - {result['message']}")
+    with st.expander(f"⏭️ スキップされたファイル ({len(skipped_results)})", expanded=len(skipped_results) <= 3):
+        st.markdown("**以下のファイルはユーザーの選択によりスキップされました:**")
+        st.divider()
 
-                        # Special handling for overwrite failures
-                        st.warning("⚠️ **上書き失敗の影響:** 既存のファイルは変更されていません。")
+        for result in skipped_results:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.warning(f"📷 **{result['filename']}**")
+                st.markdown("**スキップ理由:**")
+                st.write("   ⚠️ 同名のファイルが既に存在していました")
+                st.write("   👤 ユーザーが上書きを選択せず、スキップを選択しました")
+                st.write("   🔒 既存のファイルは変更されていません")
 
-                        # Show error details
-                        if "error" in result:
-                            with st.expander(f"🔍 上書きエラー詳細: {result['filename']}", expanded=False):
-                                col1, col2 = st.columns([1, 2])
-                                with col1:
-                                    if "error_type" in result:
-                                        st.write(f"**エラータイプ:** {result['error_type']}")
-                                    st.write(f"**ファイル:** {result['filename']}")
-                                    st.write("**操作:** 上書き試行")
-                                with col2:
-                                    st.code(result["error"], language="text")
+                st.info(
+                    "💡 **ヒント:** 同じファイルを後でアップロードしたい場合は、ファイル名を変更するか、上書きを選択してください。"
+                )
+            with col2:
+                st.markdown("⏭️ **スキップ済み**")
+                st.markdown("---")
+                st.markdown("**状態:**")
+                st.write("⏭️ 処理スキップ")
+                st.write("🔒 既存ファイル保護")
+                st.write("👤 ユーザー選択")
 
-                        # Overwrite-specific troubleshooting
-                        st.info("💡 **上書き失敗のトラブルシューティング:**")
-                        overwrite_suggestions = [
-                            "既存のファイルが別のプロセスで使用されていないか確認してください",
-                            "データベースの整合性を確認してください",
-                            "一度ファイルを削除してから再アップロードを試してください",
-                            "ファイル名を変更して新規アップロードとして試してください",
-                        ]
-                        for suggestion in overwrite_suggestions:
-                            st.write(f"• {suggestion}")
 
-                        st.divider()
+def _render_failed_uploads(failed_results: list[dict[str, Any]]) -> None:
+    """Render failed upload results."""
+    if not failed_results:
+        return
 
-                # Show regular failures
-                if regular_failures:
-                    if overwrite_failures:
-                        st.markdown("**📤 通常のアップロード失敗:**")
+    with st.expander(f"❌ 失敗したアップロード ({len(failed_results)})", expanded=True):
+        # Separate overwrite failures from regular failures
+        overwrite_failures = [r for r in failed_results if r.get("is_overwrite", False)]
+        regular_failures = [r for r in failed_results if not r.get("is_overwrite", False)]
 
-                    for result in regular_failures:
-                        st.error(f"📷 **{result['filename']}** - {result['message']}")
+        # Show overwrite-specific failures first
+        if overwrite_failures:
+            _render_overwrite_failures(overwrite_failures)
 
-                        # Show error details
-                        if "error" in result:
-                            with st.expander(f"🔍 エラー詳細: {result['filename']}", expanded=False):
-                                col1, col2 = st.columns([1, 2])
-                                with col1:
-                                    if "error_type" in result:
-                                        st.write(f"**エラータイプ:** {result['error_type']}")
-                                    st.write(f"**ファイル:** {result['filename']}")
-                                with col2:
-                                    st.code(result["error"], language="text")
+        # Show regular failures
+        if regular_failures:
+            _render_regular_failures(regular_failures, bool(overwrite_failures))
 
-                        # Provide troubleshooting suggestions
-                        st.info("💡 **トラブルシューティング提案:**")
-                        suggestions = get_error_suggestions(result.get("error", ""), result.get("filename", ""))
-                        for suggestion in suggestions:
-                            st.write(f"• {suggestion}")
 
-    # Enhanced processing summary for mixed operations
-    st.divider()
+def _render_overwrite_failures(overwrite_failures: list[dict[str, Any]]) -> None:
+    """Render overwrite-specific failures."""
+    st.markdown("**🔄 上書き操作の失敗:**")
+    for result in overwrite_failures:
+        st.error(f"📷 **{result['filename']}** - {result['message']}")
 
-    # Show detailed summary for mixed operations
+        # Special handling for overwrite failures
+        st.warning("⚠️ **上書き失敗の影響:** 既存のファイルは変更されていません。")
+
+        # Show error details
+        if "error" in result:
+            with st.expander(f"🔍 上書きエラー詳細: {result['filename']}", expanded=False):
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    if "error_type" in result:
+                        st.write(f"**エラータイプ:** {result['error_type']}")
+                    st.write(f"**ファイル:** {result['filename']}")
+                    st.write("**操作:** 上書き試行")
+                with col2:
+                    st.code(result["error"], language="text")
+
+        # Overwrite-specific troubleshooting
+        st.info("💡 **上書き失敗のトラブルシューティング:**")
+        overwrite_suggestions = [
+            "既存のファイルが別のプロセスで使用されていないか確認してください",
+            "データベースの整合性を確認してください",
+            "一度ファイルを削除してから再アップロードを試してください",
+            "ファイル名を変更して新規アップロードとして試してください",
+        ]
+        for suggestion in overwrite_suggestions:
+            st.write(f"• {suggestion}")
+
+        st.divider()
+
+
+def _render_regular_failures(regular_failures: list[dict[str, Any]], has_overwrite_failures: bool) -> None:
+    """Render regular upload failures."""
+    if has_overwrite_failures:
+        st.markdown("**📤 通常のアップロード失敗:**")
+
+    for result in regular_failures:
+        st.error(f"📷 **{result['filename']}** - {result['message']}")
+
+        # Show error details
+        if "error" in result:
+            with st.expander(f"🔍 エラー詳細: {result['filename']}", expanded=False):
+                col1, col2 = st.columns([1, 2])
+                with col1:
+                    if "error_type" in result:
+                        st.write(f"**エラータイプ:** {result['error_type']}")
+                    st.write(f"**ファイル:** {result['filename']}")
+                with col2:
+                    st.code(result["error"], language="text")
+
+        # Provide troubleshooting suggestions
+        st.info("💡 **トラブルシューティング提案:**")
+        suggestions = get_error_suggestions(result.get("error", ""), result.get("filename", ""))
+        for suggestion in suggestions:
+            st.write(f"• {suggestion}")
+
+
+def _render_detailed_results(batch_result: dict[str, Any]) -> None:
+    """Render detailed results organized by type."""
+    if not batch_result["results"]:
+        return
+
+    # Separate results by type
+    successful_results = [r for r in batch_result["results"] if r["success"] and not r.get("skipped", False)]
+    skipped_results = [r for r in batch_result["results"] if r.get("skipped", False)]
+    failed_results = [r for r in batch_result["results"] if not r["success"]]
+
+    # Further separate successful results into new uploads and overwrites
+    new_upload_results = [r for r in successful_results if not r.get("is_overwrite", False)]
+    overwrite_results = [r for r in successful_results if r.get("is_overwrite", False)]
+
+    # Render each type
+    _render_new_uploads(new_upload_results)
+    _render_overwrites(overwrite_results)
+    _render_skipped_files(skipped_results)
+    _render_failed_uploads(failed_results)
+
+
+def _render_processing_summary(batch_result: dict[str, Any]) -> None:
+    """Render processing summary for mixed operations."""
+    overwrite_uploads = batch_result.get("overwrite_uploads", 0)
+    skipped_uploads = batch_result.get("skipped_uploads", 0)
+    failed_uploads = batch_result["failed_uploads"]
+    successful_uploads = batch_result["successful_uploads"]
+
     if overwrite_uploads > 0 or skipped_uploads > 0:
         st.markdown("### 📊 処理サマリー")
 
@@ -1191,6 +1286,12 @@ def render_upload_results(batch_result: dict[str, Any], processing_time: float |
                 "これらのファイルは処理されておらず、既存のファイルも変更されていません。"
             )
 
+
+def _render_next_steps(batch_result: dict[str, Any]) -> None:
+    """Render next steps section."""
+    successful_uploads = batch_result["successful_uploads"]
+    failed_uploads = batch_result["failed_uploads"]
+
     if batch_result["success"] and successful_uploads > 0:
         st.markdown("### 🎯 Next Steps")
         col1, col2, col3 = st.columns(3)
@@ -1227,6 +1328,31 @@ def render_upload_results(batch_result: dict[str, Any], processing_time: float |
 
         if st.button("🔄 Try Again", use_container_width=True, type="primary"):
             st.rerun()
+
+
+def render_upload_results(batch_result: dict[str, Any], processing_time: float | None = None) -> None:
+    """
+    Render enhanced results of batch upload processing with detailed feedback.
+
+    Args:
+        batch_result: Dictionary containing batch processing results
+        processing_time: Total processing time in seconds
+    """
+    # Render overall status
+    _render_overall_status(batch_result)
+
+    # Render summary metrics
+    _render_summary_metrics(batch_result, processing_time)
+
+    # Render detailed results
+    _render_detailed_results(batch_result)
+
+    # Enhanced processing summary for mixed operations
+    st.divider()
+    _render_processing_summary(batch_result)
+
+    # Render next steps
+    _render_next_steps(batch_result)
 
     # Note: Don't automatically clear session state here to allow users to see results
     # Session state will be cleared when user navigates away or uploads new files
@@ -1324,13 +1450,9 @@ def clear_upload_session_state() -> None:
             del st.session_state[key]
 
     # Clear collision decision keys (pattern-based)
-    keys_to_remove = []
-    for key in st.session_state.keys():
-        if key.startswith("collision_decision_") or key.startswith("decision_start_"):
-            keys_to_remove.append(key)
-
-    for key in keys_to_remove:
-        del st.session_state[key]
+    for key in list(st.session_state.keys()):  # type: ignore
+        if isinstance(key, str) and (key.startswith("collision_decision_") or key.startswith("decision_start_")):
+            del st.session_state[key]
 
 
 def _get_collision_detection_error_message(error: Exception) -> str:
@@ -1415,7 +1537,7 @@ def handle_overwrite_operation_error(error: Exception, filename: str, operation:
 
 
 def handle_collision_decision_monitoring(
-    user_id: str, filename: str, decision: str, decision_start_time: float = None, **collision_context
+    user_id: str, filename: str, decision: str, decision_start_time: float | None = None, **collision_context
 ) -> None:
     """
     Handle monitoring of user collision decisions.
@@ -1430,17 +1552,18 @@ def handle_collision_decision_monitoring(
     import time
 
     # Calculate decision time if start time provided
-    decision_time_ms = None
+    decision_time_ms: float | None = None
     if decision_start_time is not None:
         decision_time_ms = (time.perf_counter() - decision_start_time) * 1000
 
     # Log the user decision
-    log_user_decision(
-        user_id=user_id, filename=filename, decision=decision, decision_time_ms=decision_time_ms, **collision_context
-    )
+    if decision_time_ms is not None:
+        log_user_decision(
+            user_id=user_id, filename=filename, decision=decision, decision_time_ms=decision_time_ms, **collision_context
+        )
 
     # If decision is resolved (not pending), also log collision resolution
-    if decision in ["overwrite", "skip"]:
+    if decision in ["overwrite", "skip"] and decision_time_ms is not None:
         log_collision_resolved(
             user_id=user_id,
             filename=filename,
