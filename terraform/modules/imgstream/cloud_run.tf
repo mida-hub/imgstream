@@ -2,13 +2,15 @@
 
 # Cloud Run service
 resource "google_cloud_run_v2_service" "imgstream" {
-  provider     = google-beta
-  project      = var.project_id
-  name         = "${var.app_name}-${var.environment}"
-  location     = var.region
-  ingress      = "INGRESS_TRAFFIC_ALL"
-  iap_enabled  = var.enable_iap ? true : null
-  launch_stage = var.enable_iap ? "BETA" : null
+  provider       = google-beta
+  project        = var.project_id
+  name           = "${var.app_name}-${var.environment}"
+  location       = var.region
+  ingress        = "INGRESS_TRAFFIC_ALL"
+  iap_enabled    = var.enable_iap ? true : null
+  launch_stage   = var.enable_iap ? "BETA" : null
+  client         = "gcloud"
+  client_version = "530.0.0"
 
   template {
     # Service account for the container
@@ -123,7 +125,7 @@ resource "google_cloud_run_v2_service" "imgstream" {
         value = var.environment == "dev" ? "true" : "false"
       }
 
-      dynamic env {
+      dynamic "env" {
         for_each = var.environment == "dev" ? {
           "dev_auth_default_email" : "developer@example.com",
           "dev_auth_default_name" : "Cloud Run Developer",
@@ -191,11 +193,11 @@ resource "google_cloud_run_v2_service" "imgstream" {
   ]
 }
 
-resource "google_cloud_run_v2_service_iam_binding" "authenticated_access" {
+resource "google_cloud_run_v2_service_iam_member" "authenticated_access" {
   location = google_cloud_run_v2_service.imgstream.location
   name     = google_cloud_run_v2_service.imgstream.name
   role     = "roles/run.invoker"
-  members  = ["serviceAccount:${google_service_account.cloud_run.email}"]
+  member   = "serviceAccount:${google_service_account.cloud_run.email}"
 }
 
 # Custom domain mapping (optional)
