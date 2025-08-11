@@ -225,7 +225,7 @@ class TestParameterValidationSecurity:
         for malicious_user_id in sql_injection_attempts:
             # UserInfo should sanitize or reject malicious user IDs
             try:
-                user_info = UserInfo(user_id=malicious_user_id, email="test@example.com", name="Test User")
+                user_info = UserInfo(user_id=malicious_user_id, email="test@example.com")
 
                 # Verify that the user ID is sanitized
                 storage_path = user_info.get_storage_path_prefix()
@@ -264,7 +264,7 @@ class TestParameterValidationSecurity:
 
         for xss_payload in xss_payloads:
             try:
-                user_info = UserInfo(user_id="test-user", email=xss_payload, name=xss_payload)
+                user_info = UserInfo(user_id="test-user", email=xss_payload)
 
                 # Note: Current implementation doesn't sanitize user input
                 # This test documents the current behavior - in production, additional
@@ -412,7 +412,7 @@ class TestFileSystemSecurity:
         ]
 
         for traversal_attempt in traversal_attempts:
-            user_info = UserInfo(user_id=traversal_attempt, email="test@example.com", name="Test User")
+            user_info = UserInfo(user_id=traversal_attempt, email="test@example.com")
 
             storage_path = user_info.get_storage_path_prefix()
             db_path = user_info.get_database_path()
@@ -437,7 +437,7 @@ class TestFileSystemSecurity:
         symlink_attempts = ["link_to_etc_passwd", "link_to_root_ssh", "link_to_system32", "link_to_sensitive_data"]
 
         for symlink_name in symlink_attempts:
-            user_info = UserInfo(user_id=symlink_name, email="test@example.com", name="Test User")
+            user_info = UserInfo(user_id=symlink_name, email="test@example.com")
 
             # Verify that paths are properly sandboxed
             storage_path = user_info.get_storage_path_prefix()

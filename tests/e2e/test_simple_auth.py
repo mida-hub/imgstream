@@ -12,11 +12,11 @@ class TestSimpleAuthentication:
 
     def test_user_info_creation(self):
         """Test UserInfo creation and methods."""
-        user_info = UserInfo(user_id="test-user-123", email="test@example.com", name="Test User")
+        user_info = UserInfo(user_id="test-user-123", email="test@example.com")
 
         assert user_info.user_id == "test-user-123"
         assert user_info.email == "test@example.com"
-        assert user_info.name == "Test User"
+
 
         # Test storage path generation
         storage_path = user_info.get_storage_path_prefix()

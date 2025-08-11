@@ -67,8 +67,7 @@ def _render_upload_header_and_info() -> tuple[int, int]:
     with col1:
         render_info_card(
             "対応フォーマット",
-            f"• HEIC (iPhone/iPad写真)\n• JPEG/JPG (標準写真)\n"
-            f"• 最大ファイルサイズ: {max_size_mb:.0f}MB/写真",
+            f"• HEIC (iPhone/iPad写真)\n• JPEG/JPG (標準写真)\n" f"• 最大ファイルサイズ: {max_size_mb:.0f}MB/写真",
             "📋",
         )
 

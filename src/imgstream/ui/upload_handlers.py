@@ -1559,7 +1559,11 @@ def handle_collision_decision_monitoring(
     # Log the user decision
     if decision_time_ms is not None:
         log_user_decision(
-            user_id=user_id, filename=filename, decision=decision, decision_time_ms=decision_time_ms, **collision_context
+            user_id=user_id,
+            filename=filename,
+            decision=decision,
+            decision_time_ms=decision_time_ms,
+            **collision_context,
         )
 
     # If decision is resolved (not pending), also log collision resolution

@@ -123,13 +123,8 @@ def render_header() -> None:
         st.markdown("# 📸 imgstream")
 
     with col2:
-        # 不要な表示に思える
-        # Breadcrumb navigation
-        current_page = st.session_state.current_page
-        page_titles = {"home": "ホーム", "upload": "写真アップロード", "gallery": "写真ギャラリー", "settings": "設定"}
-
-        # if current_page in page_titles:
-        #     st.markdown(f"### {page_titles[current_page]}")
+        # Breadcrumb navigation (currently disabled)
+        pass
 
     with col3:
         # Status indicators

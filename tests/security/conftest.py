@@ -107,7 +107,7 @@ def mock_user_info():
     """Create a mock user info for security tests."""
     from src.imgstream.services.auth import UserInfo
 
-    return UserInfo(user_id="test-user-123", email="test@example.com", name="Test User")
+    return UserInfo(user_id="test-user-123", email="test@example.com")
 
 
 @pytest.fixture

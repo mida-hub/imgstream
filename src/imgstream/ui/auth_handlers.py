@@ -6,7 +6,7 @@ import streamlit as st
 import structlog
 
 from imgstream.services.auth import AuthenticationError, get_auth_service
-from imgstream.ui.components import render_error_message, render_info_card
+from imgstream.ui.components import render_error_message
 from imgstream.ui.dev_auth import render_dev_auth_ui, setup_dev_auth_middleware
 
 logger = structlog.get_logger()
@@ -33,7 +33,6 @@ def authenticate_user() -> bool:
                 st.session_state.authenticated = True
                 st.session_state.user_id = dev_user.user_id
                 st.session_state.user_email = dev_user.email
-                st.session_state.user_name = dev_user.name
                 st.session_state.auth_error = None
                 return True
             else:
@@ -58,7 +57,6 @@ def authenticate_user() -> bool:
                 st.session_state.authenticated = True
                 st.session_state.user_id = user_info.user_id
                 st.session_state.user_email = user_info.email
-                st.session_state.user_name = user_info.name
                 st.session_state.auth_error = None
 
                 logger.info("authentication_success", user_id=user_info.user_id, email=user_info.email)
@@ -71,7 +69,6 @@ def authenticate_user() -> bool:
         st.session_state.authenticated = False
         st.session_state.user_id = None
         st.session_state.user_email = None
-        st.session_state.user_name = None
         st.session_state.auth_error = "Cloud IAP authentication required"
 
         logger.warning("authentication_failed", reason="no_valid_iap_header")
@@ -81,7 +78,6 @@ def authenticate_user() -> bool:
         st.session_state.authenticated = False
         st.session_state.user_id = None
         st.session_state.user_email = None
-        st.session_state.user_name = None
         st.session_state.auth_error = f"Authentication error: {str(e)}"
 
         logger.error("authentication_error", error=str(e))
@@ -97,7 +93,6 @@ def handle_logout() -> None:
     st.session_state.authenticated = False
     st.session_state.user_id = None
     st.session_state.user_email = None
-    st.session_state.user_name = None
     st.session_state.auth_error = None
     st.session_state.current_page = "home"
 
@@ -174,14 +169,12 @@ def render_sidebar() -> None:
             # st.subheader("👤 ユーザープロフィール")
 
             # User avatar placeholder
-            # st.markdown("🔵")  # Placeholder for user avatar
+            st.markdown("🔵")  # Placeholder for user avatar
 
             # User information
-            # user_name = st.session_state.user_name or "不明なユーザー"
-            # user_email = st.session_state.user_email or "unknown@example.com"
-            #
-            # # st.markdown(f"**{user_name}**")
-            # st.markdown(f"📧 {user_email}")
+            user_email = st.session_state.user_email or "unknown@example.com"
+
+            st.markdown(f"📧 {user_email}")
 
             from ..config import get_config
 
@@ -189,7 +182,7 @@ def render_sidebar() -> None:
             if config.get("debug", False, bool):
                 st.markdown(f"🆔 {st.session_state.user_id or '不明'}")
 
-            # st.divider()
+            st.divider()
 
             # Quick stats in sidebar
             st.markdown("**📊 クイック統計**")

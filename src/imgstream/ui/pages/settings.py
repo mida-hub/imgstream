@@ -20,11 +20,7 @@ def render_settings_page() -> None:
     with st.expander("👤 アカウント設定", expanded=True):
         st.markdown("**プロフィール情報**")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.text_input("表示名", value=st.session_state.user_name or "", disabled=True)
-        with col2:
-            st.text_input("メールアドレス", value=st.session_state.user_email or "", disabled=True)
+        st.text_input("メールアドレス", value=st.session_state.user_email or "", disabled=True)
 
         st.markdown("**アカウント操作**")
         col1, col2 = st.columns(2)

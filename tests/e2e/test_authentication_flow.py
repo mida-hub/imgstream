@@ -77,7 +77,7 @@ class TestAuthenticationFlow(StreamlitE2ETest):
         from src.imgstream.services.auth import UserInfo
 
         for user in test_users.values():
-            user_info = UserInfo(user_id=user.user_id, email=user.email, name=user.name)
+            user_info = UserInfo(user_id=user.user_id, email=user.email)
             path = user_info.get_storage_path_prefix()
             assert user.email.replace("@", "_at_").replace(".", "_dot_") in path
             assert "/" in path  # Should have subdirectory structure

@@ -188,9 +188,9 @@ class TestAuthenticationServiceSecurity:
     @pytest.mark.security
     def test_cross_user_data_access_prevention(self):
         """Test prevention of cross-user data access."""
-        user1_info = UserInfo(user_id="user-1", email="user1@example.com", name="User One")
+        user1_info = UserInfo(user_id="user-1", email="user1@example.com")
 
-        user2_info = UserInfo(user_id="user-2", email="user2@example.com", name="User Two")
+        user2_info = UserInfo(user_id="user-2", email="user2@example.com")
 
         # Verify users have different storage paths
         user1_storage = user1_info.get_storage_path_prefix()

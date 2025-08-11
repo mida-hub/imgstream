@@ -35,9 +35,6 @@ def initialize_session_state() -> None:
     if "user_email" not in st.session_state:
         st.session_state.user_email = None
 
-    if "user_name" not in st.session_state:
-        st.session_state.user_name = None
-
     if "auth_error" not in st.session_state:
         st.session_state.auth_error = None
 

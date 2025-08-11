@@ -38,7 +38,6 @@ class TestUserInfo:
 
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"
-        assert user_info.name is None
         assert user_info.picture is None
 
     def test_get_storage_path_prefix(self):

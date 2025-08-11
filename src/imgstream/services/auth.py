@@ -21,7 +21,6 @@ class UserInfo:
 
     user_id: str
     email: str
-    name: str | None = None
     picture: str | None = None
 
     def get_storage_path_prefix(self) -> str:
@@ -73,17 +72,12 @@ class CloudIAPAuthService:
         import os
 
         dev_email = os.getenv("DEV_USER_EMAIL", "dev@example.com")
-        dev_name = os.getenv("DEV_USER_NAME", "Development User")
         dev_user_id = os.getenv("DEV_USER_ID", "dev-user-123")
 
         # Basic validation for development user data
         if not dev_email or "@" not in dev_email:
             logger.warning("invalid_dev_user_email", email=dev_email, message="Using default email")
             dev_email = "dev@example.com"
-
-        if not dev_name or not dev_name.strip():
-            logger.warning("invalid_dev_user_name", name=dev_name, message="Using default name")
-            dev_name = "Development User"
 
         if not dev_user_id or not dev_user_id.strip():
             logger.warning("invalid_dev_user_id", user_id=dev_user_id, message="Using default user ID")
@@ -93,11 +87,10 @@ class CloudIAPAuthService:
             "development_user_created",
             user_id=dev_user_id,
             email=dev_email,
-            name=dev_name,
             message="Development user created successfully",
         )
 
-        return UserInfo(user_id=dev_user_id, email=dev_email, name=dev_name, picture=None)
+        return UserInfo(user_id=dev_user_id, email=dev_email, picture=None)
 
     def parse_iap_header(self, headers: dict[str, str]) -> UserInfo | None:
         """Parse Cloud IAP JWT header to extract user information."""
@@ -192,7 +185,6 @@ class CloudIAPAuthService:
         # Sanitize all user inputs to prevent XSS and injection attacks
         sanitized_email = self._sanitize_user_input(email)
         sanitized_sub = self._sanitize_user_input(sub)
-        sanitized_name = self._sanitize_user_input(payload.get("name"))
         sanitized_picture = self._sanitize_user_input(payload.get("picture"))
 
         # Ensure required fields are not None after sanitization
@@ -201,7 +193,7 @@ class CloudIAPAuthService:
         if not sanitized_sub:
             raise ValueError("Subject (user ID) became invalid after sanitization")
 
-        return UserInfo(user_id=sanitized_sub, email=sanitized_email, name=sanitized_name, picture=sanitized_picture)
+        return UserInfo(user_id=sanitized_sub, email=sanitized_email, picture=sanitized_picture)
 
     def authenticate_request(self, headers: dict[str, str]) -> UserInfo | None:
         """

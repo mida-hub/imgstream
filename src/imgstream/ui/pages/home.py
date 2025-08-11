@@ -25,8 +25,10 @@ def render_home_page() -> None:
 
     else:
         # Authenticated user dashboard
-        user_name = st.session_state.user_name or "ユーザー"
-        st.markdown(f"## おかえりなさい、{user_name}さん！ 👋")
+        user_email = st.session_state.user_email or "unknown@example.com"
+        # Extract name part from email for greeting (before @)
+        display_name = user_email.split("@")[0] if "@" in user_email else "ユーザー"
+        st.markdown(f"## おかえりなさい、{display_name}さん！ 👋")
 
         # Quick stats dashboard
         st.markdown("### 📊 あなたの写真ライブラリ")

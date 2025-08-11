@@ -141,7 +141,7 @@ class TestDataFactory:
         Returns:
             UserInfo object with the specified attributes
         """
-        return UserInfo(user_id=user_id, email=email, name=name, picture=picture)
+        return UserInfo(user_id=user_id, email=email, picture=picture)
 
     @staticmethod
     def create_jwt_payload(

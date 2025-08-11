@@ -51,10 +51,6 @@ def render_dev_auth_ui() -> UserInfo | None:
             help="開発用のメールアドレスを入力してください",
         )
 
-        name = st.text_input(
-            "表示名", value=os.getenv("DEV_USER_NAME", "Local Developer"), help="開発用の表示名を入力してください"
-        )
-
         user_id = st.text_input(
             "ユーザーID", value=os.getenv("DEV_USER_ID", "dev-local-001"), help="開発用のユーザーIDを入力してください"
         )
@@ -62,19 +58,19 @@ def render_dev_auth_ui() -> UserInfo | None:
         submitted = st.form_submit_button("開発認証でログイン")
 
         if submitted:
-            if email and name and user_id:
+            if email and user_id:
                 # Create development user
-                dev_user = UserInfo(user_id=user_id, email=email, name=name, picture=None)
+                dev_user = UserInfo(user_id=user_id, email=email, picture=None)
 
                 # Set authenticated user
                 auth_service.set_current_user(dev_user)
 
-                logger.info("development_login", user_id=user_id, email=email, name=name)
+                logger.info("development_login", user_id=user_id, email=email)
 
                 st.sidebar.success("開発認証でログインしました")
                 st.rerun()
             else:
-                st.sidebar.error("すべてのフィールドを入力してください")
+                st.sidebar.error("メールアドレスとユーザーIDを入力してください")
 
     return None
 
@@ -103,7 +99,6 @@ def render_dev_auth_info() -> None:
         env_vars = {
             "ENVIRONMENT": os.getenv("ENVIRONMENT", "未設定"),
             "DEV_USER_EMAIL": os.getenv("DEV_USER_EMAIL", "未設定"),
-            "DEV_USER_NAME": os.getenv("DEV_USER_NAME", "未設定"),
             "DEV_USER_ID": os.getenv("DEV_USER_ID", "未設定"),
         }
 
@@ -153,11 +148,9 @@ def setup_dev_auth_middleware() -> None:
 # Utility functions for testing
 
 
-def create_test_user(
-    email: str = "test@example.com", name: str = "Test User", user_id: str = "test-user-001"
-) -> UserInfo:
+def create_test_user(email: str = "test@example.com", user_id: str = "test-user-001") -> UserInfo:
     """Create a test user for development/testing purposes."""
-    return UserInfo(user_id=user_id, email=email, name=name, picture=None)
+    return UserInfo(user_id=user_id, email=email, picture=None)
 
 
 def authenticate_test_user(user: UserInfo | None = None) -> UserInfo:
