@@ -449,16 +449,13 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
         photo: Photo metadata dictionary
     """
     # Image display options
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2 = st.columns([1, 1])
 
     with col1:
         show_original = st.checkbox("オリジナルサイズで表示", value=True)
 
     with col2:
         st.selectbox("画像フィット", ["contain", "cover", "fill"], index=0, disabled=True, help="近日公開予定")
-
-    with col3:
-        show_info_overlay = st.checkbox("情報オーバーレイを表示", value=False)
 
     st.divider()
 
@@ -470,10 +467,6 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
         try:
             # Display original image
             st.image(original_url, caption=f"オリジナル: {photo.get('filename', '不明')}", use_container_width=True)
-
-            # Image info overlay
-            if show_info_overlay:
-                render_image_info_overlay(photo)
 
         except Exception as e:
             st.error(f"オリジナル画像の読み込みに失敗しました: {str(e)}")
@@ -487,50 +480,9 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
         # Display thumbnail as fallback
         st.image(thumbnail_url, caption=f"サムネイル: {photo.get('filename', '不明')}", use_container_width=True)
 
-        if show_info_overlay:
-            render_image_info_overlay(photo)
-
     else:
         st.error("画像が利用できません")
         st.info("画像がストレージから移動または削除された可能性があります。")
-
-
-def render_image_info_overlay(photo: dict[str, Any]) -> None:
-    """
-    Render image information overlay.
-
-    Args:
-        photo: Photo metadata dictionary
-    """
-    with st.expander("📊 画像情報", expanded=True):
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.write("**ファイル情報:**")
-            st.write(f"• ファイル名: {photo.get('filename', '不明')}")
-
-            file_size = photo.get("file_size")
-            if file_size:
-                file_size_mb = file_size / (1024 * 1024)
-                st.write(f"• サイズ: {file_size_mb:.1f} MB")
-
-            mime_type = photo.get("mime_type")
-            if mime_type:
-                st.write(f"• タイプ: {mime_type}")
-
-        with col2:
-            st.write("**ストレージ情報:**")
-            st.write(f"• 写真ID: {photo.get('id', '不明')}")
-
-            # Storage paths (for debugging/admin)
-            from ...config import get_config
-
-            config = get_config()
-            if config.get("debug", False, bool):
-                original_path = photo.get("original_path", "不明")
-                thumbnail_path = photo.get("thumbnail_path", "不明")
-                st.write(f"• オリジナル: `{original_path}`")
-                st.write(f"• サムネイル: `{thumbnail_path}`")
 
 
 def render_photo_detail_sidebar(photo: dict[str, Any]) -> None:
