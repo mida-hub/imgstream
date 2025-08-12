@@ -18,7 +18,6 @@ from imgstream.utils.collision_detection import (
     CollisionDetectionError,
     CollisionDetectionRecoveryError,
 )
-from imgstream.monitoring.collision_monitor import log_user_decision, log_collision_resolved
 
 logger = structlog.get_logger()
 
@@ -1549,32 +1548,10 @@ def handle_collision_decision_monitoring(
         decision_start_time: When the decision process started (for timing)
         **collision_context: Additional context about the collision
     """
-    import time
-
-    # Calculate decision time if start time provided
-    decision_time_ms: float | None = None
-    if decision_start_time is not None:
-        decision_time_ms = (time.perf_counter() - decision_start_time) * 1000
-
-    # Log the user decision
-    if decision_time_ms is not None:
-        log_user_decision(
-            user_id=user_id,
-            filename=filename,
-            decision=decision,
-            decision_time_ms=decision_time_ms,
-            **collision_context,
-        )
-
-    # If decision is resolved (not pending), also log collision resolution
-    if decision in ["overwrite", "skip"] and decision_time_ms is not None:
-        log_collision_resolved(
-            user_id=user_id,
-            filename=filename,
-            user_decision=decision,
-            decision_time_ms=decision_time_ms,
-            **collision_context,
-        )
+    # Monitoring functionality removed for personal development use
+    # Calculate decision time if start time provided would be here
+    # Log the user decision would be here
+    pass
 
 
 def collect_user_collision_decisions(collision_results: dict, user_id: str) -> dict:
@@ -1640,10 +1617,8 @@ def get_collision_decision_statistics(user_id: str) -> dict:
     Returns:
         dict: Statistics about user's collision decisions
     """
-    from imgstream.monitoring.collision_monitor import get_collision_monitor
-
-    monitor = get_collision_monitor()
-    return monitor.get_user_behavior_patterns(user_id)
+    # Monitoring functionality removed for personal development use
+    return {"pattern": "unknown", "statistics": {}}
 
 
 def render_collision_decision_help() -> None:
@@ -1683,13 +1658,5 @@ def monitor_batch_collision_processing(
         collision_results: Results of collision detection
         processing_time_ms: Time taken for processing
     """
-    from imgstream.monitoring.collision_monitor import log_batch_collision_detection
-
-    log_batch_collision_detection(
-        user_id=user_id,
-        filenames=filenames,
-        collisions_found=len(collision_results),
-        processing_time_ms=processing_time_ms,
-        total_files=len(filenames),
-        collision_rate=len(collision_results) / len(filenames) if filenames else 0,
-    )
+    # Monitoring functionality removed for personal development use
+    pass

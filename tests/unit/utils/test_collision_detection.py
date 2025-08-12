@@ -83,23 +83,28 @@ class TestCollisionDetectionUtilities:
         """Test check_filename_collisions when no collisions exist."""
         # Mock metadata service
         mock_service = Mock()
-        mock_service.check_multiple_filename_exists.return_value = {}
+        mock_service.check_filename_exists.return_value = None  # No collision
         mock_get_service.return_value = mock_service
 
         filenames = ["photo1.jpg", "photo2.jpg", "photo3.jpg"]
         result = check_filename_collisions("test_user_123", filenames)
 
         assert result == {}
-        mock_service.check_multiple_filename_exists.assert_called_once_with(filenames)
+        # Should be called once for each filename
+        assert mock_service.check_filename_exists.call_count == 3
 
     @patch("src.imgstream.utils.collision_detection.get_metadata_service")
     def test_check_filename_collisions_with_collisions(self, mock_get_service, sample_collision_info):
         """Test check_filename_collisions when collisions exist."""
         # Mock metadata service
         mock_service = Mock()
-        mock_service.check_multiple_filename_exists.return_value = {
-            "photo2.jpg": sample_collision_info
-        }
+        # Return collision info only for photo2.jpg, None for others
+        def mock_check_filename_exists(filename):
+            if filename == "photo2.jpg":
+                return sample_collision_info
+            return None
+
+        mock_service.check_filename_exists.side_effect = mock_check_filename_exists
         mock_get_service.return_value = mock_service
 
         filenames = ["photo1.jpg", "photo2.jpg", "photo3.jpg"]

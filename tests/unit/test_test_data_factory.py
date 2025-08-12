@@ -21,7 +21,6 @@ class TestTestDataFactory:
 
         assert user_info.user_id == "test-user-123"
         assert user_info.email == "test@example.com"
-        assert user_info.name == "Test User"
         assert user_info.picture is None
 
     def test_create_user_info_custom(self):
@@ -29,13 +28,12 @@ class TestTestDataFactory:
         user_info = TestDataFactory.create_user_info(
             user_id="custom-user-456",
             email="custom@example.com",
-            name="Custom User",
+            name="Custom User",  # Kept for compatibility but not used
             picture="https://example.com/photo.jpg",
         )
 
         assert user_info.user_id == "custom-user-456"
         assert user_info.email == "custom@example.com"
-        assert user_info.name == "Custom User"
         assert user_info.picture == "https://example.com/photo.jpg"
 
     def test_create_jwt_payload_default(self):

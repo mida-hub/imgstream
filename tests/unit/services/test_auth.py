@@ -24,12 +24,11 @@ class TestUserInfo:
     def test_user_info_creation(self):
         """Test UserInfo creation with all fields."""
         user_info = UserInfo(
-            user_id="123456789", email="user@example.com", name="Test User", picture="https://example.com/photo.jpg"
+            user_id="123456789", email="user@example.com", picture="https://example.com/photo.jpg"
         )
 
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"
-        assert user_info.name == "Test User"
         assert user_info.picture == "https://example.com/photo.jpg"
 
     def test_user_info_creation_minimal(self):
@@ -93,7 +92,6 @@ class TestCloudIAPAuthService:
         with patch.dict("os.environ", {}, clear=True):
             user = self.auth_service._get_development_user()
             assert user.email == "dev@example.com"
-            assert user.name == "Development User"
             assert user.user_id == "dev-user-123"
             assert user.picture is None
 
@@ -101,18 +99,17 @@ class TestCloudIAPAuthService:
         """Test getting development user with custom environment variables."""
         with patch.dict(
             "os.environ",
-            {"DEV_USER_EMAIL": "custom@test.com", "DEV_USER_NAME": "Custom User", "DEV_USER_ID": "custom-123"},
+            {"DEV_USER_EMAIL": "custom@test.com", "DEV_USER_ID": "custom-123"},
         ):
             user = self.auth_service._get_development_user()
             assert user.email == "custom@test.com"
-            assert user.name == "Custom User"
             assert user.user_id == "custom-123"
 
     def test_parse_iap_header_development_mode(self):
         """Test parsing IAP header in development mode."""
         with patch.dict("os.environ", {"ENVIRONMENT": "development"}):
             service = CloudIAPAuthService()
-            headers = {"X-Goog-IAP-JWT-Assertion": "some-token"}
+            headers = {"X-Goog-Iap-Jwt-Assertion": "some-token"}
 
             user_info = service.parse_iap_header(headers)
 
@@ -135,32 +132,29 @@ class TestCloudIAPAuthService:
         payload = {
             "sub": "123456789",
             "email": "user@example.com",
-            "name": "Test User",
             "picture": "https://example.com/photo.jpg",
         }
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
 
         assert user_info is not None
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"
-        assert user_info.name == "Test User"
         assert user_info.picture == "https://example.com/photo.jpg"
 
     def test_parse_iap_header_minimal_payload(self):
         """Test IAP header parsing with minimal payload."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
 
         assert user_info is not None
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"
-        assert user_info.name is None
         assert user_info.picture is None
 
     def test_parse_iap_header_missing_header(self):
@@ -173,7 +167,7 @@ class TestCloudIAPAuthService:
 
     def test_parse_iap_header_invalid_jwt(self):
         """Test IAP header parsing with invalid JWT."""
-        headers = {"X-Goog-IAP-JWT-Assertion": "invalid.jwt.token"}
+        headers = {"X-Goog-Iap-Jwt-Assertion": "invalid.jwt.token"}
 
         user_info = self.auth_service.parse_iap_header(headers)
 
@@ -186,7 +180,7 @@ class TestCloudIAPAuthService:
             # Missing email
         }
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
 
@@ -199,7 +193,7 @@ class TestCloudIAPAuthService:
             # Missing sub
         }
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
 
@@ -233,7 +227,7 @@ class TestCloudIAPAuthService:
         """Test successful request authentication."""
         payload = {"sub": "123456789", "email": "user@example.com", "name": "Test User"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         result = self.auth_service.authenticate_request(headers)
 
@@ -259,7 +253,7 @@ class TestCloudIAPAuthService:
         """Test getting user storage path."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -275,7 +269,7 @@ class TestCloudIAPAuthService:
         """Test getting user database path."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -291,7 +285,7 @@ class TestCloudIAPAuthService:
         """Test clearing authentication state."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         # Authenticate first
         self.auth_service.authenticate_request(headers)
@@ -304,7 +298,7 @@ class TestCloudIAPAuthService:
 
     def test_iap_header_name_constant(self):
         """Test that IAP header name constant is correct."""
-        assert CloudIAPAuthService.IAP_HEADER_NAME == "X-Goog-IAP-JWT-Assertion"
+        assert CloudIAPAuthService.IAP_HEADER_NAME == "X-Goog-Iap-Jwt-Assertion"
 
 
 class TestAuthServiceGlobal:
@@ -332,7 +326,7 @@ class TestAccessControl:
         """Test ensure_authenticated with authenticated user."""
         payload = {"sub": "123456789", "email": "user@example.com", "name": "Test User"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -349,7 +343,7 @@ class TestAccessControl:
         """Test resource access check for user's storage path."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -361,7 +355,7 @@ class TestAccessControl:
         """Test resource access check for user's database path."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -373,7 +367,7 @@ class TestAccessControl:
         """Test resource access check for other user's resources."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -390,7 +384,7 @@ class TestAccessControl:
         """Test getting user resource paths."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -415,7 +409,7 @@ class TestAccessControl:
         """Test validating user ownership of resource."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -427,7 +421,7 @@ class TestAccessControl:
         """Test validating user ownership with access denied."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -446,7 +440,7 @@ class TestAccessControl:
         """Test require authentication with authenticated user."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -470,7 +464,7 @@ class TestErrorHandling:
         """Test JWT with wrong number of parts."""
         # JWT with only 2 parts instead of 3
         malformed_jwt = "header.payload"
-        headers = {"X-Goog-IAP-JWT-Assertion": malformed_jwt}
+        headers = {"X-Goog-Iap-Jwt-Assertion": malformed_jwt}
 
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
@@ -479,7 +473,7 @@ class TestErrorHandling:
         """Test JWT with empty payload."""
         payload = {}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
@@ -488,7 +482,7 @@ class TestErrorHandling:
         """Test JWT with null values in payload."""
         payload = {"sub": None, "email": None}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
@@ -497,7 +491,7 @@ class TestErrorHandling:
         """Test JWT with empty string values."""
         payload = {"sub": "", "email": ""}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
@@ -514,7 +508,7 @@ class TestErrorHandling:
         signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip("=")
 
         jwt_token = f"{header_b64}.{payload_b64}.{signature_b64}"
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
@@ -532,7 +526,7 @@ class TestErrorHandling:
         signature_b64 = base64.urlsafe_b64encode(signature.encode()).decode().rstrip("=")
 
         jwt_token = f"{header_b64}.{payload_b64}.{signature_b64}"
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
         assert user_info is None
@@ -548,7 +542,7 @@ class TestErrorHandling:
 
     def test_logging_on_jwt_parse_error(self):
         """Test that security event is logged when JWT parsing fails."""
-        headers = {"X-Goog-IAP-JWT-Assertion": "invalid.jwt.token"}
+        headers = {"X-Goog-Iap-Jwt-Assertion": "invalid.jwt.token"}
 
         with patch("src.imgstream.services.auth.log_security_event") as mock_security_log:
             self.auth_service.parse_iap_header(headers)
@@ -568,7 +562,7 @@ class TestErrorHandling:
         """Test that user action is logged on successful authentication."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         with patch("src.imgstream.services.auth.log_user_action") as mock_user_log:
             self.auth_service.parse_iap_header(headers)
@@ -579,7 +573,7 @@ class TestErrorHandling:
         """Test that security event is logged on access denied."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -615,7 +609,7 @@ class TestEdgeCases:
         long_email = "a" * 100 + "@" + "b" * 100 + ".com"
         payload = {"sub": "123456789", "email": long_email}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
 
@@ -631,7 +625,7 @@ class TestEdgeCases:
         special_email = "test.user+tag@sub.domain.example.com"
         payload = {"sub": "123456789", "email": special_email}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
 
@@ -651,8 +645,8 @@ class TestEdgeCases:
         jwt_token1 = TestDataFactory.create_valid_jwt_token(payload1)
         jwt_token2 = TestDataFactory.create_valid_jwt_token(payload2)
 
-        headers1 = {"X-Goog-IAP-JWT-Assertion": jwt_token1}
-        headers2 = {"X-Goog-IAP-JWT-Assertion": jwt_token2}
+        headers1 = {"X-Goog-Iap-Jwt-Assertion": jwt_token1}
+        headers2 = {"X-Goog-Iap-Jwt-Assertion": jwt_token2}
 
         # Authenticate with first user
         result1 = self.auth_service.authenticate_request(headers1)
@@ -668,7 +662,7 @@ class TestEdgeCases:
         """Test resource access with edge case paths."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         self.auth_service.authenticate_request(headers)
 
@@ -694,7 +688,7 @@ class TestEdgeCases:
         """Test multiple authentication and clearing cycles."""
         payload = {"sub": "123456789", "email": "user@example.com"}
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         # Perform multiple auth cycles
         for _ in range(5):
@@ -723,14 +717,13 @@ class TestEdgeCases:
             "permissions": {"read": True, "write": False},
         }
         jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-IAP-JWT-Assertion": jwt_token}
+        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
 
         user_info = self.auth_service.parse_iap_header(headers)
 
         assert user_info is not None
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"
-        assert user_info.name == "Test User"
         assert user_info.picture == "https://example.com/photo.jpg"
 
 
@@ -828,6 +821,4 @@ class TestInputSanitization:
         assert "<script>" not in user_info.email
         assert "DROP TABLE" not in user_info.user_id
         assert "--" not in user_info.user_id
-        assert "<img" not in user_info.name
-        assert "onerror" not in user_info.name
         assert "javascript:" not in user_info.picture

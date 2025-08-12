@@ -306,9 +306,6 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
     if not filenames:
         return {}
 
-    # Start timing for performance monitoring
-    start_time = time.perf_counter()
-
     # Check cache first if enabled
     if use_cache:
         cached_results = _collision_cache.get(user_id, filenames)
@@ -351,19 +348,7 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
                         existing_photo_id=collision_info["existing_photo"].id,
                     )
 
-                    # Log to collision monitor
-                    try:
-                        from ..monitoring.collision_monitor import log_collision_detected
-
-                        log_collision_detected(
-                            user_id=user_id,
-                            filename=filename,
-                            existing_photo_id=collision_info["existing_photo"].id,
-                            file_size=collision_info["existing_file_info"].get("file_size"),
-                            upload_date=collision_info["existing_file_info"].get("upload_date"),
-                        )
-                    except ImportError:
-                        pass  # Monitoring not available
+                    # Monitoring functionality removed for personal development use
 
             except MetadataError as e:
                 failed_files.append(filename)
@@ -400,23 +385,8 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
         # Calculate failure rate
         failure_rate = len(failed_files) / len(filenames) if filenames else 0
 
-        # Log batch metrics to collision monitor
-        end_time = time.perf_counter()
-        processing_time_ms = (end_time - start_time) * 1000
-
-        try:
-            from ..monitoring.collision_monitor import log_batch_collision_detection
-
-            log_batch_collision_detection(
-                user_id=user_id,
-                filenames=filenames,
-                collisions_found=len(collision_results),
-                processing_time_ms=processing_time_ms,
-                failed_files=len(failed_files),
-                failure_rate=failure_rate,
-            )
-        except ImportError:
-            pass  # Monitoring not available
+        # Monitoring functionality removed for personal development use
+        # Log batch metrics to collision monitor would be here
 
         # If too many files failed, consider it a system error
         if failure_rate > 0.5:  # More than 50% failed

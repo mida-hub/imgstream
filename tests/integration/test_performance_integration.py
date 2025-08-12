@@ -17,7 +17,6 @@ from imgstream.ui.upload_handlers import (
     process_batch_upload,
     monitor_batch_collision_processing,
 )
-from imgstream.monitoring.collision_monitor import get_collision_monitor
 from imgstream.models.photo import PhotoMetadata
 
 

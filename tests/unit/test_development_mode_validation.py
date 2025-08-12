@@ -25,7 +25,6 @@ class TestDevelopmentModeValidation:
 
             # Should fallback to default email
             assert user.email == "dev@example.com"
-            assert user.name == "Test User"
             assert user.user_id == "test-123"
 
     def test_empty_dev_email_fallback(self):
@@ -43,7 +42,6 @@ class TestDevelopmentModeValidation:
             user = service._get_development_user()
 
             assert user.email == "dev@example.com"
-            assert user.name == "Test User"
             assert user.user_id == "test-123"
 
     def test_empty_dev_name_fallback(self):
@@ -61,7 +59,6 @@ class TestDevelopmentModeValidation:
             user = service._get_development_user()
 
             assert user.email == "test@example.com"
-            assert user.name == "Development User"
             assert user.user_id == "test-123"
 
     def test_empty_dev_user_id_fallback(self):
@@ -79,7 +76,6 @@ class TestDevelopmentModeValidation:
             user = service._get_development_user()
 
             assert user.email == "test@example.com"
-            assert user.name == "Test User"
             assert user.user_id == "dev-user-123"
 
     def test_environment_mode_detection_test(self):
@@ -123,7 +119,6 @@ class TestDevelopmentModeValidation:
 
             # All should fallback to defaults
             assert user.email == "dev@example.com"
-            assert user.name == "Development User"
             assert user.user_id == "dev-user-123"
             assert user.picture is None
 
@@ -146,5 +141,4 @@ class TestDevelopmentModeValidation:
             # Should be identical
             assert user1.user_id == user2.user_id
             assert user1.email == user2.email
-            assert user1.name == user2.name
             assert user1.picture == user2.picture

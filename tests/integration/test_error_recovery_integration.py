@@ -19,7 +19,6 @@ from imgstream.ui.upload_handlers import (
     process_single_upload,
     _get_collision_detection_error_message,
 )
-from imgstream.monitoring.collision_monitor import get_collision_monitor
 
 
 class TestErrorRecoveryIntegration:

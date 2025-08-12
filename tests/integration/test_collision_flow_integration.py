@@ -22,7 +22,6 @@ from imgstream.ui.upload_handlers import (
     process_batch_upload,
     process_single_upload,
 )
-from imgstream.monitoring.collision_monitor import get_collision_monitor
 
 
 class TestCollisionDetectionIntegration:

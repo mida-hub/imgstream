@@ -15,15 +15,14 @@ from imgstream.ui.upload_handlers import (
 class TestCollisionDecisionMonitoring:
     """Test collision decision monitoring functions."""
 
-    @patch("imgstream.ui.upload_handlers.log_user_decision")
-    @patch("imgstream.ui.upload_handlers.log_collision_resolved")
-    def test_handle_collision_decision_monitoring_with_timing(self, mock_log_resolved, mock_log_decision):
+    def test_handle_collision_decision_monitoring_with_timing(self):
         """Test handling collision decision monitoring with timing."""
         import time
 
         start_time = time.perf_counter()
         time.sleep(0.01)  # Small delay to ensure timing works
 
+        # Monitoring functionality removed for personal development use
         handle_collision_decision_monitoring(
             user_id="test_user",
             filename="test.jpg",
@@ -33,27 +32,11 @@ class TestCollisionDecisionMonitoring:
             file_size=1024
         )
 
-        # Verify user decision was logged
-        mock_log_decision.assert_called_once()
-        call_args = mock_log_decision.call_args[1]
-        assert call_args["user_id"] == "test_user"
-        assert call_args["filename"] == "test.jpg"
-        assert call_args["decision"] == "overwrite"
-        assert call_args["decision_time_ms"] > 0  # Should have some timing
-        assert call_args["existing_photo_id"] == "photo_123"
-        assert call_args["file_size"] == 1024
+        # Test passes if no exception is raised
 
-        # Verify collision resolution was logged
-        mock_log_resolved.assert_called_once()
-        resolved_args = mock_log_resolved.call_args[1]
-        assert resolved_args["user_id"] == "test_user"
-        assert resolved_args["filename"] == "test.jpg"
-        assert resolved_args["user_decision"] == "overwrite"
-
-    @patch("imgstream.ui.upload_handlers.log_user_decision")
-    @patch("imgstream.ui.upload_handlers.log_collision_resolved")
-    def test_handle_collision_decision_monitoring_without_timing(self, mock_log_resolved, mock_log_decision):
+    def test_handle_collision_decision_monitoring_without_timing(self):
         """Test handling collision decision monitoring without timing."""
+        # Monitoring functionality removed for personal development use
         handle_collision_decision_monitoring(
             user_id="test_user",
             filename="test.jpg",
@@ -61,21 +44,11 @@ class TestCollisionDecisionMonitoring:
             existing_photo_id="photo_123"
         )
 
-        # Verify user decision was logged
-        mock_log_decision.assert_called_once()
-        call_args = mock_log_decision.call_args[1]
-        assert call_args["user_id"] == "test_user"
-        assert call_args["filename"] == "test.jpg"
-        assert call_args["decision"] == "skip"
-        assert call_args["decision_time_ms"] is None
+        # Test passes if no exception is raised
 
-        # Verify collision resolution was logged
-        mock_log_resolved.assert_called_once()
-
-    @patch("imgstream.ui.upload_handlers.log_user_decision")
-    @patch("imgstream.ui.upload_handlers.log_collision_resolved")
-    def test_handle_collision_decision_monitoring_pending_decision(self, mock_log_resolved, mock_log_decision):
+    def test_handle_collision_decision_monitoring_pending_decision(self):
         """Test handling pending collision decision (should not log resolution)."""
+        # Monitoring functionality removed for personal development use
         handle_collision_decision_monitoring(
             user_id="test_user",
             filename="test.jpg",
@@ -83,11 +56,7 @@ class TestCollisionDecisionMonitoring:
             existing_photo_id="photo_123"
         )
 
-        # Verify user decision was logged
-        mock_log_decision.assert_called_once()
-
-        # Verify collision resolution was NOT logged for pending decision
-        mock_log_resolved.assert_not_called()
+        # Test passes if no exception is raised
 
     @patch("streamlit.session_state", new_callable=dict)
     @patch("imgstream.ui.upload_handlers.handle_collision_decision_monitoring")
@@ -176,24 +145,15 @@ class TestCollisionDecisionMonitoring:
         assert "decision_start_test1.jpg" in mock_session_state
         assert isinstance(mock_session_state["decision_start_test1.jpg"], float)
 
-    @patch("imgstream.monitoring.collision_monitor.get_collision_monitor")
-    def test_get_collision_decision_statistics(self, mock_get_monitor):
+    def test_get_collision_decision_statistics(self):
         """Test getting collision decision statistics."""
-        mock_monitor = MagicMock()
-        mock_monitor.get_user_behavior_patterns.return_value = {
-            "pattern": "aggressive_overwriter",
-            "statistics": {"overwrite_rate": 0.9}
-        }
-        mock_get_monitor.return_value = mock_monitor
-
+        # Monitoring functionality removed for personal development use
         result = get_collision_decision_statistics("test_user")
 
-        mock_monitor.get_user_behavior_patterns.assert_called_once_with("test_user")
-        assert result["pattern"] == "aggressive_overwriter"
-        assert result["statistics"]["overwrite_rate"] == 0.9
+        assert result["pattern"] == "unknown"
+        assert result["statistics"] == {}
 
-    @patch("imgstream.monitoring.collision_monitor.log_batch_collision_detection")
-    def test_monitor_batch_collision_processing(self, mock_log_batch):
+    def test_monitor_batch_collision_processing(self):
         """Test monitoring batch collision processing."""
         filenames = ["test1.jpg", "test2.jpg", "test3.jpg"]
         collision_results = {
@@ -201,6 +161,7 @@ class TestCollisionDecisionMonitoring:
             "test2.jpg": {"existing_photo": {"id": "photo_456"}},
         }
 
+        # Monitoring functionality removed for personal development use
         monitor_batch_collision_processing(
             user_id="test_user",
             filenames=filenames,
@@ -208,14 +169,7 @@ class TestCollisionDecisionMonitoring:
             processing_time_ms=1500.0
         )
 
-        mock_log_batch.assert_called_once_with(
-            user_id="test_user",
-            filenames=filenames,
-            collisions_found=2,
-            processing_time_ms=1500.0,
-            total_files=3,
-            collision_rate=2/3
-        )
+        # Test passes if no exception is raised
 
 
 class TestSessionStateManagement:
@@ -255,9 +209,7 @@ class TestIntegration:
     """Integration tests for upload handlers monitoring."""
 
     @patch("streamlit.session_state", new_callable=dict)
-    @patch("imgstream.ui.upload_handlers.log_user_decision")
-    @patch("imgstream.ui.upload_handlers.log_collision_resolved")
-    def test_complete_decision_workflow(self, mock_log_resolved, mock_log_decision, mock_session_state):
+    def test_complete_decision_workflow(self, mock_session_state):
         """Test complete collision decision workflow."""
         # Set up initial collision results
         collision_results = {
@@ -290,28 +242,10 @@ class TestIntegration:
         assert updated_results["test1.jpg"]["user_decision"] == "overwrite"
         assert updated_results["test2.jpg"]["user_decision"] == "skip"
 
-        # Verify monitoring was called for both decisions
-        assert mock_log_decision.call_count == 2
-        assert mock_log_resolved.call_count == 2
+        # Monitoring functionality removed for personal development use
+        # Test passes if no exception is raised
 
-        # Verify first decision call
-        first_decision_call = mock_log_decision.call_args_list[0][1]
-        assert first_decision_call["user_id"] == "test_user"
-        assert first_decision_call["filename"] == "test1.jpg"
-        assert first_decision_call["decision"] == "overwrite"
-        assert first_decision_call["existing_photo_id"] == "photo_123"
-        assert first_decision_call["fallback_mode"] is False
-
-        # Verify second decision call
-        second_decision_call = mock_log_decision.call_args_list[1][1]
-        assert second_decision_call["user_id"] == "test_user"
-        assert second_decision_call["filename"] == "test2.jpg"
-        assert second_decision_call["decision"] == "skip"
-        assert second_decision_call["existing_photo_id"] == "photo_456"
-        assert second_decision_call["fallback_mode"] is True
-
-    @patch("imgstream.monitoring.collision_monitor.log_batch_collision_detection")
-    def test_batch_monitoring_integration(self, mock_log_batch):
+    def test_batch_monitoring_integration(self):
         """Test batch collision monitoring integration."""
         filenames = ["photo1.jpg", "photo2.jpg", "photo3.jpg", "photo4.jpg"]
         collision_results = {
@@ -327,16 +261,8 @@ class TestIntegration:
             processing_time_ms=2500.0
         )
 
-        # Verify batch monitoring was called with correct metrics
-        mock_log_batch.assert_called_once()
-        call_args = mock_log_batch.call_args[1]
-
-        assert call_args["user_id"] == "batch_user"
-        assert call_args["filenames"] == filenames
-        assert call_args["collisions_found"] == 2
-        assert call_args["processing_time_ms"] == 2500.0
-        assert call_args["total_files"] == 4
-        assert call_args["collision_rate"] == 0.5  # 2 collisions out of 4 files
+        # Monitoring functionality removed for personal development use
+        # Test passes if no exception is raised
 
     @patch("streamlit.session_state", new_callable=dict)
     def test_session_state_timing_accuracy(self, mock_session_state):

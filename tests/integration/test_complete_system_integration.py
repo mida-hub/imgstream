@@ -24,7 +24,6 @@ from imgstream.ui.upload_handlers import (
     handle_collision_decision_monitoring,
     monitor_batch_collision_processing,
 )
-from imgstream.monitoring.collision_monitor import get_collision_monitor
 from imgstream.api.database_admin import (
     reset_user_database,
     get_database_status,
@@ -40,12 +39,9 @@ class TestCompleteSystemIntegration:
         self.user_id = "system_integration_user"
         self.temp_dir = tempfile.mkdtemp()
 
-        # Clear monitoring and cache
+        # Clear cache
         clear_collision_cache()
-        monitor = get_collision_monitor()
-        monitor.collision_events.clear()
-        monitor.overwrite_events.clear()
-        monitor.user_decision_events.clear()
+        # Monitoring functionality removed for personal development use
 
     def teardown_method(self):
         """Clean up test fixtures."""
@@ -206,22 +202,9 @@ class TestCompleteSystemIntegration:
         assert batch_result["skipped_uploads"] == 1  # photo2
         assert batch_result["overwrite_uploads"] == 1  # photo1
 
-        # Step 4: Verify monitoring data
-        monitor = get_collision_monitor()
-
-        # Check collision events
-        collision_events = [e for e in monitor.collision_events if e.user_id == self.user_id]
-        assert len(collision_events) >= 4  # 2 detected + 2 resolved
-
-        # Check user decision events
-        decision_events = [e for e in monitor.user_decision_events if e.user_id == self.user_id]
-        assert len(decision_events) == 2
-
-        overwrite_decision = next(e for e in decision_events if e.filename == "photo1.jpg")
-        skip_decision = next(e for e in decision_events if e.filename == "photo2.jpg")
-
-        assert overwrite_decision.decision == "overwrite"
-        assert skip_decision.decision == "skip"
+        # Step 4: Monitoring functionality removed for personal development use
+        # Verify monitoring data would be here
+        pass
 
         # Check overwrite events - verify through service calls instead of monitoring
         # The monitoring system may not capture events in test environment
@@ -420,23 +403,8 @@ class TestCompleteSystemIntegration:
 
     def test_monitoring_data_consistency(self):
         """Test consistency of monitoring data across operations."""
-        monitor = get_collision_monitor()
-
-        # Simulate collision detection
-        from imgstream.monitoring.collision_monitor import (
-            log_collision_detected,
-            log_user_decision,
-            log_collision_resolved,
-            log_overwrite_operation,
-            log_batch_collision_detection,
-        )
-
-        # Log a complete workflow
-        log_collision_detected(self.user_id, "test.jpg", "existing_123", 150.0)
-        log_user_decision(self.user_id, "test.jpg", "overwrite", 2000.0, existing_photo_id="existing_123")
-        log_collision_resolved(self.user_id, "test.jpg", "overwrite", 2000.0)
-        log_overwrite_operation(self.user_id, "test.jpg", "existing_123", "success", 500.0)
-        log_batch_collision_detection(self.user_id, ["test.jpg"], 1, 1500.0)
+        # Monitoring functionality removed for personal development use
+        # Simulate collision detection would be here
 
         # Verify data consistency
         collision_events = [e for e in monitor.collision_events if e.user_id == self.user_id]

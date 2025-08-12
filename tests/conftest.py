@@ -127,7 +127,7 @@ class TestDataFactory:
     def create_user_info(
         user_id: str = "test-user-123",
         email: str = "test@example.com",
-        name: str | None = "Test User",
+        name: str | None = "Test User",  # Kept for backward compatibility but not used
         picture: str | None = None,
     ) -> UserInfo:
         """Create a UserInfo object for testing.
@@ -135,7 +135,7 @@ class TestDataFactory:
         Args:
             user_id: User ID for the test user
             email: Email address for the test user
-            name: Display name for the test user
+            name: Display name for the test user (kept for compatibility but not used)
             picture: Profile picture URL for the test user
 
         Returns:
