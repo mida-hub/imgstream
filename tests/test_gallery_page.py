@@ -339,7 +339,6 @@ class TestPhotoDetailDisplay:
     def test_render_photo_detail_modal_functions_exist(self):
         """Test that photo detail modal functions exist."""
         from src.imgstream.ui.pages.gallery import (
-            confirm_delete_photo,
             copy_image_url,
             download_original_photo,
             download_thumbnail_photo,
@@ -357,7 +356,6 @@ class TestPhotoDetailDisplay:
         assert callable(download_original_photo)
         assert callable(download_thumbnail_photo)
         assert callable(copy_image_url)
-        assert callable(confirm_delete_photo)
 
     def test_photo_detail_modal_session_state(self):
         """Test photo detail modal session state handling."""
@@ -449,18 +447,6 @@ class TestPhotoDetailDisplay:
                 copy_image_url(photo)
             except Exception:
                 pytest.fail("copy_image_url should handle failure gracefully")
-
-    def test_confirm_delete_photo(self):
-        """Test photo deletion confirmation."""
-        from src.imgstream.ui.pages.gallery import confirm_delete_photo
-
-        photo = {"id": "photo1", "filename": "test.jpg"}
-
-        # Should not raise any errors
-        try:
-            confirm_delete_photo(photo)
-        except Exception:
-            pytest.fail("confirm_delete_photo should handle confirmation display")
 
 
 class TestPhotoDetailIntegration:
