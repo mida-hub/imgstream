@@ -1311,12 +1311,6 @@ def _render_next_steps(batch_result: dict[str, Any]) -> None:
                 st.session_state.current_page = "home"
                 st.rerun()
 
-        # Show storage information
-        st.markdown("### 💾 Storage Information")
-        st.info(
-            "📊 Your photos are securely stored in Google Cloud Storage with automatic lifecycle management. "
-            "Original photos will be moved to cost-effective Coldline storage after 30 days."
-        )
 
     elif failed_uploads > 0:
         st.markdown("### 🔧 Need Help?")
