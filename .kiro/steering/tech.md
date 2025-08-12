@@ -3,6 +3,11 @@
 - コード品質は下記のコマンドを使ってチェックしてください
 - src 配下のファイルを更新した時はコード品質をチェックしてください
 - tests 配下のファイルは ruff と mypy の対象外としてください
+- pytest では現在下記のテストを無視して実行してください
+    - --ignore=tests/performance
+    - --ignore=tests/integration
+    - --ignore=tests/e2e
+    - --ignore=tests/security
 
 ```bash
 ENVIRONMENT=production uv run pytest

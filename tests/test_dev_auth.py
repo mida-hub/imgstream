@@ -49,16 +49,14 @@ class TestTestUserCreation:
         user = create_test_user()
 
         assert user.email == "test@example.com"
-        assert user.name == "Test User"
         assert user.user_id == "test-user-001"
         assert user.picture is None
 
     def test_create_test_user_custom(self):
         """Test creating test user with custom values."""
-        user = create_test_user(email="custom@example.com", name="Custom User", user_id="custom-001")
+        user = create_test_user(email="custom@example.com", user_id="custom-001")
 
         assert user.email == "custom@example.com"
-        assert user.name == "Custom User"
         assert user.user_id == "custom-001"
         assert user.picture is None
 
@@ -72,7 +70,6 @@ class TestTestUserCreation:
 
         # Verify user was created with defaults
         assert user.email == "test@example.com"
-        assert user.name == "Test User"
         assert user.user_id == "test-user-001"
 
         # Verify auth service was called
@@ -87,7 +84,6 @@ class TestTestUserCreation:
         custom_user = UserInfo(
             user_id="custom-123",
             email="custom@test.com",
-            name="Custom Test User",
             picture=None,
         )
 
@@ -119,7 +115,6 @@ class TestDevelopmentAuthService:
         env_vars = {
             "ENVIRONMENT": "development",
             "DEV_USER_EMAIL": "dev@example.com",
-            "DEV_USER_NAME": "Dev User",
             "DEV_USER_ID": "dev-123",
         }
 
@@ -128,7 +123,6 @@ class TestDevelopmentAuthService:
             dev_user = auth_service._get_development_user()
 
             assert dev_user.email == "dev@example.com"
-            assert dev_user.name == "Dev User"
             assert dev_user.user_id == "dev-123"
             assert dev_user.picture is None
 
@@ -139,7 +133,6 @@ class TestDevelopmentAuthService:
         env_vars = {
             "ENVIRONMENT": "development",
             "DEV_USER_EMAIL": "dev@example.com",
-            "DEV_USER_NAME": "Dev User",
             "DEV_USER_ID": "dev-123",
         }
 
@@ -151,7 +144,6 @@ class TestDevelopmentAuthService:
 
             assert user_info is not None
             assert user_info.email == "dev@example.com"
-            assert user_info.name == "Dev User"
             assert user_info.user_id == "dev-123"
 
     def test_production_mode_requires_iap(self):
@@ -183,7 +175,6 @@ class TestEnvironmentVariables:
 
             # Should use defaults when env vars are not set
             assert dev_user.email == "dev@example.com"
-            assert dev_user.name == "Development User"
             assert dev_user.user_id == "dev-user-123"
 
     def test_development_user_custom_env_vars(self):
@@ -193,7 +184,6 @@ class TestEnvironmentVariables:
         custom_env = {
             "ENVIRONMENT": "development",
             "DEV_USER_EMAIL": "custom@dev.com",
-            "DEV_USER_NAME": "Custom Dev User",
             "DEV_USER_ID": "custom-dev-456",
         }
 
@@ -202,7 +192,6 @@ class TestEnvironmentVariables:
             dev_user = auth_service._get_development_user()
 
             assert dev_user.email == "custom@dev.com"
-            assert dev_user.name == "Custom Dev User"
             assert dev_user.user_id == "custom-dev-456"
 
 
