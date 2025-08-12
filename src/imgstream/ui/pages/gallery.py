@@ -85,7 +85,7 @@ def render_gallery_page() -> None:
 
     except Exception as e:
         logger.error("gallery_page_error", error=str(e))
-        render_error_message("Gallery Error", "Failed to load your photo collection.", str(e), show_retry=True)
+        render_error_message("ギャラリーエラー", "写真コレクションの読み込みに失敗しました。", str(e), show_retry=True)
 
 
 def initialize_gallery_pagination() -> None:
@@ -95,7 +95,7 @@ def initialize_gallery_pagination() -> None:
     if "gallery_page_size" not in st.session_state:
         st.session_state.gallery_page_size = 20  # 20 photos per page for better performance
     if "gallery_sort_order" not in st.session_state:
-        st.session_state.gallery_sort_order = "Newest First"
+        st.session_state.gallery_sort_order = "新しい順"
     if "gallery_total_loaded" not in st.session_state:
         st.session_state.gallery_total_loaded = 0
 
@@ -107,7 +107,7 @@ def reset_gallery_pagination() -> None:
 
 
 def load_user_photos_paginated(
-    user_id: str, sort_order: str = "Newest First", page: int = 0, page_size: int = 20
+    user_id: str, sort_order: str = "新しい順", page: int = 0, page_size: int = 20
 ) -> tuple[list[dict[str, Any]], int, bool]:
     """
     Load user photos with pagination support.
@@ -181,7 +181,7 @@ def get_user_photos_count(user_id: str) -> int:
         return 0
 
 
-def load_user_photos(user_id: str, sort_order: str = "Newest First") -> list[dict[str, Any]]:
+def load_user_photos(user_id: str, sort_order: str = "新しい順") -> list[dict[str, Any]]:
     """
     Load user photos from metadata service (legacy function for compatibility).
 
@@ -256,7 +256,7 @@ def render_photo_thumbnail(photo: dict[str, Any], size: str = "medium") -> None:
 
         if thumbnail_url:
             # Display thumbnail image
-            st.image(thumbnail_url, caption=photo.get("filename", "Unknown"), use_container_width=True)
+            st.image(thumbnail_url, caption=photo.get("filename", "不明"), use_container_width=True)
 
             # Photo info overlay
             creation_date = photo.get("created_at")
@@ -415,23 +415,23 @@ def render_photo_detail_header(photo: dict[str, Any]) -> None:
 
     with col1:
         # Previous/Next navigation (if implemented)
-        if st.button("⬅️ Previous", disabled=True, help="Navigation coming soon"):
+        if st.button("⬅️ 前へ", disabled=True, help="ナビゲーション機能は近日公開予定"):
             pass  # TODO: Implement navigation between photos
 
     with col2:
         # Photo title
-        filename = photo.get("filename", "Unknown")
+        filename = photo.get("filename", "不明")
         st.markdown(f"### 🖼️ {filename}")
 
         # Photo index info (if available)
         if "photo_index" in st.session_state and "total_photos" in st.session_state:
             current = st.session_state.photo_index + 1
             total = st.session_state.total_photos
-            st.caption(f"Photo {current} of {total}")
+            st.caption(f"写真 {current} / {total}")
 
     with col3:
         # Close button
-        if st.button("❌ Close", use_container_width=True):
+        if st.button("❌ 閉じる", use_container_width=True):
             st.session_state.show_photo_details = False
             st.session_state.selected_photo = None
             if "photo_index" in st.session_state:
@@ -452,13 +452,13 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
     col1, col2, col3 = st.columns([1, 1, 1])
 
     with col1:
-        show_original = st.checkbox("Show Original Size", value=True)
+        show_original = st.checkbox("オリジナルサイズで表示", value=True)
 
     with col2:
-        st.selectbox("Image Fit", ["contain", "cover", "fill"], index=0, disabled=True, help="Coming soon")
+        st.selectbox("画像フィット", ["contain", "cover", "fill"], index=0, disabled=True, help="近日公開予定")
 
     with col3:
-        show_info_overlay = st.checkbox("Show Info Overlay", value=False)
+        show_info_overlay = st.checkbox("情報オーバーレイを表示", value=False)
 
     st.divider()
 
@@ -469,30 +469,30 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
     if original_url and show_original:
         try:
             # Display original image
-            st.image(original_url, caption=f"Original: {photo.get('filename', 'Unknown')}", use_container_width=True)
+            st.image(original_url, caption=f"オリジナル: {photo.get('filename', '不明')}", use_container_width=True)
 
             # Image info overlay
             if show_info_overlay:
                 render_image_info_overlay(photo)
 
         except Exception as e:
-            st.error(f"Failed to load original image: {str(e)}")
+            st.error(f"オリジナル画像の読み込みに失敗しました: {str(e)}")
             # Fallback to thumbnail
             if thumbnail_url:
-                st.image(thumbnail_url, caption="Thumbnail (Original failed to load)")
+                st.image(thumbnail_url, caption="サムネイル（オリジナルの読み込みに失敗）")
             else:
-                st.error("No image available")
+                st.error("画像が利用できません")
 
     elif thumbnail_url:
         # Display thumbnail as fallback
-        st.image(thumbnail_url, caption=f"Thumbnail: {photo.get('filename', 'Unknown')}", use_container_width=True)
+        st.image(thumbnail_url, caption=f"サムネイル: {photo.get('filename', '不明')}", use_container_width=True)
 
         if show_info_overlay:
             render_image_info_overlay(photo)
 
     else:
-        st.error("No image available")
-        st.info("The image may have been moved or deleted from storage.")
+        st.error("画像が利用できません")
+        st.info("画像がストレージから移動または削除された可能性があります。")
 
 
 def render_image_info_overlay(photo: dict[str, Any]) -> None:
@@ -502,35 +502,35 @@ def render_image_info_overlay(photo: dict[str, Any]) -> None:
     Args:
         photo: Photo metadata dictionary
     """
-    with st.expander("📊 Image Information", expanded=True):
+    with st.expander("📊 画像情報", expanded=True):
         col1, col2 = st.columns(2)
 
         with col1:
-            st.write("**File Information:**")
-            st.write(f"• Filename: {photo.get('filename', 'Unknown')}")
+            st.write("**ファイル情報:**")
+            st.write(f"• ファイル名: {photo.get('filename', '不明')}")
 
             file_size = photo.get("file_size")
             if file_size:
                 file_size_mb = file_size / (1024 * 1024)
-                st.write(f"• Size: {file_size_mb:.1f} MB")
+                st.write(f"• サイズ: {file_size_mb:.1f} MB")
 
             mime_type = photo.get("mime_type")
             if mime_type:
-                st.write(f"• Type: {mime_type}")
+                st.write(f"• タイプ: {mime_type}")
 
         with col2:
-            st.write("**Storage Information:**")
-            st.write(f"• Photo ID: {photo.get('id', 'Unknown')}")
+            st.write("**ストレージ情報:**")
+            st.write(f"• 写真ID: {photo.get('id', '不明')}")
 
             # Storage paths (for debugging/admin)
             from ...config import get_config
 
             config = get_config()
             if config.get("debug", False, bool):
-                original_path = photo.get("original_path", "Unknown")
-                thumbnail_path = photo.get("thumbnail_path", "Unknown")
-                st.write(f"• Original: `{original_path}`")
-                st.write(f"• Thumbnail: `{thumbnail_path}`")
+                original_path = photo.get("original_path", "不明")
+                thumbnail_path = photo.get("thumbnail_path", "不明")
+                st.write(f"• オリジナル: `{original_path}`")
+                st.write(f"• サムネイル: `{thumbnail_path}`")
 
 
 def render_photo_detail_sidebar(photo: dict[str, Any]) -> None:
@@ -541,45 +541,45 @@ def render_photo_detail_sidebar(photo: dict[str, Any]) -> None:
         photo: Photo metadata dictionary
     """
     # Enhanced photo details
-    st.markdown("#### 📋 Photo Details")
+    st.markdown("#### 📋 写真詳細")
     render_photo_details(photo)
 
     st.divider()
 
     # Photo actions
-    st.markdown("#### ⚡ Actions")
+    st.markdown("#### ⚡ アクション")
 
     # Download actions
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("📥 Download Original", use_container_width=True):
+        if st.button("📥 オリジナルをダウンロード", use_container_width=True):
             download_original_photo(photo)
 
     with col2:
-        if st.button("📥 Download Thumbnail", use_container_width=True):
+        if st.button("📥 サムネイルをダウンロード", use_container_width=True):
             download_thumbnail_photo(photo)
 
     # Share actions
-    st.markdown("**Share:**")
+    st.markdown("**共有:**")
 
-    if st.button("🔗 Copy Image URL", use_container_width=True):
+    if st.button("🔗 画像URLをコピー", use_container_width=True):
         copy_image_url(photo)
 
-    if st.button("📤 Share Photo", use_container_width=True, disabled=True):
-        st.info("Sharing functionality coming soon!")
+    if st.button("📤 写真を共有", use_container_width=True, disabled=True):
+        st.info("共有機能は近日公開予定です！")
 
     st.divider()
 
     # Photo management
-    st.markdown("#### 🛠️ Management")
+    st.markdown("#### 🛠️ 管理")
 
-    if st.button("🗑️ Delete Photo", use_container_width=True, type="secondary"):
+    if st.button("🗑️ 写真を削除", use_container_width=True, type="secondary"):
         confirm_delete_photo(photo)
 
     # Photo statistics
     st.divider()
-    st.markdown("#### 📊 Statistics")
+    st.markdown("#### 📊 統計")
 
     creation_date = photo.get("created_at")
     upload_date = photo.get("uploaded_at")
@@ -597,8 +597,8 @@ def render_photo_detail_sidebar(photo: dict[str, Any]) -> None:
             days_since_creation = (now - creation_date).days
             days_since_upload = (now - upload_date).days
 
-            st.write(f"📅 Created: {days_since_creation} days ago")
-            st.write(f"📤 Uploaded: {days_since_upload} days ago")
+            st.write(f"📅 作成: {days_since_creation}日前")
+            st.write(f"📤 アップロード: {days_since_upload}日前")
 
         except (ValueError, TypeError):
             pass
@@ -614,18 +614,18 @@ def render_photo_detail_footer(photo: dict[str, Any]) -> None:
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col1:
-        if st.button("🏠 Back to Gallery", use_container_width=True):
+        if st.button("🏠 ギャラリーに戻る", use_container_width=True):
             st.session_state.show_photo_details = False
             st.session_state.selected_photo = None
             st.rerun()
 
     with col2:
         # Photo navigation (placeholder)
-        st.info("💡 Use arrow keys for navigation (coming soon)")
+        st.info("💡 矢印キーでナビゲーション（近日公開予定）")
 
     with col3:
-        if st.button("⚙️ Photo Settings", use_container_width=True, disabled=True):
-            st.info("Photo settings coming soon!")
+        if st.button("⚙️ 写真設定", use_container_width=True, disabled=True):
+            st.info("写真設定は近日公開予定です！")
 
 
 def download_original_photo(photo: dict[str, Any]) -> None:
@@ -638,13 +638,13 @@ def download_original_photo(photo: dict[str, Any]) -> None:
     try:
         original_url = get_photo_original_url(photo)
         if original_url:
-            st.success("✅ Download link generated!")
-            st.markdown(f"[📥 Download Original Photo]({original_url})")
-            st.info("💡 Right-click the link above and select 'Save link as...' to download")
+            st.success("✅ ダウンロードリンクを生成しました！")
+            st.markdown(f"[📥 オリジナル写真をダウンロード]({original_url})")
+            st.info("💡 上記のリンクを右クリックして「名前を付けてリンク先を保存」を選択してダウンロードしてください")
         else:
-            st.error("❌ Failed to generate download link")
+            st.error("❌ ダウンロードリンクの生成に失敗しました")
     except Exception as e:
-        st.error(f"❌ Download failed: {str(e)}")
+        st.error(f"❌ ダウンロードに失敗しました: {str(e)}")
 
 
 def download_thumbnail_photo(photo: dict[str, Any]) -> None:
@@ -657,13 +657,13 @@ def download_thumbnail_photo(photo: dict[str, Any]) -> None:
     try:
         thumbnail_url = get_photo_thumbnail_url(photo)
         if thumbnail_url:
-            st.success("✅ Thumbnail download link generated!")
-            st.markdown(f"[📥 Download Thumbnail]({thumbnail_url})")
-            st.info("💡 Right-click the link above and select 'Save link as...' to download")
+            st.success("✅ サムネイルダウンロードリンクを生成しました！")
+            st.markdown(f"[📥 サムネイルをダウンロード]({thumbnail_url})")
+            st.info("💡 上記のリンクを右クリックして「名前を付けてリンク先を保存」を選択してダウンロードしてください")
         else:
-            st.error("❌ Failed to generate thumbnail download link")
+            st.error("❌ サムネイルダウンロードリンクの生成に失敗しました")
     except Exception as e:
-        st.error(f"❌ Thumbnail download failed: {str(e)}")
+        st.error(f"❌ サムネイルダウンロードに失敗しました: {str(e)}")
 
 
 def copy_image_url(photo: dict[str, Any]) -> None:
@@ -678,13 +678,13 @@ def copy_image_url(photo: dict[str, Any]) -> None:
         if original_url:
             # Since we can't directly copy to clipboard in Streamlit,
             # we'll display the URL for manual copying
-            st.success("✅ Image URL ready to copy:")
+            st.success("✅ 画像URLをコピーする準備ができました:")
             st.code(original_url)
-            st.info("💡 Select the URL above and copy it (Ctrl+C / Cmd+C)")
+            st.info("💡 上記のURLを選択してコピーしてください（Ctrl+C / Cmd+C）")
         else:
-            st.error("❌ Failed to generate image URL")
+            st.error("❌ 画像URLの生成に失敗しました")
     except Exception as e:
-        st.error(f"❌ Failed to get image URL: {str(e)}")
+        st.error(f"❌ 画像URLの取得に失敗しました: {str(e)}")
 
 
 def confirm_delete_photo(photo: dict[str, Any]) -> None:
@@ -694,20 +694,20 @@ def confirm_delete_photo(photo: dict[str, Any]) -> None:
     Args:
         photo: Photo metadata dictionary
     """
-    st.warning("⚠️ Delete Photo Confirmation")
-    st.write(f"Are you sure you want to delete **{photo.get('filename', 'this photo')}**?")
-    st.error("🚨 This action cannot be undone!")
+    st.warning("⚠️ 写真削除の確認")
+    st.write(f"本当に **{photo.get('filename', 'この写真')}** を削除しますか？")
+    st.error("🚨 この操作は元に戻すことができません！")
 
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("❌ Yes, Delete", use_container_width=True, type="primary"):
+        if st.button("❌ はい、削除します", use_container_width=True, type="primary"):
             # TODO: Implement actual photo deletion
-            st.error("🚧 Photo deletion functionality will be implemented in a future task")
+            st.error("🚧 写真削除機能は今後のタスクで実装予定です")
 
     with col2:
-        if st.button("✅ Cancel", use_container_width=True):
-            st.success("Photo deletion cancelled")
+        if st.button("✅ キャンセル", use_container_width=True):
+            st.success("写真削除をキャンセルしました")
             st.rerun()
 
 
@@ -760,9 +760,9 @@ def render_gallery_header(photos: list[dict[str, Any]], total_count: int, has_mo
 
     with col1:
         if total_count > 0:
-            st.markdown(f"**Showing {start_index}-{end_index} of {total_count} photo(s)**")
+            st.markdown(f"**{total_count}枚中 {start_index}-{end_index}枚を表示**")
         else:
-            st.markdown("**No photos found**")
+            st.markdown("**写真が見つかりません**")
 
     with col2:
         # Page info
@@ -770,7 +770,7 @@ def render_gallery_header(photos: list[dict[str, Any]], total_count: int, has_mo
         current_page_display = current_page + 1
 
         if total_pages > 1:
-            st.markdown(f"**Page {current_page_display} of {total_pages}**")
+            st.markdown(f"**{total_pages}ページ中 {current_page_display}ページ目**")
 
 
 def render_pagination_controls(has_more: bool, total_count: int) -> None:
@@ -794,13 +794,13 @@ def render_pagination_controls(has_more: bool, total_count: int) -> None:
 
     # Previous page button
     with col1:
-        if st.button("⬅️ Previous", disabled=current_page == 0, use_container_width=True):
+        if st.button("⬅️ 前へ", disabled=current_page == 0, use_container_width=True):
             st.session_state.gallery_page = max(0, current_page - 1)
             st.rerun()
 
     # First page button
     with col2:
-        if st.button("⏮️ First", disabled=current_page == 0, use_container_width=True):
+        if st.button("⏮️ 最初", disabled=current_page == 0, use_container_width=True):
             st.session_state.gallery_page = 0
             st.rerun()
 
@@ -809,7 +809,7 @@ def render_pagination_controls(has_more: bool, total_count: int) -> None:
         # Page selector
         page_options = list(range(1, total_pages + 1))
         if page_options:
-            selected_page = st.selectbox("Go to page:", page_options, index=current_page, key="page_selector")
+            selected_page = st.selectbox("ページに移動:", page_options, index=current_page, key="page_selector")
 
             if selected_page - 1 != current_page:
                 st.session_state.gallery_page = selected_page - 1
@@ -817,13 +817,13 @@ def render_pagination_controls(has_more: bool, total_count: int) -> None:
 
     # Last page button
     with col4:
-        if st.button("⏭️ Last", disabled=current_page >= total_pages - 1, use_container_width=True):
+        if st.button("⏭️ 最後", disabled=current_page >= total_pages - 1, use_container_width=True):
             st.session_state.gallery_page = total_pages - 1
             st.rerun()
 
     # Next page button
     with col5:
-        if st.button("Next ➡️", disabled=not has_more, use_container_width=True):
+        if st.button("次へ ➡️", disabled=not has_more, use_container_width=True):
             st.session_state.gallery_page = current_page + 1
             st.rerun()
 
@@ -832,14 +832,16 @@ def render_pagination_controls(has_more: bool, total_count: int) -> None:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if has_more:
-            if st.button("📥 Load More Photos", use_container_width=True, type="secondary"):
+            if st.button("📥 さらに写真を読み込む", use_container_width=True, type="secondary"):
                 # Increase page size to show more photos on current view
                 st.session_state.gallery_page_size += 20
                 st.rerun()
 
         # Show performance tip
         if total_count > 100:
-            st.info("💡 **Performance tip**: Use pagination for faster loading with large photo collections.")
+            st.info(
+                "💡 **パフォーマンスのヒント**: 大量の写真コレクションでは、ページネーションを使用すると読み込みが高速になります。"
+            )
 
 
 def render_pagination_summary() -> None:
@@ -847,17 +849,17 @@ def render_pagination_summary() -> None:
     current_page = st.session_state.gallery_page
     page_size = st.session_state.gallery_page_size
 
-    with st.expander("📊 Pagination Settings", expanded=False):
+    with st.expander("📊 ページネーション設定", expanded=False):
         col1, col2 = st.columns(2)
 
         with col1:
-            st.write(f"**Current Page:** {current_page + 1}")
-            st.write(f"**Photos per Page:** {page_size}")
+            st.write(f"**現在のページ:** {current_page + 1}")
+            st.write(f"**1ページあたりの写真数:** {page_size}")
 
         with col2:
             # Page size selector
             new_page_size = st.selectbox(
-                "Photos per page:",
+                "1ページあたりの写真数:",
                 [10, 20, 30, 50, 100],
                 index=[10, 20, 30, 50, 100].index(page_size) if page_size in [10, 20, 30, 50, 100] else 1,
                 key="page_size_selector",
@@ -869,6 +871,6 @@ def render_pagination_summary() -> None:
                 st.rerun()
 
             # Reset pagination button
-            if st.button("🔄 Reset to First Page", use_container_width=True):
+            if st.button("🔄 最初のページにリセット", use_container_width=True):
                 reset_gallery_pagination()
                 st.rerun()

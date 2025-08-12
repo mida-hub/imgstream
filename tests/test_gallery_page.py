@@ -197,7 +197,7 @@ class TestGalleryPagination:
 
         assert st.session_state.gallery_page == 0
         assert st.session_state.gallery_page_size == 20
-        assert st.session_state.gallery_sort_order == "Newest First"
+        assert st.session_state.gallery_sort_order == "新しい順"
         assert st.session_state.gallery_total_loaded == 0
 
     def test_reset_gallery_pagination(self):
