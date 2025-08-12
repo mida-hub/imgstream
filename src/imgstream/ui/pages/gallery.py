@@ -398,8 +398,7 @@ def render_photo_detail_modal() -> None:
         with col2:
             render_photo_detail_sidebar(photo)
 
-        # Footer with actions
-        render_photo_detail_footer(photo)
+
 
         st.markdown("---")
 
@@ -556,28 +555,7 @@ def render_photo_detail_sidebar(photo: dict[str, Any]) -> None:
             pass
 
 
-def render_photo_detail_footer(photo: dict[str, Any]) -> None:
-    """
-    Render photo detail footer with additional actions.
 
-    Args:
-        photo: Photo metadata dictionary
-    """
-    col1, col2, col3 = st.columns([1, 2, 1])
-
-    with col1:
-        if st.button("🏠 ギャラリーに戻る", use_container_width=True):
-            st.session_state.show_photo_details = False
-            st.session_state.selected_photo = None
-            st.rerun()
-
-    with col2:
-        # Photo navigation (placeholder)
-        st.info("💡 矢印キーでナビゲーション（近日公開予定）")
-
-    with col3:
-        if st.button("⚙️ 写真設定", use_container_width=True, disabled=True):
-            st.info("写真設定は近日公開予定です！")
 
 
 def download_original_photo(photo: dict[str, Any]) -> None:

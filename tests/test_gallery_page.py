@@ -343,7 +343,6 @@ class TestPhotoDetailDisplay:
             copy_image_url,
             download_original_photo,
             download_thumbnail_photo,
-            render_photo_detail_footer,
             render_photo_detail_header,
             render_photo_detail_image,
             render_photo_detail_modal,
@@ -355,7 +354,6 @@ class TestPhotoDetailDisplay:
         assert callable(render_photo_detail_header)
         assert callable(render_photo_detail_image)
         assert callable(render_photo_detail_sidebar)
-        assert callable(render_photo_detail_footer)
         assert callable(download_original_photo)
         assert callable(download_thumbnail_photo)
         assert callable(copy_image_url)
