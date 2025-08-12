@@ -68,7 +68,7 @@ class TestGalleryPage:
             mock_metadata_service.get_photos_count.return_value = 2
             mock_service.return_value = mock_metadata_service
 
-            photos = load_user_photos("test_user", "Oldest First")
+            photos = load_user_photos("test_user", "古い順")
 
             # Should be reversed
             assert len(photos) == 2
