@@ -111,17 +111,7 @@ def require_authentication() -> bool:
             error_type="認証が必要です",
             message="このページにアクセスするには認証が必要です。",
             details=st.session_state.auth_error if st.session_state.auth_error else None,
-            show_retry=True,
         )
-
-        # Provide helpful guidance
-        # render_info_card(
-        #     "認証方法",
-        #     "このアプリケーションはGoogle Cloud Identity-Aware Proxy (IAP)を使用しています。"
-        #     "正しいURLからアプリケーションにアクセスし、"
-        #     "認証されたGoogleアカウントでサインインしていることを確認してください。",
-        #     "💡",
-        # )
 
         # Quick action to go back to home
         if st.button("🏠 ホームページに戻る", use_container_width=True):

@@ -45,7 +45,7 @@ def render_empty_state(
                 st.rerun()
 
 
-def render_error_message(error_type: str, message: str, details: str | None = None, show_retry: bool = False) -> None:
+def render_error_message(error_type: str, message: str, details: str | None = None) -> None:
     """
     Render a standardized error message.
 
@@ -53,19 +53,12 @@ def render_error_message(error_type: str, message: str, details: str | None = No
         error_type: Type of error (e.g., "Authentication Error", "Upload Error")
         message: Main error message
         details: Additional error details (optional)
-        show_retry: Whether to show a retry button (optional)
     """
     st.error(f"**{error_type}:** {message}")
 
     if details:
-        with st.expander("🔍 Error Details"):
+        with st.expander("🔍 エラー詳細"):
             st.code(details)
-
-    if show_retry:
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col2:
-            if st.button("🔄 Retry", use_container_width=True):
-                st.rerun()
 
 
 def render_info_card(title: str, content: str, icon: str = "ℹ️") -> None:
@@ -118,23 +111,9 @@ def format_file_size(size_bytes: int) -> str:
 
 def render_header() -> None:
     """Render the application header with improved layout."""
-    # Main header with breadcrumb navigation
-    col1, col2, col3 = st.columns([2, 3, 2])
 
-    with col1:
-        # App logo and title
-        st.markdown("# 📸 imgstream")
-
-    with col2:
-        # Breadcrumb navigation (currently disabled)
-        pass
-
-    with col3:
-        # Status indicators
-        if st.session_state.authenticated:
-            st.success("🟢 認証済み")
-        else:
-            st.error("🔴 未認証")
+    # App logo and title
+    st.markdown("# 📸 imgstream")
 
     # Subtitle and divider
     st.divider()
@@ -149,7 +128,8 @@ def render_sidebar() -> None:
 
         # Navigation menu with current page highlighting
         st.subheader("ナビゲーション")
-        pages = {"🏠 ホーム": "home", "📤 アップロード": "upload", "🖼️ ギャラリー": "gallery", "⚙️ 設定": "settings"}
+
+        pages = {"🏠 ホーム": "home", "📤 アップロード": "upload", "🖼️ ギャラリー": "gallery"}
 
         current_page = st.session_state.current_page
 
@@ -171,26 +151,9 @@ def render_sidebar() -> None:
 
         # User info section with improved layout
         if st.session_state.authenticated:
-            # User avatar placeholder
-            st.markdown("🔵")  # Placeholder for user avatar
-
             # User information
             user_email = st.session_state.user_email or "unknown@example.com"
             st.markdown(f"📧 {user_email}")
-
-            from ..config import get_config
-
-            config = get_config()
-            if config.get("debug", False, bool):
-                st.markdown(f"🆔 {st.session_state.user_id or '不明'}")
-
-            st.divider()
-
-            # Quick stats in sidebar
-            st.markdown("**📊 クイック統計**")
-            st.markdown("📷 写真: 0")
-            st.markdown("💾 ストレージ: 0 MB")
-            st.markdown("📅 最終アップロード: なし")
 
             st.divider()
 

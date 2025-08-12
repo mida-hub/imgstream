@@ -13,7 +13,7 @@ from imgstream.ui.components import render_footer, render_header, render_sidebar
 from imgstream.ui.error_display import error_context, get_error_display_manager
 from imgstream.ui.pages.gallery import render_gallery_page
 from imgstream.ui.pages.home import render_home_page
-from imgstream.ui.pages.settings import render_settings_page
+
 from imgstream.ui.pages.upload import render_upload_page
 from imgstream.api.database_admin import render_database_admin_panel as render_database_admin_page
 
@@ -60,8 +60,7 @@ def render_main_content() -> None:
             render_upload_page()
         elif current_page == "gallery":
             render_gallery_page()
-        elif current_page == "settings":
-            render_settings_page()
+
         elif current_page == "database_admin":
             # Additional security check for database admin access
             import os

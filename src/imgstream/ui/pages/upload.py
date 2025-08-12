@@ -49,11 +49,11 @@ def _initialize_session_state() -> None:
         st.session_state.last_upload_result = None
 
 
-def _render_upload_header_and_info() -> tuple[int, int]:
+def _render_upload_header_and_info() -> int:
     """Render upload page header and file format information.
 
     Returns:
-        tuple: (min_size, max_size) file size limits
+        int: max_size file size limit
     """
     st.markdown("### 📤 写真をアップロード")
 
@@ -61,24 +61,13 @@ def _render_upload_header_and_info() -> tuple[int, int]:
     min_size, max_size = get_file_size_limits()
     max_size_mb = max_size / (1024 * 1024)
 
-    # File format information
-    col1, col2 = st.columns([1, 1])
+    render_info_card(
+        "対応フォーマット",
+        f"• HEIC (iPhone/iPad写真)\n• JPEG/JPG (標準写真)\n" f"• 最大ファイルサイズ: {max_size_mb:.0f}MB/写真",
+        "📋",
+    )
 
-    with col1:
-        render_info_card(
-            "対応フォーマット",
-            f"• HEIC (iPhone/iPad写真)\n• JPEG/JPG (標準写真)\n" f"• 最大ファイルサイズ: {max_size_mb:.0f}MB/写真",
-            "📋",
-        )
-
-    with col2:
-        render_info_card(
-            "スマート処理",
-            "• 自動EXIF データ抽出\n• サムネイル生成\n• セキュアクラウドストレージ",
-            "⚙️",
-        )
-
-    return min_size, max_size
+    return max_size
 
 
 def _render_file_uploader(max_size_mb: float) -> Any:
@@ -352,51 +341,9 @@ def _render_results_or_empty_state() -> None:
         # Show empty state when no files are uploaded
         render_empty_state(
             title="写真が選択されていません",
-            description="デバイスから写真を選択して、個人コレクションにアップロードしてください。",
+            description="デバイスから写真を選択してアップロードしてください。",
             icon="📁",
         )
-
-
-def _render_help_and_storage_info(max_size_mb: float, min_size: int) -> None:
-    """Render help tips and storage information.
-
-    Args:
-        max_size_mb: Maximum file size in MB
-        min_size: Minimum file size in bytes
-    """
-
-    # Upload tips
-    with st.expander("💡 アップロードのコツ"):
-        st.markdown(
-            f"""
-        **最良の結果を得るために:**
-
-        - 📱 **iPhoneユーザー**: HEIC形式は完全にサポートされています
-        - 📷 **カメラ写真**: 日付ソート用にEXIFデータが保持されます
-        - 🗂️ **バッチアップロード**: 複数の写真を一度に選択
-        - 📶 **接続**: 大きなアップロードには安定したインターネット接続を確保
-        - 💾 **ストレージ**: 写真は自動的に日付で整理されます
-        - 🔒 **プライバシー**: すべてのアップロードはあなたのアカウント専用です
-
-        **ファイル要件:**
-        - 対応フォーマット: HEIC, HEIF, JPG, JPEG
-        - 最大ファイルサイズ: {max_size_mb:.0f}MB/写真
-        - 最小ファイルサイズ: {min_size} バイト
-        """
-        )
-
-    # Storage information
-    st.divider()
-    st.markdown("### 💾 ストレージ情報")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric("利用可能ストレージ", "無制限*", help="GCPクォータの制限あり")
-    with col2:
-        st.metric("現在の使用量", "0 MB", help="使用している総ストレージ")
-    with col3:
-        st.metric("アップロード済み写真", "0", help="写真の総数")
 
 
 def render_upload_page() -> None:
@@ -408,7 +355,7 @@ def render_upload_page() -> None:
     _initialize_session_state()
 
     # Render header and get file size limits
-    min_size, max_size = _render_upload_header_and_info()
+    max_size = _render_upload_header_and_info()
     max_size_mb = max_size / (1024 * 1024)
 
     # Render file uploader
@@ -437,6 +384,3 @@ def render_upload_page() -> None:
     # Show results or empty state when no files are uploaded
     if not uploaded_files:
         _render_results_or_empty_state()
-
-    # Always show help and storage info
-    _render_help_and_storage_info(max_size_mb, min_size)

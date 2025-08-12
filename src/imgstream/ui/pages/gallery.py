@@ -85,7 +85,7 @@ def render_gallery_page() -> None:
 
     except Exception as e:
         logger.error("gallery_page_error", error=str(e))
-        render_error_message("ギャラリーエラー", "写真コレクションの読み込みに失敗しました。", str(e), show_retry=True)
+        render_error_message("ギャラリーエラー", "写真コレクションの読み込みに失敗しました。", str(e))
 
 
 def initialize_gallery_pagination() -> None:
