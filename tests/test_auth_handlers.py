@@ -8,7 +8,8 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from imgstream.ui.auth_handlers import authenticate_user, handle_logout, render_sidebar, require_authentication
+from imgstream.ui.auth_handlers import authenticate_user, handle_logout, require_authentication
+from imgstream.ui.components import render_sidebar
 
 
 class TestAuthHandlers:
@@ -80,9 +81,8 @@ class TestAuthHandlers:
         mock_rerun.assert_called_once()
 
     @patch("imgstream.ui.auth_handlers.render_error_message")
-    @patch("imgstream.ui.auth_handlers.render_info_card")
     @patch("streamlit.button")
-    def test_require_authentication_failure(self, mock_button, mock_render_info, mock_render_error):
+    def test_require_authentication_failure(self, mock_button, mock_render_error):
         """Test require_authentication when not authenticated."""
         mock_button.return_value = False
 
@@ -96,7 +96,6 @@ class TestAuthHandlers:
 
         assert result is False
         mock_render_error.assert_called_once()
-        mock_render_info.assert_called_once()
 
     def test_require_authentication_success(self):
         """Test require_authentication when authenticated."""

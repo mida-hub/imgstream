@@ -1,13 +1,11 @@
 """Authentication handlers for imgstream application."""
 
-import os
-
 import streamlit as st
 import structlog
 
 from imgstream.services.auth import AuthenticationError, get_auth_service
 from imgstream.ui.components import render_error_message
-from imgstream.ui.dev_auth import render_dev_auth_ui, setup_dev_auth_middleware
+from imgstream.ui.dev_auth import render_dev_auth_ui, setup_dev_auth_middleware, _is_development_mode
 
 logger = structlog.get_logger()
 
@@ -133,87 +131,3 @@ def require_authentication() -> bool:
         return False
 
     return True
-
-
-def render_sidebar() -> None:
-    """Render the application sidebar with improved navigation and layout."""
-    with st.sidebar:
-        # App branding in sidebar
-        st.markdown("### 📸 imgstream")
-        st.divider()
-
-        # Navigation menu with current page highlighting
-        st.subheader("ナビゲーション")
-        pages = {"🏠 ホーム": "home", "📤 アップロード": "upload", "🖼️ ギャラリー": "gallery", "⚙️ 設定": "settings"}
-
-        current_page = st.session_state.current_page
-
-        for page_name, page_key in pages.items():
-            # Highlight current page
-            is_current = page_key == current_page
-
-            if st.button(
-                page_name,
-                key=f"nav_{page_key}",
-                use_container_width=True,
-                type="primary" if is_current else "secondary",
-            ):
-                logger.info("page_navigation", from_page=current_page, to_page=page_key)
-                st.session_state.current_page = page_key
-                st.rerun()
-
-        st.divider()
-
-        # User info section with improved layout
-        if st.session_state.authenticated:
-            # st.subheader("👤 ユーザープロフィール")
-
-            # User avatar placeholder
-            st.markdown("🔵")  # Placeholder for user avatar
-
-            # User information
-            user_email = st.session_state.user_email or "unknown@example.com"
-
-            st.markdown(f"📧 {user_email}")
-
-            from ..config import get_config
-
-            config = get_config()
-            if config.get("debug", False, bool):
-                st.markdown(f"🆔 {st.session_state.user_id or '不明'}")
-
-            st.divider()
-
-            # Quick stats in sidebar
-            st.markdown("**📊 クイック統計**")
-            st.markdown("📷 写真: 0")
-            st.markdown("💾 ストレージ: 0 MB")
-            st.markdown("📅 最終アップロード: なし")
-
-            st.divider()
-
-            # Database Admin section (development only)
-            if _is_development_mode():
-                st.markdown("**🔧 開発ツール**")
-
-                if st.button("🗄️ データベース管理", use_container_width=True, help="データベース管理（開発専用）"):
-                    st.session_state.current_page = "database_admin"
-                    st.rerun()
-
-                st.divider()
-
-            # Logout button
-            # if st.button("🚪 ログアウト", use_container_width=True, type="secondary"):
-            #     handle_logout()
-        else:
-            st.subheader("🔐 認証")
-            st.info("写真にアクセスするには認証してください")
-
-            if st.session_state.auth_error:
-                st.error(f"**エラー:** {st.session_state.auth_error}")
-
-
-def _is_development_mode() -> bool:
-    """Check if running in development mode."""
-    environment = os.getenv("ENVIRONMENT", "production").lower()
-    return environment in ["development", "dev", "local", "test", "testing"]

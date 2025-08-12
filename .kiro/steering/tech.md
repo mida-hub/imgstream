@@ -20,3 +20,6 @@ main.py など、主なソースコードのパスを共有します
 - src/imgstream/services
 - src/imgstream/ui
 - src/imgstream/utils
+
+# test code
+unittest.mock が使えるシーンでは mock を利用してテストコードを作成してください
