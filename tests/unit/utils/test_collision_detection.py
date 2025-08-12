@@ -20,11 +20,13 @@ class TestCollisionDetectionUtilities:
     def setup_method(self):
         """Clear cache before each test."""
         from src.imgstream.utils.collision_detection import clear_collision_cache
+
         clear_collision_cache()
 
     def teardown_method(self):
         """Clear cache after each test."""
         from src.imgstream.utils.collision_detection import clear_collision_cache
+
         clear_collision_cache()
 
     @pytest.fixture
@@ -98,6 +100,7 @@ class TestCollisionDetectionUtilities:
         """Test check_filename_collisions when collisions exist."""
         # Mock metadata service
         mock_service = Mock()
+
         # Return collision info only for photo2.jpg, None for others
         def mock_check_filename_exists(filename):
             if filename == "photo2.jpg":
@@ -127,10 +130,10 @@ class TestCollisionDetectionUtilities:
         """Test check_filename_collisions when metadata service fails."""
         # Mock metadata service to raise exception
         mock_service = Mock()
-        mock_service.check_multiple_filename_exists.side_effect = Exception("Service error")
+        mock_service.check_filename_exists.side_effect = Exception("Service error")
         mock_get_service.return_value = mock_service
 
-        with pytest.raises(CollisionDetectionError, match="Failed to check filename collisions"):
+        with pytest.raises(CollisionDetectionError, match="High failure rate in collision detection"):
             check_filename_collisions("test_user_123", ["photo1.jpg"])
 
     def test_process_collision_results_no_collisions(self):
@@ -327,9 +330,14 @@ class TestCollisionDetectionIntegration:
         """Test complete collision detection workflow."""
         # Mock metadata service
         mock_service = Mock()
-        mock_service.check_multiple_filename_exists.return_value = {
-            "photo1.jpg": sample_collision_info
-        }
+
+        # Return collision info only for photo1.jpg, None for photo2.jpg
+        def mock_check_filename_exists(filename):
+            if filename == "photo1.jpg":
+                return sample_collision_info
+            return None
+
+        mock_service.check_filename_exists.side_effect = mock_check_filename_exists
         mock_get_service.return_value = mock_service
 
         # Step 1: Check collisions

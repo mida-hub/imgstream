@@ -58,6 +58,9 @@ where = ["src"]
 [tool.ruff]
 target-version = "py311"
 line-length = 120
+exclude = [
+    "tests/**/*.py",
+]
 
 [tool.ruff.lint]
 select = [
@@ -156,6 +159,7 @@ warn_unreachable = false  # Disable unreachable warnings
 strict_equality = true
 exclude = [
     "src/imgstream/monitoring.py",
+    "tests/.*",
 ]
 
 # Per-module options
