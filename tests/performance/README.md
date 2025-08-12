@@ -1,5 +1,12 @@
 # パフォーマンステスト
 
+> **⚠️ 注意: このディレクトリのテストは現在無効化されています**
+>
+> 開発初期段階のため、パフォーマンステストは `pyproject.toml` の pytest 設定で除外されています。
+> 将来的にパフォーマンス最適化が必要になった際に有効化する予定です。
+>
+> 有効化するには: `pyproject.toml` の `addopts` から `--ignore=tests/performance` を削除してください。
+
 このディレクトリには、imgstreamアプリケーションの包括的なパフォーマンステストが含まれています。
 
 ## テストの種類
@@ -143,7 +150,7 @@ GitHub Actionsでパフォーマンステストを実行する場合：
 - name: Run Performance Tests
   run: |
     python tests/performance/run_performance_tests.py --output-dir ./performance_results
-    
+
 - name: Upload Performance Results
   uses: actions/upload-artifact@v3
   with:

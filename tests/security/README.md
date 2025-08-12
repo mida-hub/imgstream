@@ -1,5 +1,12 @@
 # セキュリティテスト
 
+> **⚠️ 注意: このディレクトリのテストは現在無効化されています**
+>
+> 開発初期段階のため、セキュリティテストは `pyproject.toml` の pytest 設定で除外されています。
+> 基本機能の実装完了後、本格的なセキュリティテストを実施する予定です。
+>
+> 有効化するには: `pyproject.toml` の `addopts` から `--ignore=tests/security` を削除してください。
+
 このディレクトリには、imgstreamアプリケーションの包括的なセキュリティテストが含まれています。
 
 ## テストの種類
@@ -214,13 +221,13 @@ GitHub Actionsでセキュリティテストを実行する場合：
 - name: Run Security Tests
   run: |
     python tests/security/run_security_tests.py --output-dir ./security_results
-    
+
 - name: Upload Security Results
   uses: actions/upload-artifact@v3
   with:
     name: security-results
     path: ./security_results/
-    
+
 - name: Check Security Status
   run: |
     if [ -f ./security_results/security_report.txt ]; then
