@@ -975,39 +975,39 @@ def _render_overall_status(batch_result: dict[str, Any]) -> None:
     if batch_result["success"]:
         if total_files == 1:
             if overwrite_uploads > 0:
-                st.success("🎉 Successfully overwritten 1 photo!")
+                st.success("🎉 1枚の写真を正常に上書きしました！")
             elif skipped_uploads > 0:
-                st.info("⏭️ 1 photo was skipped as requested")
+                st.info("⏭️ 1枚の写真がリクエストに従ってスキップされました")
             else:
-                st.success("🎉 Successfully uploaded 1 photo!")
+                st.success("🎉 1枚の写真を正常にアップロードしました！")
         else:
             success_parts = []
             if successful_uploads - overwrite_uploads > 0:
-                success_parts.append(f"{successful_uploads - overwrite_uploads} uploaded")
+                success_parts.append(f"{successful_uploads - overwrite_uploads}枚アップロード")
             if overwrite_uploads > 0:
-                success_parts.append(f"{overwrite_uploads} overwritten")
+                success_parts.append(f"{overwrite_uploads}枚上書き")
             if skipped_uploads > 0:
-                success_parts.append(f"{skipped_uploads} skipped")
+                success_parts.append(f"{skipped_uploads}枚スキップ")
 
             if success_parts:
-                st.success(f"🎉 Successfully processed all {total_files} photos: {', '.join(success_parts)}")
+                st.success(f"🎉 {total_files}枚の写真を正常に処理しました: {', '.join(success_parts)}")
             else:
-                st.success(f"🎉 Successfully processed all {total_files} photos!")
+                st.success(f"🎉 {total_files}枚の写真を正常に処理しました！")
     elif successful_uploads > 0 or skipped_uploads > 0:
         status_parts = []
         if successful_uploads > 0:
             if overwrite_uploads > 0:
-                status_parts.append(f"{successful_uploads} successful ({overwrite_uploads} overwrites)")
+                status_parts.append(f"{successful_uploads}枚成功 ({overwrite_uploads}枚上書き)")
             else:
-                status_parts.append(f"{successful_uploads} successful")
+                status_parts.append(f"{successful_uploads}枚成功")
         if skipped_uploads > 0:
-            status_parts.append(f"{skipped_uploads} skipped")
+            status_parts.append(f"{skipped_uploads}枚スキップ")
         if failed_uploads > 0:
-            status_parts.append(f"{failed_uploads} failed")
+            status_parts.append(f"{failed_uploads}枚失敗")
 
-        st.warning(f"⚠️ Partial success: {', '.join(status_parts)}")
+        st.warning(f"⚠️ 部分的成功: {', '.join(status_parts)}")
     else:
-        st.error(f"❌ Upload failed: All {failed_uploads} files encountered errors")
+        st.error(f"❌ アップロード失敗: {failed_uploads}枚すべてでエラーが発生しました")
 
 
 def _render_summary_metrics(batch_result: dict[str, Any], processing_time: float | None = None) -> None:
@@ -1020,27 +1020,27 @@ def _render_summary_metrics(batch_result: dict[str, Any], processing_time: float
 
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
-        st.metric("Total Files", total_files)
+        st.metric("総ファイル数", total_files)
     with col2:
-        st.metric("Successful", successful_uploads, delta=successful_uploads if successful_uploads > 0 else None)
+        st.metric("成功", successful_uploads, delta=successful_uploads if successful_uploads > 0 else None)
     with col3:
         if overwrite_uploads > 0:
-            st.metric("Overwrites", overwrite_uploads, delta=overwrite_uploads)
+            st.metric("上書き", overwrite_uploads, delta=overwrite_uploads)
         else:
-            st.metric("Failed", failed_uploads, delta=-failed_uploads if failed_uploads > 0 else None)
+            st.metric("失敗", failed_uploads, delta=-failed_uploads if failed_uploads > 0 else None)
     with col4:
         if skipped_uploads > 0:
-            st.metric("Skipped", skipped_uploads)
+            st.metric("スキップ", skipped_uploads)
         elif processing_time:
-            st.metric("Processing Time", f"{processing_time:.1f}s")
+            st.metric("処理時間", f"{processing_time:.1f}秒")
         else:
             success_rate = (successful_uploads / total_files * 100) if total_files > 0 else 0
-            st.metric("Success Rate", f"{success_rate:.1f}%")
+            st.metric("成功率", f"{success_rate:.1f}%")
     with col5:
         if processing_time and (overwrite_uploads > 0 or skipped_uploads > 0):
-            st.metric("Processing Time", f"{processing_time:.1f}s")
+            st.metric("処理時間", f"{processing_time:.1f}秒")
         elif failed_uploads > 0 and not (overwrite_uploads > 0 or skipped_uploads > 0):
-            st.metric("Failed", failed_uploads, delta=-failed_uploads)
+            st.metric("失敗", failed_uploads, delta=-failed_uploads)
 
 
 def _render_new_uploads(new_upload_results: list[dict[str, Any]]) -> None:
@@ -1048,22 +1048,22 @@ def _render_new_uploads(new_upload_results: list[dict[str, Any]]) -> None:
     if not new_upload_results:
         return
 
-    with st.expander(f"✅ New Uploads ({len(new_upload_results)})", expanded=len(new_upload_results) <= 3):
+    with st.expander(f"✅ 新規アップロード ({len(new_upload_results)})", expanded=len(new_upload_results) <= 3):
         for result in new_upload_results:
             col1, col2 = st.columns([3, 1])
             with col1:
                 st.success(f"📷 **{result['filename']}**")
                 if "creation_date" in result:
-                    st.write(f"   📅 Created: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
+                    st.write(f"   📅 作成日時: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
                 if "file_size" in result:
                     file_size_mb = result["file_size"] / (1024 * 1024)
-                    st.write(f"   💾 Size: {file_size_mb:.1f} MB")
+                    st.write(f"   💾 サイズ: {file_size_mb:.1f} MB")
                 if "processing_steps" in result:
-                    with st.expander(f"Processing steps for {result['filename']}", expanded=False):
+                    with st.expander(f"{result['filename']}の処理ステップ", expanded=False):
                         for step in result["processing_steps"]:
                             st.write(f"• {step}")
             with col2:
-                st.markdown("✅ **New Upload**")
+                st.markdown("✅ **新規アップロード**")
 
 
 def _render_overwrites(overwrite_results: list[dict[str, Any]]) -> None:
@@ -1292,33 +1292,33 @@ def _render_next_steps(batch_result: dict[str, Any]) -> None:
     failed_uploads = batch_result["failed_uploads"]
 
     if batch_result["success"] and successful_uploads > 0:
-        st.markdown("### 🎯 Next Steps")
+        st.markdown("### 🎯 次のステップ")
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            if st.button("🖼️ View Gallery", use_container_width=True, type="primary"):
+            if st.button("🖼️ ギャラリーを見る", use_container_width=True, type="primary"):
                 st.session_state.current_page = "gallery"
                 st.rerun()
 
         with col2:
-            if st.button("📤 Upload More", use_container_width=True):
+            if st.button("📤 さらにアップロード", use_container_width=True):
                 # Clear upload state for new upload
                 clear_upload_session_state()
                 st.rerun()
 
         with col3:
-            if st.button("🏠 Go Home", use_container_width=True):
+            if st.button("🏠 ホームに戻る", use_container_width=True):
                 st.session_state.current_page = "home"
                 st.rerun()
 
     elif failed_uploads > 0:
-        st.markdown("### 🔧 Need Help?")
+        st.markdown("### 🔧 ヘルプが必要ですか？")
         st.info(
-            "If you continue to experience upload issues, please check your internet connection and file formats. "
-            "Supported formats: HEIC, HEIF, JPG, JPEG"
+            "アップロードの問題が続く場合は、インターネット接続とファイル形式を確認してください。"
+            "サポートされている形式: HEIC, HEIF, JPG, JPEG"
         )
 
-        if st.button("🔄 Try Again", use_container_width=True, type="primary"):
+        if st.button("🔄 再試行", use_container_width=True, type="primary"):
             st.rerun()
 
 
@@ -1368,45 +1368,45 @@ def get_error_suggestions(error_message: str, filename: str) -> list[str]:
     if "size" in error_lower or "large" in error_lower:
         suggestions.extend(
             [
-                "Check if the file size is within the allowed limit",
-                "Try compressing the image before uploading",
-                "Ensure the file is not corrupted",
+                "ファイルサイズが許可された制限内であることを確認してください",
+                "アップロード前に画像を圧縮してみてください",
+                "ファイルが破損していないことを確認してください",
             ]
         )
 
     if "format" in error_lower or "unsupported" in error_lower:
         suggestions.extend(
             [
-                "Verify the file format is supported (HEIC, HEIF, JPG, JPEG)",
-                "Try converting the image to JPEG format",
-                "Check if the file extension matches the actual format",
+                "ファイル形式がサポートされていることを確認してください (HEIC, HEIF, JPG, JPEG)",
+                "画像をJPEG形式に変換してみてください",
+                "ファイル拡張子が実際の形式と一致することを確認してください",
             ]
         )
 
     if "network" in error_lower or "connection" in error_lower or "timeout" in error_lower:
         suggestions.extend(
             [
-                "Check your internet connection",
-                "Try uploading again with a stable connection",
-                "Upload files in smaller batches",
+                "インターネット接続を確認してください",
+                "安定した接続で再度アップロードしてみてください",
+                "ファイルを小さなバッチでアップロードしてください",
             ]
         )
 
     if "authentication" in error_lower or "permission" in error_lower:
         suggestions.extend(
             [
-                "Refresh the page and try again",
-                "Ensure you're properly authenticated",
-                "Contact support if the issue persists",
+                "ページを更新して再試行してください",
+                "適切に認証されていることを確認してください",
+                "問題が続く場合はサポートにお問い合わせください",
             ]
         )
 
     if "storage" in error_lower or "gcs" in error_lower:
         suggestions.extend(
             [
-                "Try again in a few minutes",
-                "Check if you have sufficient storage quota",
-                "Contact support if the issue persists",
+                "数分後に再試行してください",
+                "十分なストレージ容量があることを確認してください",
+                "問題が続く場合はサポートにお問い合わせください",
             ]
         )
 
@@ -1414,10 +1414,10 @@ def get_error_suggestions(error_message: str, filename: str) -> list[str]:
     if not suggestions:
         suggestions.extend(
             [
-                "Try uploading the file again",
-                "Check your internet connection",
-                "Verify the file is not corrupted",
-                "Contact support if the issue continues",
+                "ファイルを再度アップロードしてみてください",
+                "インターネット接続を確認してください",
+                "ファイルが破損していないことを確認してください",
+                "問題が続く場合はサポートにお問い合わせください",
             ]
         )
 
