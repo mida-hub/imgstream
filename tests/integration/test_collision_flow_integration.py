@@ -46,6 +46,7 @@ class TestCollisionDetectionIntegration:
     def teardown_method(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def create_mock_uploaded_file(self, filename: str, content: bytes = b"fake_image_data") -> MagicMock:
@@ -72,7 +73,7 @@ class TestCollisionDetectionIntegration:
             uploaded_at=datetime.now() - timedelta(days=1),
         )
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_end_to_end_collision_detection_and_resolution(self, mock_get_metadata_service):
         """Test complete collision detection and resolution flow."""
         # Set up existing photos
@@ -156,12 +157,13 @@ class TestCollisionDetectionIntegration:
         resolution_events = [e for e in monitor.collision_events if e.event_type == "resolved"]
         assert len(resolution_events) == 2
 
-    @patch('imgstream.ui.upload_handlers.get_auth_service')
-    @patch('imgstream.ui.upload_handlers.get_metadata_service')
-    @patch('imgstream.ui.upload_handlers.get_storage_service')
-    @patch('imgstream.ui.upload_handlers.ImageProcessor')
-    def test_mixed_batch_upload_integration(self, mock_image_processor_class, mock_get_storage_service,
-                                          mock_get_metadata_service, mock_get_auth_service):
+    @patch("imgstream.ui.upload_handlers.get_auth_service")
+    @patch("imgstream.ui.upload_handlers.get_metadata_service")
+    @patch("imgstream.ui.upload_handlers.get_storage_service")
+    @patch("imgstream.ui.upload_handlers.ImageProcessor")
+    def test_mixed_batch_upload_integration(
+        self, mock_image_processor_class, mock_get_storage_service, mock_get_metadata_service, mock_get_auth_service
+    ):
         """Test mixed batch upload with new files, overwrites, and skips."""
         # Set up mocks
         mock_auth_service = MagicMock()
@@ -272,7 +274,7 @@ class TestCollisionDetectionIntegration:
         assert self.mock_storage_service.upload_thumbnail.call_count == 2  # new + overwrite
         assert self.mock_metadata_service.save_or_update_photo_metadata.call_count == 2  # new + overwrite
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_error_recovery_scenarios(self, mock_get_metadata_service):
         """Test error recovery scenarios in collision detection."""
         # Configure metadata service to always fail to trigger fallback
@@ -301,12 +303,13 @@ class TestCollisionDetectionIntegration:
         assert "warning_message" in fallback_result
         assert "安全のため既存ファイルがあると仮定" in fallback_result["warning_message"]
 
-    @patch('imgstream.ui.upload_handlers.get_auth_service')
-    @patch('imgstream.ui.upload_handlers.get_metadata_service')
-    @patch('imgstream.ui.upload_handlers.get_storage_service')
-    @patch('imgstream.ui.upload_handlers.ImageProcessor')
-    def test_database_consistency_during_overwrite(self, mock_image_processor_class, mock_get_storage_service,
-                                                  mock_get_metadata_service, mock_get_auth_service):
+    @patch("imgstream.ui.upload_handlers.get_auth_service")
+    @patch("imgstream.ui.upload_handlers.get_metadata_service")
+    @patch("imgstream.ui.upload_handlers.get_storage_service")
+    @patch("imgstream.ui.upload_handlers.ImageProcessor")
+    def test_database_consistency_during_overwrite(
+        self, mock_image_processor_class, mock_get_storage_service, mock_get_metadata_service, mock_get_auth_service
+    ):
         """Test database consistency during overwrite operations."""
         # Set up mocks
         mock_auth_service = MagicMock()
@@ -394,7 +397,7 @@ class TestCollisionDetectionIntegration:
         )
 
         # Test that collision detection works with old format photos
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
 
@@ -429,8 +432,8 @@ class TestCollisionDetectionIntegration:
             assert existing_photo.user_id == self.user_id
             assert existing_photo.file_size == 1024
 
-    @patch('imgstream.ui.upload_handlers.get_auth_service')
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.ui.upload_handlers.get_auth_service")
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_complete_validation_and_collision_flow(self, mock_get_metadata_service, mock_get_auth_service):
         """Test complete file validation and collision detection flow."""
         # Set up auth service
@@ -468,13 +471,13 @@ class TestCollisionDetectionIntegration:
         ]
 
         # Mock image processor for validation
-        with patch('imgstream.ui.upload_handlers.ImageProcessor') as mock_processor_class:
+        with patch("imgstream.ui.upload_handlers.ImageProcessor") as mock_processor_class:
             mock_processor = MagicMock()
             mock_processor_class.return_value = mock_processor
 
             # Configure format validation
             def mock_is_supported_format(filename):
-                return filename.lower().endswith(('.jpg', '.jpeg', '.heic', '.heif'))
+                return filename.lower().endswith((".jpg", ".jpeg", ".heic", ".heif"))
 
             mock_processor.is_supported_format.side_effect = mock_is_supported_format
             mock_processor.validate_file_size.return_value = None  # No size errors
@@ -518,10 +521,7 @@ class TestCollisionDetectionIntegration:
 
         # Monitor batch processing
         monitor_batch_collision_processing(
-            user_id=self.user_id,
-            filenames=filenames,
-            collision_results=collision_results,
-            processing_time_ms=1500.0
+            user_id=self.user_id, filenames=filenames, collision_results=collision_results, processing_time_ms=1500.0
         )
 
         # Verify monitoring data was recorded
@@ -550,12 +550,13 @@ class TestCollisionDetectionIntegration:
         """Test collision detection under concurrent access scenarios."""
         # This test simulates concurrent users uploading files with same names
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
 
             # Simulate race condition where file is uploaded between collision check and upload
             call_count = 0
+
             def mock_batch_check_with_race_condition(filenames):
                 nonlocal call_count
                 call_count += 1
@@ -596,7 +597,7 @@ class TestCollisionDetectionIntegration:
         large_batch_size = 100
         filenames = [f"photo_{i:03d}.jpg" for i in range(large_batch_size)]
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
 
@@ -604,7 +605,7 @@ class TestCollisionDetectionIntegration:
             def mock_check_large_batch(filenames_list):
                 results = {}
                 for filename in filenames_list:
-                    file_num = int(filename.split('_')[1].split('.')[0])
+                    file_num = int(filename.split("_")[1].split(".")[0])
                     if file_num % 10 == 0:  # Every 10th file has collision
                         existing_photo = self.create_existing_photo(filename, f"existing_{file_num}")
                         results[filename] = {
@@ -637,8 +638,7 @@ class TestCollisionDetectionIntegration:
             monitor = get_collision_monitor()
             # Should have logged collision detection events
             recent_collision_events = [
-                e for e in monitor.collision_events
-                if e.user_id == self.user_id and e.event_type == "detected"
+                e for e in monitor.collision_events if e.user_id == self.user_id and e.event_type == "detected"
             ]
             assert len(recent_collision_events) >= expected_collisions
 
@@ -699,7 +699,7 @@ class TestDataIntegrity:
         # This test would verify that if an overwrite operation fails partway through,
         # the system rolls back to a consistent state
 
-        with patch('imgstream.services.metadata.MetadataService') as mock_service_class:
+        with patch("imgstream.services.metadata.MetadataService") as mock_service_class:
             mock_service = MagicMock()
             mock_service_class.return_value = mock_service
 
@@ -713,9 +713,11 @@ class TestDataIntegrity:
                 "size": 1024,
             }
 
-            with patch('imgstream.ui.upload_handlers.get_auth_service'), \
-                 patch('imgstream.ui.upload_handlers.get_storage_service'), \
-                 patch('imgstream.ui.upload_handlers.ImageProcessor'):
+            with (
+                patch("imgstream.ui.upload_handlers.get_auth_service"),
+                patch("imgstream.ui.upload_handlers.get_storage_service"),
+                patch("imgstream.ui.upload_handlers.ImageProcessor"),
+            ):
 
                 result = process_single_upload(file_info, is_overwrite=True)
 
@@ -741,7 +743,7 @@ class TestDataIntegrity:
         # For now, we test that the collision detection system
         # can handle concurrent access patterns
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
 

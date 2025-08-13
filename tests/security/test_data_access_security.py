@@ -83,7 +83,7 @@ class TestDataAccessSecurity(E2ETestBase):
 
         # Test that MetadataService enforces user isolation using real services
         import tempfile
-        
+
         with tempfile.TemporaryDirectory() as temp_dir1, tempfile.TemporaryDirectory() as temp_dir2:
             metadata_service1 = MetadataService(user1.user_id, temp_dir1)
             metadata_service2 = MetadataService(user2.user_id, temp_dir2)
@@ -109,7 +109,7 @@ class TestDataAccessSecurity(E2ETestBase):
 
             # User1's service should accept user1's data
             metadata_service1.save_photo_metadata(user1_photo)
-            
+
             # Verify the photo was saved
             saved_photo = metadata_service1.get_photo_by_id(user1_photo.id)
             assert saved_photo is not None

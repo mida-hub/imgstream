@@ -23,9 +23,7 @@ class TestUserInfo:
 
     def test_user_info_creation(self):
         """Test UserInfo creation with all fields."""
-        user_info = UserInfo(
-            user_id="123456789", email="user@example.com", picture="https://example.com/photo.jpg"
-        )
+        user_info = UserInfo(user_id="123456789", email="user@example.com", picture="https://example.com/photo.jpg")
 
         assert user_info.user_id == "123456789"
         assert user_info.email == "user@example.com"

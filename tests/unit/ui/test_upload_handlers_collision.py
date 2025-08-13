@@ -280,7 +280,9 @@ class TestUploadHandlersCollisionIntegration:
         assert len(collision_results) == 1  # collision_photo.jpg
 
         # Verify collision check was called with only valid filenames
-        mock_check_collisions.assert_called_once_with("test_user_123", ["valid_photo.jpg", "collision_photo.jpg"], enable_fallback=True)
+        mock_check_collisions.assert_called_once_with(
+            "test_user_123", ["valid_photo.jpg", "collision_photo.jpg"], enable_fallback=True
+        )
 
 
 class TestRenderFileValidationResultsWithCollisions:

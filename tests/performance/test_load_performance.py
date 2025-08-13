@@ -234,7 +234,7 @@ class TestLoadPerformance(E2ETestBase):
 
         if psutil is None:
             pytest.skip("psutil not available")
-            
+
         # Get initial memory usage
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss

@@ -23,13 +23,14 @@ class TestMetadataServiceDatabaseReset:
         self.mock_storage_service = MagicMock()
 
         # Create metadata service with mocked storage
-        with patch('imgstream.services.metadata.get_storage_service') as mock_get_storage:
+        with patch("imgstream.services.metadata.get_storage_service") as mock_get_storage:
             mock_get_storage.return_value = self.mock_storage_service
             self.metadata_service = MetadataService(self.user_id, self.temp_dir)
 
     def teardown_method(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_force_reload_from_gcs_requires_confirmation(self):
@@ -39,7 +40,7 @@ class TestMetadataServiceDatabaseReset:
 
         assert "requires explicit confirmation" in str(exc_info.value)
 
-    @patch('imgstream.services.metadata.log_user_action')
+    @patch("imgstream.services.metadata.log_user_action")
     def test_force_reload_from_gcs_successful_reset(self, mock_log_user_action):
         """Test successful database reset with GCS download."""
         # Create a fake local database file
@@ -59,7 +60,7 @@ class TestMetadataServiceDatabaseReset:
         mock_db_manager.get_connection.return_value = mock_connection
         mock_db_manager.connect.return_value = mock_connection
 
-        with patch.object(type(self.metadata_service), 'db_manager', new_callable=PropertyMock) as mock_db_prop:
+        with patch.object(type(self.metadata_service), "db_manager", new_callable=PropertyMock) as mock_db_prop:
             mock_db_prop.return_value = mock_db_manager
             result = self.metadata_service.force_reload_from_gcs(confirm_reset=True)
 
@@ -78,7 +79,8 @@ class TestMetadataServiceDatabaseReset:
 
         # Verify logging
         assert mock_log_user_action.call_count >= 2  # initiated and completed
-    @patch('imgstream.services.metadata.log_user_action')
+
+    @patch("imgstream.services.metadata.log_user_action")
     def test_force_reload_from_gcs_no_gcs_database(self, mock_log_user_action):
         """Test database reset when no GCS database exists."""
         # Create a fake local database file
@@ -97,7 +99,7 @@ class TestMetadataServiceDatabaseReset:
         mock_db_manager.get_connection.return_value = mock_connection
         mock_db_manager.connect.return_value = mock_connection
 
-        with patch.object(type(self.metadata_service), 'db_manager', new_callable=PropertyMock) as mock_db_prop:
+        with patch.object(type(self.metadata_service), "db_manager", new_callable=PropertyMock) as mock_db_prop:
             mock_db_prop.return_value = mock_db_manager
             result = self.metadata_service.force_reload_from_gcs(confirm_reset=True)
 
@@ -121,7 +123,7 @@ class TestMetadataServiceDatabaseReset:
         # Mock GCS operations
         self.mock_storage_service.file_exists.return_value = False
 
-        with patch.object(self.metadata_service, 'ensure_local_database'):
+        with patch.object(self.metadata_service, "ensure_local_database"):
             # Should not raise exception, just log warning
             result = self.metadata_service.force_reload_from_gcs(confirm_reset=True)
 
@@ -136,7 +138,7 @@ class TestMetadataServiceDatabaseReset:
         local_db_path.write_text("fake_db_content")
 
         # Mock file deletion to fail
-        with patch.object(Path, 'unlink', side_effect=OSError("Permission denied")):
+        with patch.object(Path, "unlink", side_effect=OSError("Permission denied")):
             with pytest.raises(MetadataError) as exc_info:
                 self.metadata_service.force_reload_from_gcs(confirm_reset=True)
 
@@ -157,7 +159,7 @@ class TestMetadataServiceDatabaseReset:
         mock_db_manager.get_connection.return_value = mock_connection
         mock_db_manager.connect.return_value = mock_connection
 
-        with patch.object(type(self.metadata_service), 'db_manager', new_callable=PropertyMock) as mock_db_prop:
+        with patch.object(type(self.metadata_service), "db_manager", new_callable=PropertyMock) as mock_db_prop:
             mock_db_prop.return_value = mock_db_manager
             # Should continue with creating new database
             result = self.metadata_service.force_reload_from_gcs(confirm_reset=True)
@@ -168,8 +170,9 @@ class TestMetadataServiceDatabaseReset:
     def test_force_reload_from_gcs_reinitialization_failure(self):
         """Test database reset when reinitialization fails."""
         # Mock ensure_local_database to fail
-        with patch.object(self.metadata_service, 'ensure_local_database',
-                         side_effect=Exception("Reinitialization failed")):
+        with patch.object(
+            self.metadata_service, "ensure_local_database", side_effect=Exception("Reinitialization failed")
+        ):
 
             with pytest.raises(MetadataError) as exc_info:
                 self.metadata_service.force_reload_from_gcs(confirm_reset=True)
@@ -240,12 +243,8 @@ class TestMetadataServiceDatabaseReset:
         local_db_path.write_text("fake_db_content")
 
         # Mock the validate_database_integrity method directly
-        with patch.object(self.metadata_service, 'validate_database_integrity') as mock_validate:
-            mock_validate.return_value = {
-                "valid": True,
-                "issues": [],
-                "validation_duration_seconds": 0.1
-            }
+        with patch.object(self.metadata_service, "validate_database_integrity") as mock_validate:
+            mock_validate.return_value = {"valid": True, "issues": [], "validation_duration_seconds": 0.1}
 
             result = self.metadata_service.validate_database_integrity()
 
@@ -260,7 +259,7 @@ class TestMetadataServiceDatabaseReset:
         local_db_path.write_text("fake_db_content")
 
         # Mock the validate_database_integrity method directly
-        with patch.object(self.metadata_service, 'validate_database_integrity') as mock_validate:
+        with patch.object(self.metadata_service, "validate_database_integrity") as mock_validate:
             mock_validate.return_value = {
                 "valid": False,
                 "issues": [
@@ -268,9 +267,9 @@ class TestMetadataServiceDatabaseReset:
                     "Found 5 orphaned records",
                     "Found duplicate filenames",
                     "Found 2 records with invalid file paths",
-                    "Found 1 records with future dates"
+                    "Found 1 records with future dates",
                 ],
-                "validation_duration_seconds": 0.1
+                "validation_duration_seconds": 0.1,
             }
 
             result = self.metadata_service.validate_database_integrity()
@@ -300,7 +299,7 @@ class TestMetadataServiceDatabaseReset:
         mock_db_manager = MagicMock()
         mock_db_manager.__enter__.side_effect = Exception("Database error")
 
-        with patch.object(self.metadata_service, '_db_manager', mock_db_manager):
+        with patch.object(self.metadata_service, "_db_manager", mock_db_manager):
             with pytest.raises(MetadataError) as exc_info:
                 self.metadata_service.validate_database_integrity()
 
@@ -318,9 +317,10 @@ class TestDatabaseResetIntegration:
     def teardown_method(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    @patch('imgstream.services.metadata.get_storage_service')
+    @patch("imgstream.services.metadata.get_storage_service")
     def test_complete_reset_workflow(self, mock_get_storage_service):
         """Test complete database reset workflow."""
         # Mock storage service
@@ -337,8 +337,10 @@ class TestDatabaseResetIntegration:
         local_db_path.write_text("original_db_content")
 
         # Mock database operations
-        with patch.object(metadata_service, 'ensure_local_database'), \
-             patch.object(type(metadata_service), 'db_manager', new_callable=PropertyMock) as mock_db_prop:
+        with (
+            patch.object(metadata_service, "ensure_local_database"),
+            patch.object(type(metadata_service), "db_manager", new_callable=PropertyMock) as mock_db_prop,
+        ):
 
             mock_db_manager = MagicMock()
             mock_connection = MagicMock()

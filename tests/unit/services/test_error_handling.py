@@ -69,7 +69,7 @@ class TestMetadataServiceErrorHandling:
     @pytest.fixture
     def metadata_service(self):
         """Create a MetadataService instance for testing."""
-        with patch('src.imgstream.services.metadata.get_storage_service'):
+        with patch("src.imgstream.services.metadata.get_storage_service"):
             service = MetadataService("test_user_123", "/tmp/test")
             # Mock database manager
             mock_db_manager = MagicMock()
@@ -84,6 +84,7 @@ class TestMetadataServiceErrorHandling:
     def sample_photo_metadata(self):
         """Create sample PhotoMetadata for testing."""
         from src.imgstream.models.photo import PhotoMetadata
+
         return PhotoMetadata(
             id="photo_123",
             user_id="test_user_123",
@@ -93,16 +94,14 @@ class TestMetadataServiceErrorHandling:
             created_at=datetime(2024, 1, 15, 10, 30, 0),
             uploaded_at=datetime(2024, 1, 16, 14, 0, 0),
             file_size=2048000,
-            mime_type="image/jpeg"
+            mime_type="image/jpeg",
         )
 
     def test_save_or_update_photo_metadata_with_fallback_success(self, metadata_service, sample_photo_metadata):
         """Test successful save/update without fallback."""
         metadata_service.save_or_update_photo_metadata = Mock()
 
-        result = metadata_service.save_or_update_photo_metadata_with_fallback(
-            sample_photo_metadata, is_overwrite=True
-        )
+        result = metadata_service.save_or_update_photo_metadata_with_fallback(sample_photo_metadata, is_overwrite=True)
 
         assert result["success"] is True
         assert result["fallback_used"] is False
@@ -111,22 +110,20 @@ class TestMetadataServiceErrorHandling:
     def test_save_or_update_photo_metadata_with_fallback_used(self, metadata_service, sample_photo_metadata):
         """Test fallback when overwrite fails."""
         # Mock the primary operation to fail
-        metadata_service.save_or_update_photo_metadata = Mock(
-            side_effect=MetadataError("Update failed")
-        )
+        metadata_service.save_or_update_photo_metadata = Mock(side_effect=MetadataError("Update failed"))
         # Mock the fallback to succeed
-        metadata_service._attempt_overwrite_fallback = Mock(return_value={
-            "success": True,
-            "operation": "fallback_save",
-            "filename": "test_photo.jpg",
-            "fallback_filename": "test_photo_overwrite_20240116.jpg",
-            "fallback_used": True,
-            "strategy": "timestamp_suffix",
-        })
-
-        result = metadata_service.save_or_update_photo_metadata_with_fallback(
-            sample_photo_metadata, is_overwrite=True
+        metadata_service._attempt_overwrite_fallback = Mock(
+            return_value={
+                "success": True,
+                "operation": "fallback_save",
+                "filename": "test_photo.jpg",
+                "fallback_filename": "test_photo_overwrite_20240116.jpg",
+                "fallback_used": True,
+                "strategy": "timestamp_suffix",
+            }
         )
+
+        result = metadata_service.save_or_update_photo_metadata_with_fallback(sample_photo_metadata, is_overwrite=True)
 
         assert result["success"] is True
         assert result["fallback_used"] is True
@@ -134,9 +131,7 @@ class TestMetadataServiceErrorHandling:
 
     def test_save_or_update_photo_metadata_with_fallback_disabled(self, metadata_service, sample_photo_metadata):
         """Test behavior when fallback is disabled."""
-        metadata_service.save_or_update_photo_metadata = Mock(
-            side_effect=MetadataError("Update failed")
-        )
+        metadata_service.save_or_update_photo_metadata = Mock(side_effect=MetadataError("Update failed"))
 
         with pytest.raises(MetadataError):
             metadata_service.save_or_update_photo_metadata_with_fallback(
@@ -147,9 +142,7 @@ class TestMetadataServiceErrorHandling:
         """Test fallback with timestamp strategy."""
         metadata_service.save_photo_metadata = Mock()
 
-        result = metadata_service._attempt_overwrite_fallback(
-            sample_photo_metadata, MetadataError("Original error")
-        )
+        result = metadata_service._attempt_overwrite_fallback(sample_photo_metadata, MetadataError("Original error"))
 
         assert result["success"] is True
         assert result["strategy"] == "timestamp_suffix"
@@ -159,14 +152,11 @@ class TestMetadataServiceErrorHandling:
     def test_attempt_overwrite_fallback_uuid_strategy(self, metadata_service, sample_photo_metadata):
         """Test fallback with UUID strategy when timestamp fails."""
         # Mock timestamp strategy to fail, UUID to succeed
-        metadata_service.save_photo_metadata = Mock(side_effect=[
-            MetadataError("Timestamp strategy failed"),
-            None  # UUID strategy succeeds
-        ])
-
-        result = metadata_service._attempt_overwrite_fallback(
-            sample_photo_metadata, MetadataError("Original error")
+        metadata_service.save_photo_metadata = Mock(
+            side_effect=[MetadataError("Timestamp strategy failed"), None]  # UUID strategy succeeds
         )
+
+        result = metadata_service._attempt_overwrite_fallback(sample_photo_metadata, MetadataError("Original error"))
 
         assert result["success"] is True
         assert result["strategy"] == "uuid_suffix"
@@ -177,9 +167,7 @@ class TestMetadataServiceErrorHandling:
         metadata_service.save_photo_metadata = Mock(side_effect=MetadataError("All strategies failed"))
 
         with pytest.raises(MetadataError, match="All fallback strategies failed"):
-            metadata_service._attempt_overwrite_fallback(
-                sample_photo_metadata, MetadataError("Original error")
-            )
+            metadata_service._attempt_overwrite_fallback(sample_photo_metadata, MetadataError("Original error"))
 
 
 class TestUploadHandlerErrorHandling:
@@ -223,9 +211,7 @@ class TestUploadHandlerErrorHandling:
         message = _get_collision_detection_error_message(error)
 
         # The function should detect CollisionDetectionRecoveryError type
-        assert ("復旧に失敗" in message or "Recovery failed" in message)
-
-
+        assert "復旧に失敗" in message or "Recovery failed" in message
 
 
 class TestErrorRecoveryIntegration:
@@ -255,22 +241,28 @@ class TestErrorRecoveryIntegration:
         from imgstream.ui.handlers.upload import clear_upload_session_state
 
         # Set up session state with upload-related keys
-        mock_session_state.update({
-            "uploaded_files": ["file1.jpg"],
-            "validation_results": {"valid": True},
-            "collision_results": {"file1.jpg": {}},
-            "upload_results": {"success": True},
-            "upload_in_progress": True,
-            "collision_decisions": {"file1.jpg": "overwrite"},
-            "other_key": "should_remain"  # Non-upload related key
-        })
+        mock_session_state.update(
+            {
+                "uploaded_files": ["file1.jpg"],
+                "validation_results": {"valid": True},
+                "collision_results": {"file1.jpg": {}},
+                "upload_results": {"success": True},
+                "upload_in_progress": True,
+                "collision_decisions": {"file1.jpg": "overwrite"},
+                "other_key": "should_remain",  # Non-upload related key
+            }
+        )
 
         clear_upload_session_state()
 
         # Upload-related keys that should be cleared (based on actual implementation)
         upload_keys = [
-            "valid_files", "validation_errors", "upload_validated",
-            "upload_results", "upload_in_progress", "last_upload_result"
+            "valid_files",
+            "validation_errors",
+            "upload_validated",
+            "upload_results",
+            "upload_in_progress",
+            "last_upload_result",
         ]
         for key in upload_keys:
             if key in ["upload_results", "upload_in_progress"]:  # These were in the test data

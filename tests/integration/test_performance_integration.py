@@ -58,7 +58,7 @@ class TestPerformanceIntegration:
             uploaded_at=datetime.now() - timedelta(days=1),
         )
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_large_batch_collision_detection_performance(self, mock_get_metadata_service):
         """Test collision detection performance with large batches."""
         # Create large batch of filenames
@@ -75,7 +75,7 @@ class TestPerformanceIntegration:
             def mock_check_multiple_exists(batch_filenames):
                 results = {}
                 for filename in batch_filenames:
-                    file_num = int(filename.split('_')[2].split('.')[0])
+                    file_num = int(filename.split("_")[2].split(".")[0])
                     if file_num % 10 == 0:  # Every 10th file has collision
                         existing_photo = self.create_existing_photo(filename)
                         results[filename] = {
@@ -110,7 +110,7 @@ class TestPerformanceIntegration:
 
             print(f"Batch size {batch_size}: {processing_time:.2f}s, {files_per_second:.1f} files/sec")
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_optimized_collision_detection_performance(self, mock_get_metadata_service):
         """Test optimized collision detection performance."""
         # Create large batch for optimization testing
@@ -125,7 +125,7 @@ class TestPerformanceIntegration:
         def mock_check_multiple_exists(batch_filenames):
             results = {}
             for filename in batch_filenames:
-                file_num = int(filename.split('_')[2].split('.')[0])
+                file_num = int(filename.split("_")[2].split(".")[0])
                 if file_num % 20 == 0:  # Every 20th file has collision
                     existing_photo = self.create_existing_photo(filename)
                     results[filename] = {
@@ -144,9 +144,7 @@ class TestPerformanceIntegration:
 
         # Test optimized collision detection
         start_time = time.perf_counter()
-        collision_results = check_filename_collisions_optimized(
-            self.user_id, filenames, batch_size=100
-        )
+        collision_results = check_filename_collisions_optimized(self.user_id, filenames, batch_size=100)
         end_time = time.perf_counter()
 
         processing_time = end_time - start_time
@@ -162,7 +160,7 @@ class TestPerformanceIntegration:
 
         print(f"Optimized batch: {processing_time:.2f}s, {files_per_second:.1f} files/sec")
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_collision_cache_performance(self, mock_get_metadata_service):
         """Test collision detection cache performance."""
         # Set up metadata service mock
@@ -170,6 +168,7 @@ class TestPerformanceIntegration:
         mock_get_metadata_service.return_value = mock_service
 
         call_count = 0
+
         def mock_check_multiple_exists(batch_filenames):
             nonlocal call_count
             call_count += 1
@@ -207,12 +206,13 @@ class TestPerformanceIntegration:
 
         print(f"First call: {first_call_time:.4f}s, Second call (cached): {second_call_time:.4f}s")
 
-    @patch('imgstream.ui.upload_handlers.get_auth_service')
-    @patch('imgstream.ui.upload_handlers.get_metadata_service')
-    @patch('imgstream.ui.upload_handlers.get_storage_service')
-    @patch('imgstream.ui.upload_handlers.ImageProcessor')
-    def test_batch_upload_performance(self, mock_image_processor_class, mock_get_storage_service,
-                                    mock_get_metadata_service, mock_get_auth_service):
+    @patch("imgstream.ui.upload_handlers.get_auth_service")
+    @patch("imgstream.ui.upload_handlers.get_metadata_service")
+    @patch("imgstream.ui.upload_handlers.get_storage_service")
+    @patch("imgstream.ui.upload_handlers.ImageProcessor")
+    def test_batch_upload_performance(
+        self, mock_image_processor_class, mock_get_storage_service, mock_get_metadata_service, mock_get_auth_service
+    ):
         """Test batch upload performance with various batch sizes."""
         # Set up mocks
         mock_auth_service = MagicMock()
@@ -246,12 +246,14 @@ class TestPerformanceIntegration:
             # Create test files
             valid_files = []
             for i in range(batch_size):
-                valid_files.append({
-                    "file_object": self.create_mock_uploaded_file(f"batch_perf_{i:03d}.jpg"),
-                    "filename": f"batch_perf_{i:03d}.jpg",
-                    "size": 1024,
-                    "data": b"test_data",
-                })
+                valid_files.append(
+                    {
+                        "file_object": self.create_mock_uploaded_file(f"batch_perf_{i:03d}.jpg"),
+                        "filename": f"batch_perf_{i:03d}.jpg",
+                        "size": 1024,
+                        "data": b"test_data",
+                    }
+                )
 
             # Measure batch upload performance
             start_time = time.perf_counter()
@@ -279,7 +281,7 @@ class TestPerformanceIntegration:
         num_threads = 10
         files_per_thread = 20
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
 
@@ -298,7 +300,7 @@ class TestPerformanceIntegration:
                 # Return collision for files ending in '0'
                 results = {}
                 for filename in batch_filenames:
-                    if filename.endswith('0.jpg'):
+                    if filename.endswith("0.jpg"):
                         existing_photo = self.create_existing_photo(filename)
                         results[filename] = {
                             "existing_photo": existing_photo,
@@ -373,7 +375,7 @@ class TestPerformanceIntegration:
         large_batch_size = 2000
         filenames = [f"memory_test_{i:04d}.jpg" for i in range(large_batch_size)]
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
 
@@ -418,14 +420,16 @@ class TestPerformanceIntegration:
         # Test collision detection with and without monitoring
         filenames = [f"monitor_perf_{i:03d}.jpg" for i in range(100)]
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
             mock_service.check_filename_exists.return_value = None  # No collisions
 
             # Test without monitoring (mock the monitoring functions)
-            with patch('imgstream.utils.collision_detection.log_collision_detected'), \
-                 patch('imgstream.utils.collision_detection.log_batch_collision_detection'):
+            with (
+                patch("imgstream.utils.collision_detection.log_collision_detected"),
+                patch("imgstream.utils.collision_detection.log_batch_collision_detection"),
+            ):
 
                 start_time = time.perf_counter()
                 result_without_monitoring = check_filename_collisions(self.user_id, filenames)
@@ -442,7 +446,9 @@ class TestPerformanceIntegration:
 
             # Performance impact should be minimal
             monitoring_overhead = time_with_monitoring - time_without_monitoring
-            overhead_percentage = (monitoring_overhead / time_without_monitoring) * 100 if time_without_monitoring > 0 else 0
+            overhead_percentage = (
+                (monitoring_overhead / time_without_monitoring) * 100 if time_without_monitoring > 0 else 0
+            )
 
             # Monitoring overhead should be less than 50%
             assert overhead_percentage < 50
@@ -471,7 +477,7 @@ class TestPerformanceIntegration:
                     user_id=self.user_id,
                     filenames=filenames,
                     collision_results=collision_results,
-                    processing_time_ms=1000.0
+                    processing_time_ms=1000.0,
                 )
 
             end_time = time.perf_counter()
@@ -488,11 +494,12 @@ class TestPerformanceIntegration:
         # Test different cache access patterns
         base_filenames = [f"cache_eff_{i:02d}.jpg" for i in range(20)]
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
 
             call_count = 0
+
             def mock_check_with_counting(filename):
                 nonlocal call_count
                 call_count += 1
@@ -543,7 +550,7 @@ class TestLoadTesting:
         requests_per_second = 5
         files_per_request = 10
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
             mock_service.check_filename_exists.return_value = None  # No collisions
@@ -588,7 +595,7 @@ class TestLoadTesting:
         burst_size = 100
         normal_size = 10
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
             mock_service.check_filename_exists.return_value = None
@@ -625,7 +632,7 @@ class TestLoadTesting:
 
         initial_objects = len(gc.get_objects())
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
             mock_service.check_filename_exists.return_value = None
@@ -656,12 +663,13 @@ class TestLoadTesting:
         total_requests = 200
         expected_error_rate = 0.05  # 5% acceptable error rate
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
 
             # Configure service to fail occasionally
             call_count = 0
+
             def mock_check_with_occasional_failure(filename):
                 nonlocal call_count
                 call_count += 1

@@ -665,6 +665,7 @@ def process_single_upload_with_progress(
             "message": f"Failed to {operation_type} {filename}: {str(e)}",
         }
 
+
 def clear_upload_session_state() -> None:
     """Clear upload-related session state variables."""
     session_keys_to_clear = [
@@ -713,24 +714,6 @@ def _get_collision_detection_error_message(error: Exception) -> str:
     else:
         return f"衝突検出中にエラーが発生しました: {error_str[:100]}{'...' if len(error_str) > 100 else ''}"
 
-def handle_collision_decision_monitoring(
-    user_id: str, filename: str, decision: str, decision_start_time: float | None = None, **collision_context
-) -> None:
-    """
-    Handle monitoring of user collision decisions.
-
-    Args:
-        user_id: ID of the user making the decision
-        filename: Name of the file with collision
-        decision: User's decision ('overwrite', 'skip', 'pending')
-        decision_start_time: When the decision process started (for timing)
-        **collision_context: Additional context about the collision
-    """
-    # Monitoring functionality removed for personal development use
-    # Calculate decision time if start time provided would be here
-    # Log the user decision would be here
-    pass
-
 
 def collect_user_collision_decisions(collision_results: dict, user_id: str) -> dict:
     """
@@ -761,21 +744,6 @@ def collect_user_collision_decisions(collision_results: dict, user_id: str) -> d
         if decision_start_key not in st.session_state:
             st.session_state[decision_start_key] = time.perf_counter()
 
-        decision_start_time = st.session_state[decision_start_key]
-
-        # If decision changed, log it
-        if current_decision != previous_decision and current_decision != "pending":
-            handle_collision_decision_monitoring(
-                user_id=user_id,
-                filename=filename,
-                decision=current_decision,
-                decision_start_time=decision_start_time,
-                existing_photo_id=collision_info.get("existing_photo", {}).get("id"),
-                fallback_mode=collision_info.get("fallback_mode", False),
-                file_size=collision_info.get("existing_file_info", {}).get("file_size"),
-                upload_date=collision_info.get("existing_file_info", {}).get("upload_date"),
-            )
-
         # Update collision info with current decision
         updated_collision_info = collision_info.copy()
         updated_collision_info["user_decision"] = current_decision
@@ -802,19 +770,3 @@ def get_collision_decision_statistics(user_id: str) -> dict:
         "average_decision_time": 0.0,
         "user_id": user_id,
     }
-
-
-def monitor_batch_collision_processing(
-    user_id: str, filenames: list, collision_results: dict, processing_time_ms: float
-) -> None:
-    """
-    Monitor batch collision processing for performance and reliability.
-
-    Args:
-        user_id: ID of the user
-        filenames: List of filenames being processed
-        collision_results: Results of collision detection
-        processing_time_ms: Time taken for processing in milliseconds
-    """
-    # Monitoring functionality removed for personal development use
-    pass

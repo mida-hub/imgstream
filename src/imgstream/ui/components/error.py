@@ -406,6 +406,7 @@ class StreamlitErrorContext:
         if exc_type is not None:
             # Import RerunException for special handling
             from streamlit.runtime.scriptrunner_utils.exceptions import RerunException
+
             try:
                 # RerunException is a normal control flow exception, not an error
                 if isinstance(exc_val, RerunException):

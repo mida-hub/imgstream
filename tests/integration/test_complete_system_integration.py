@@ -46,6 +46,7 @@ class TestCompleteSystemIntegration:
     def teardown_method(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def create_mock_uploaded_file(self, filename: str, content: bytes = b"fake_image_data") -> MagicMock:
@@ -72,14 +73,19 @@ class TestCompleteSystemIntegration:
             uploaded_at=datetime.now() - timedelta(days=1),
         )
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
-    @patch('imgstream.ui.upload_handlers.get_auth_service')
-    @patch('imgstream.ui.upload_handlers.get_metadata_service')
-    @patch('imgstream.ui.upload_handlers.get_storage_service')
-    @patch('imgstream.ui.upload_handlers.ImageProcessor')
-    def test_complete_upload_workflow_with_collisions(self, mock_image_processor_class,
-                                                    mock_get_storage_service, mock_get_metadata_service_ui,
-                                                    mock_get_auth_service, mock_get_metadata_service_utils):
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
+    @patch("imgstream.ui.upload_handlers.get_auth_service")
+    @patch("imgstream.ui.upload_handlers.get_metadata_service")
+    @patch("imgstream.ui.upload_handlers.get_storage_service")
+    @patch("imgstream.ui.upload_handlers.ImageProcessor")
+    def test_complete_upload_workflow_with_collisions(
+        self,
+        mock_image_processor_class,
+        mock_get_storage_service,
+        mock_get_metadata_service_ui,
+        mock_get_auth_service,
+        mock_get_metadata_service_utils,
+    ):
         """Test complete upload workflow with collision detection and resolution."""
         # Set up auth service
         mock_auth_service = MagicMock()
@@ -156,9 +162,7 @@ class TestCompleteSystemIntegration:
             self.create_mock_uploaded_file("photo3.jpg"),  # No collision
         ]
 
-        valid_files, validation_errors, collision_results = validate_uploaded_files_with_collision_check(
-            uploaded_files
-        )
+        valid_files, validation_errors, collision_results = validate_uploaded_files_with_collision_check(uploaded_files)
 
         # Verify validation results
         assert len(valid_files) == 3
@@ -209,8 +213,11 @@ class TestCompleteSystemIntegration:
         # Check overwrite events - verify through service calls instead of monitoring
         # The monitoring system may not capture events in test environment
         # Verify that overwrite operations were performed through service calls
-        overwrite_calls = [call for call in mock_metadata_service.save_or_update_photo_metadata.call_args_list
-                          if call[1].get('is_overwrite', False)]
+        overwrite_calls = [
+            call
+            for call in mock_metadata_service.save_or_update_photo_metadata.call_args_list
+            if call[1].get("is_overwrite", False)
+        ]
         assert len(overwrite_calls) >= 1  # At least one overwrite operation
 
         # Step 5: Verify service calls
@@ -218,7 +225,7 @@ class TestCompleteSystemIntegration:
         assert mock_storage_service.upload_thumbnail.call_count == 2  # photo1 + photo3
         assert mock_metadata_service.save_or_update_photo_metadata.call_count == 2  # photo1 + photo3
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_performance_under_load(self, mock_get_metadata_service):
         """Test system performance under load conditions."""
         mock_service = MagicMock()
@@ -232,7 +239,7 @@ class TestCompleteSystemIntegration:
         def mock_check_performance_batch(filenames_list):
             results = {}
             for filename in filenames_list:
-                file_num = int(filename.split('_')[2].split('.')[0])
+                file_num = int(filename.split("_")[2].split(".")[0])
                 if file_num % 10 == 0:
                     existing_photo = self.create_existing_photo(filename)
                     results[filename] = {
@@ -251,6 +258,7 @@ class TestCompleteSystemIntegration:
 
         # Test regular collision detection
         import time
+
         start_time = time.perf_counter()
         collision_results = check_filename_collisions(self.user_id, filenames)
         regular_time = time.perf_counter() - start_time
@@ -284,13 +292,14 @@ class TestCompleteSystemIntegration:
         print(f"  Optimized: {optimized_time:.2f}s ({files_per_second_optimized:.1f} files/sec)")
         print(f"  Improvement: {(regular_time / optimized_time):.1f}x faster")
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_cache_effectiveness(self, mock_get_metadata_service):
         """Test collision detection cache effectiveness."""
         mock_service = MagicMock()
         mock_get_metadata_service.return_value = mock_service
 
         call_count = 0
+
         def mock_check_batch_with_counting(filenames_list):
             nonlocal call_count
             call_count += 1  # Count batch calls, not individual file calls
@@ -329,7 +338,7 @@ class TestCompleteSystemIntegration:
         assert final_stats["valid_entries"] >= 2  # At least 2 cached batch entries
 
     @patch.dict(os.environ, {"ENVIRONMENT": "development"})
-    @patch('imgstream.api.database_admin.get_metadata_service')
+    @patch("imgstream.api.database_admin.get_metadata_service")
     def test_database_admin_integration(self, mock_get_metadata_service):
         """Test database admin functionality integration."""
         # Verify environment detection
@@ -439,7 +448,7 @@ class TestCompleteSystemIntegration:
         assert stats["overwrite_metrics"]["total_operations"] == 1
         assert stats["overwrite_metrics"]["success_rate"] == 1.0
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_error_recovery_integration(self, mock_get_metadata_service):
         """Test error recovery mechanisms across the system."""
         mock_service = MagicMock()
@@ -474,6 +483,7 @@ class TestCompleteSystemIntegration:
         for i in range(10):
             # Create collision monitor events
             from imgstream.monitoring.collision_monitor import log_collision_detected
+
             log_collision_detected(self.user_id, f"cleanup_test_{i}.jpg", f"existing_{i}", 100.0)
 
             # Create cache entries
@@ -508,7 +518,7 @@ class TestSystemBenchmarks:
         self.user_id = "benchmark_user"
         clear_collision_cache()
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_collision_detection_benchmark(self, mock_get_metadata_service):
         """Benchmark collision detection performance."""
         mock_service = MagicMock()
@@ -523,6 +533,7 @@ class TestSystemBenchmarks:
             filenames = [f"benchmark_{i:04d}.jpg" for i in range(batch_size)]
 
             import time
+
             start_time = time.perf_counter()
             collision_results = check_filename_collisions(self.user_id, filenames)
             end_time = time.perf_counter()
@@ -545,11 +556,13 @@ class TestSystemBenchmarks:
         print("Batch Size | Time (s) | Files/sec | Collisions")
         print("-" * 45)
         for batch_size, result in results.items():
-            print(f"{batch_size:9d} | {result['processing_time']:7.2f} | {result['files_per_second']:8.1f} | {result['collisions_found']:10d}")
+            print(
+                f"{batch_size:9d} | {result['processing_time']:7.2f} | {result['files_per_second']:8.1f} | {result['collisions_found']:10d}"
+            )
 
     def test_cache_performance_benchmark(self):
         """Benchmark cache performance."""
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
             mock_service.check_filename_exists.return_value = None
@@ -558,6 +571,7 @@ class TestSystemBenchmarks:
 
             # Benchmark without cache
             import time
+
             start_time = time.perf_counter()
             for _ in range(5):  # 5 iterations
                 check_filename_collisions(self.user_id, filenames, use_cache=False)

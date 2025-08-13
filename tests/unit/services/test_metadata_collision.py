@@ -366,14 +366,17 @@ class TestMetadataServiceDatabaseReset:
         """Test force reload when GCS download fails but continues with new database creation."""
         # Clean up any existing test database file
         import os
+
         test_db_path = "/tmp/test/metadata_test_user_123.db"
         if os.path.exists(test_db_path):
             os.remove(test_db_path)
 
         # Mock local database path operations
-        with patch("pathlib.Path.exists") as mock_exists, \
-             patch("pathlib.Path.unlink") as mock_unlink, \
-             patch("src.imgstream.models.database.get_database_manager") as mock_get_db_manager:
+        with (
+            patch("pathlib.Path.exists") as mock_exists,
+            patch("pathlib.Path.unlink") as mock_unlink,
+            patch("src.imgstream.models.database.get_database_manager") as mock_get_db_manager,
+        ):
 
             mock_exists.return_value = False  # Local database doesn't exist
 
@@ -408,12 +411,15 @@ class TestMetadataServiceDatabaseReset:
         """Test that force reload properly closes database manager."""
         # Clean up any existing test database file
         import os
+
         test_db_path = "/tmp/test/metadata_test_user_123.db"
         if os.path.exists(test_db_path):
             os.remove(test_db_path)
 
-        with patch("pathlib.Path.exists") as mock_exists, \
-             patch("src.imgstream.models.database.get_database_manager") as mock_get_db_manager:
+        with (
+            patch("pathlib.Path.exists") as mock_exists,
+            patch("src.imgstream.models.database.get_database_manager") as mock_get_db_manager,
+        ):
 
             mock_exists.return_value = False
 
@@ -447,12 +453,15 @@ class TestMetadataServiceDatabaseReset:
         """Test error handling in force reload when database creation fails."""
         # Clean up any existing test database file
         import os
+
         test_db_path = "/tmp/test/metadata_test_user_123.db"
         if os.path.exists(test_db_path):
             os.remove(test_db_path)
 
-        with patch("pathlib.Path.exists") as mock_exists, \
-             patch("src.imgstream.models.database.get_database_manager") as mock_get_db_manager:
+        with (
+            patch("pathlib.Path.exists") as mock_exists,
+            patch("src.imgstream.models.database.get_database_manager") as mock_get_db_manager,
+        ):
 
             mock_exists.return_value = False
 
@@ -480,7 +489,7 @@ class TestMetadataServiceDatabaseReset:
         mock_storage.download_database_file.return_value = b"fake_database_content"
 
         # Mock database manager and verification
-        with patch('src.imgstream.services.metadata.get_database_manager') as mock_get_db:
+        with patch("src.imgstream.services.metadata.get_database_manager") as mock_get_db:
             mock_db_manager = Mock()
             mock_db_manager.verify_schema.return_value = True
             mock_db_manager.__enter__ = Mock(return_value=mock_db_manager)
@@ -507,13 +516,19 @@ class TestMetadataServiceDatabaseReset:
         assert mock_log_action.call_count >= 2  # At least initiation and completion
 
         # Check that database_reset_initiated was called
-        initiation_calls = [call for call in mock_log_action.call_args_list
-                           if len(call[0]) >= 2 and call[0][1] == "database_reset_initiated"]
+        initiation_calls = [
+            call
+            for call in mock_log_action.call_args_list
+            if len(call[0]) >= 2 and call[0][1] == "database_reset_initiated"
+        ]
         assert len(initiation_calls) == 1
 
         # Check that database_reset_completed was called
-        completion_calls = [call for call in mock_log_action.call_args_list
-                           if len(call[0]) >= 2 and call[0][1] == "database_reset_completed"]
+        completion_calls = [
+            call
+            for call in mock_log_action.call_args_list
+            if len(call[0]) >= 2 and call[0][1] == "database_reset_completed"
+        ]
         assert len(completion_calls) == 1
 
 

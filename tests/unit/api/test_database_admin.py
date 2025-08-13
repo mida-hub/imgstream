@@ -70,7 +70,7 @@ class TestDatabaseAdminOperations:
         self.user_id = "admin_test_user"
 
     @patch.dict(os.environ, {"ENVIRONMENT": "development"})
-    @patch('imgstream.api.database_admin.get_metadata_service')
+    @patch("imgstream.api.database_admin.get_metadata_service")
     def test_reset_user_database_success(self, mock_get_metadata_service):
         """Test successful user database reset."""
         # Mock metadata service
@@ -115,7 +115,7 @@ class TestDatabaseAdminOperations:
         assert "requires explicit confirmation" in str(exc_info.value)
 
     @patch.dict(os.environ, {"ENVIRONMENT": "development"})
-    @patch('imgstream.api.database_admin.get_metadata_service')
+    @patch("imgstream.api.database_admin.get_metadata_service")
     def test_reset_user_database_service_failure(self, mock_get_metadata_service):
         """Test database reset when service fails."""
         # Mock metadata service to fail
@@ -129,7 +129,7 @@ class TestDatabaseAdminOperations:
         assert "Database reset failed" in str(exc_info.value)
 
     @patch.dict(os.environ, {"ENVIRONMENT": "development"})
-    @patch('imgstream.api.database_admin.get_metadata_service')
+    @patch("imgstream.api.database_admin.get_metadata_service")
     def test_get_database_status_success(self, mock_get_metadata_service):
         """Test successful database status retrieval."""
         # Mock metadata service
@@ -168,7 +168,7 @@ class TestDatabaseAdminOperations:
         assert "only available in development/test environments" in str(exc_info.value)
 
     @patch.dict(os.environ, {"ENVIRONMENT": "development"})
-    @patch('imgstream.api.database_admin.get_metadata_service')
+    @patch("imgstream.api.database_admin.get_metadata_service")
     def test_get_database_status_service_failure(self, mock_get_metadata_service):
         """Test database status when service fails."""
         # Mock metadata service to fail
@@ -182,13 +182,11 @@ class TestDatabaseAdminOperations:
         assert "Failed to get database status" in str(exc_info.value)
 
 
-
-
 class TestDatabaseAdminIntegration:
     """Integration tests for database admin functionality."""
 
     @patch.dict(os.environ, {"ENVIRONMENT": "development"})
-    @patch('imgstream.api.database_admin.get_metadata_service')
+    @patch("imgstream.api.database_admin.get_metadata_service")
     def test_complete_admin_workflow(self, mock_get_metadata_service):
         """Test complete admin workflow: status -> reset -> status."""
         user_id = "workflow_test_user"
@@ -245,7 +243,7 @@ class TestDatabaseAdminIntegration:
         mock_service.force_reload_from_gcs.assert_called_once_with(confirm_reset=True)
 
     @patch.dict(os.environ, {"ENVIRONMENT": "development"})
-    @patch('imgstream.api.database_admin.get_metadata_service')
+    @patch("imgstream.api.database_admin.get_metadata_service")
     def test_admin_operations_with_integrity_issues(self, mock_get_metadata_service):
         """Test admin operations when database has integrity issues."""
         user_id = "integrity_test_user"

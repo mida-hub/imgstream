@@ -42,11 +42,12 @@ class TestErrorRecoveryIntegration:
         mock_file.seek = MagicMock()
         return mock_file
 
-    @patch('imgstream.utils.collision_detection.check_filename_collisions')
+    @patch("imgstream.utils.collision_detection.check_filename_collisions")
     def test_collision_detection_retry_mechanism(self, mock_check_collisions):
         """Test collision detection retry mechanism with eventual success."""
         # Configure collision detection to fail first two attempts, succeed on third
         call_count = 0
+
         def mock_check_with_retries(user_id, filenames):
             nonlocal call_count
             call_count += 1
@@ -61,12 +62,7 @@ class TestErrorRecoveryIntegration:
 
         # Test retry mechanism
         start_time = time.perf_counter()
-        result = check_filename_collisions_with_retry(
-            self.user_id,
-            ["retry_test.jpg"],
-            max_retries=3,
-            retry_delay=0.1
-        )
+        result = check_filename_collisions_with_retry(self.user_id, ["retry_test.jpg"], max_retries=3, retry_delay=0.1)
         end_time = time.perf_counter()
 
         # Verify eventual success
@@ -77,7 +73,7 @@ class TestErrorRecoveryIntegration:
         elapsed_time = end_time - start_time
         assert elapsed_time >= 0.3  # 0.1 + 0.2 (exponential backoff)
 
-    @patch('imgstream.utils.collision_detection.check_filename_collisions')
+    @patch("imgstream.utils.collision_detection.check_filename_collisions")
     def test_collision_detection_retry_exhaustion(self, mock_check_collisions):
         """Test collision detection when all retries are exhausted."""
         # Configure collision detection to always fail
@@ -85,18 +81,13 @@ class TestErrorRecoveryIntegration:
 
         # Test retry exhaustion
         with pytest.raises(CollisionDetectionRecoveryError) as exc_info:
-            check_filename_collisions_with_retry(
-                self.user_id,
-                ["persistent_fail.jpg"],
-                max_retries=2,
-                retry_delay=0.05
-            )
+            check_filename_collisions_with_retry(self.user_id, ["persistent_fail.jpg"], max_retries=2, retry_delay=0.05)
 
         # Verify error message contains retry information
         assert "failed after 3 attempts" in str(exc_info.value)
         assert "Persistent failure" in str(exc_info.value)
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_fallback_mode_activation(self, mock_get_metadata_service):
         """Test fallback mode activation when primary detection fails."""
         mock_service = MagicMock()
@@ -108,9 +99,7 @@ class TestErrorRecoveryIntegration:
 
         # Test fallback mode
         collision_results, fallback_used = check_filename_collisions_with_fallback(
-            self.user_id,
-            ["fallback_test1.jpg", "fallback_test2.jpg"],
-            enable_fallback=True
+            self.user_id, ["fallback_test1.jpg", "fallback_test2.jpg"], enable_fallback=True
         )
 
         # Verify fallback was used
@@ -125,7 +114,7 @@ class TestErrorRecoveryIntegration:
             assert collision_info["collision_detected"] is True
             assert "安全のため既存ファイルがあると仮定" in collision_info["warning_message"]
 
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_fallback_mode_disabled(self, mock_get_metadata_service):
         """Test behavior when fallback mode is disabled."""
         mock_service = MagicMock()
@@ -137,14 +126,10 @@ class TestErrorRecoveryIntegration:
 
         # Test with fallback disabled
         with pytest.raises((CollisionDetectionError, CollisionDetectionRecoveryError)):
-            check_filename_collisions_with_fallback(
-                self.user_id,
-                ["no_fallback_test.jpg"],
-                enable_fallback=False
-            )
+            check_filename_collisions_with_fallback(self.user_id, ["no_fallback_test.jpg"], enable_fallback=False)
 
-    @patch('imgstream.ui.upload_handlers.get_auth_service')
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.ui.upload_handlers.get_auth_service")
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_validation_with_collision_detection_failure(self, mock_get_metadata_service, mock_get_auth_service):
         """Test file validation when collision detection fails."""
         # Set up auth service
@@ -165,7 +150,7 @@ class TestErrorRecoveryIntegration:
         ]
 
         # Mock image processor for validation
-        with patch('imgstream.ui.upload_handlers.ImageProcessor') as mock_processor_class:
+        with patch("imgstream.ui.upload_handlers.ImageProcessor") as mock_processor_class:
             mock_processor = MagicMock()
             mock_processor_class.return_value = mock_processor
             mock_processor.is_supported_format.return_value = True
@@ -183,10 +168,7 @@ class TestErrorRecoveryIntegration:
             assert len(validation_errors) >= 1
 
             # Find collision-related error
-            collision_error = next(
-                (error for error in validation_errors if "衝突検出" in error.get("error", "")),
-                None
-            )
+            collision_error = next((error for error in validation_errors if "衝突検出" in error.get("error", "")), None)
             assert collision_error is not None
             assert "フォールバック" in collision_error["error"]
             assert "details" in collision_error
@@ -194,8 +176,8 @@ class TestErrorRecoveryIntegration:
             # Verify collision results contain fallback results (all files assumed to have collisions)
             assert len(collision_results) == 2  # Both files should be in fallback mode
 
-    @patch('imgstream.ui.upload_handlers.get_auth_service')
-    @patch('imgstream.utils.collision_detection.get_metadata_service')
+    @patch("imgstream.ui.upload_handlers.get_auth_service")
+    @patch("imgstream.utils.collision_detection.get_metadata_service")
     def test_validation_with_collision_detection_fallback(self, mock_get_metadata_service, mock_get_auth_service):
         """Test file validation when collision detection uses fallback mode."""
         # Set up auth service
@@ -216,7 +198,7 @@ class TestErrorRecoveryIntegration:
         ]
 
         # Mock image processor for validation
-        with patch('imgstream.ui.upload_handlers.ImageProcessor') as mock_processor_class:
+        with patch("imgstream.ui.upload_handlers.ImageProcessor") as mock_processor_class:
             mock_processor = MagicMock()
             mock_processor_class.return_value = mock_processor
             mock_processor.is_supported_format.return_value = True
@@ -232,8 +214,7 @@ class TestErrorRecoveryIntegration:
 
             # Verify fallback warning is present
             fallback_error = next(
-                (error for error in validation_errors if "フォールバック" in error.get("error", "")),
-                None
+                (error for error in validation_errors if "フォールバック" in error.get("error", "")), None
             )
             assert fallback_error is not None
             assert "安全モード" in fallback_error["details"]
@@ -243,12 +224,13 @@ class TestErrorRecoveryIntegration:
             for filename in ["fallback1.jpg", "fallback2.jpg"]:
                 assert collision_results[filename]["fallback_mode"] is True
 
-    @patch('imgstream.ui.upload_handlers.get_auth_service')
-    @patch('imgstream.ui.upload_handlers.get_metadata_service')
-    @patch('imgstream.ui.upload_handlers.get_storage_service')
-    @patch('imgstream.ui.upload_handlers.ImageProcessor')
-    def test_batch_upload_with_partial_failures(self, mock_image_processor_class, mock_get_storage_service,
-                                               mock_get_metadata_service, mock_get_auth_service):
+    @patch("imgstream.ui.upload_handlers.get_auth_service")
+    @patch("imgstream.ui.upload_handlers.get_metadata_service")
+    @patch("imgstream.ui.upload_handlers.get_storage_service")
+    @patch("imgstream.ui.upload_handlers.ImageProcessor")
+    def test_batch_upload_with_partial_failures(
+        self, mock_image_processor_class, mock_get_storage_service, mock_get_metadata_service, mock_get_auth_service
+    ):
         """Test batch upload with some files failing and others succeeding."""
         # Set up mocks
         mock_auth_service = MagicMock()
@@ -329,12 +311,13 @@ class TestErrorRecoveryIntegration:
         assert failed_result["filename"] == "fail_file.jpg"
         assert "Database write failed" in failed_result["error"]
 
-    @patch('imgstream.ui.upload_handlers.get_auth_service')
-    @patch('imgstream.ui.upload_handlers.get_metadata_service')
-    @patch('imgstream.ui.upload_handlers.get_storage_service')
-    @patch('imgstream.ui.upload_handlers.ImageProcessor')
-    def test_overwrite_operation_failure_recovery(self, mock_image_processor_class, mock_get_storage_service,
-                                                 mock_get_metadata_service, mock_get_auth_service):
+    @patch("imgstream.ui.upload_handlers.get_auth_service")
+    @patch("imgstream.ui.upload_handlers.get_metadata_service")
+    @patch("imgstream.ui.upload_handlers.get_storage_service")
+    @patch("imgstream.ui.upload_handlers.ImageProcessor")
+    def test_overwrite_operation_failure_recovery(
+        self, mock_image_processor_class, mock_get_storage_service, mock_get_metadata_service, mock_get_auth_service
+    ):
         """Test overwrite operation failure and recovery mechanisms."""
         # Set up mocks
         mock_auth_service = MagicMock()
@@ -382,22 +365,20 @@ class TestErrorRecoveryIntegration:
 
     def test_network_timeout_simulation(self):
         """Test behavior during network timeouts and connectivity issues."""
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
 
             # Simulate network timeout
             import socket
+
             mock_service.check_multiple_filename_exists.side_effect = socket.timeout("Network timeout")
             mock_service.check_filename_exists.side_effect = socket.timeout("Network timeout")
 
             # Test collision detection with network timeout
             with pytest.raises((CollisionDetectionError, CollisionDetectionRecoveryError)) as exc_info:
                 check_filename_collisions_with_retry(
-                    self.user_id,
-                    ["network_timeout.jpg"],
-                    max_retries=1,
-                    retry_delay=0.1
+                    self.user_id, ["network_timeout.jpg"], max_retries=1, retry_delay=0.1
                 )
 
             # Verify timeout was handled as a collision detection error
@@ -409,7 +390,7 @@ class TestErrorRecoveryIntegration:
         large_batch_size = 1000
         filenames = [f"memory_test_{i:04d}.jpg" for i in range(large_batch_size)]
 
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
 
@@ -446,6 +427,7 @@ class TestErrorRecoveryIntegration:
 
                 # Verify memory usage is reasonable (basic check)
                 import sys
+
                 # This is a simple check - in a real scenario, you'd use more sophisticated memory monitoring
                 assert sys.getsizeof(collision_results) > 0
 
@@ -455,12 +437,13 @@ class TestErrorRecoveryIntegration:
 
     def test_database_connection_recovery(self):
         """Test database connection recovery scenarios."""
-        with patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_service:
+        with patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_service:
             mock_service = MagicMock()
             mock_get_service.return_value = mock_service
 
             # Simulate database connection issues
             call_count = 0
+
             def mock_check_with_connection_recovery(filename):
                 nonlocal call_count
                 call_count += 1
@@ -480,10 +463,7 @@ class TestErrorRecoveryIntegration:
 
             # Test connection recovery
             result = check_filename_collisions_with_retry(
-                self.user_id,
-                ["db_recovery.jpg"],
-                max_retries=4,
-                retry_delay=0.05
+                self.user_id, ["db_recovery.jpg"], max_retries=4, retry_delay=0.05
             )
 
             # Verify eventual success after connection recovery
@@ -494,8 +474,10 @@ class TestErrorRecoveryIntegration:
         """Test prevention of cascading failures across the system."""
         # Test that failure in one component doesn't cascade to others
 
-        with patch('imgstream.ui.upload_handlers.get_auth_service') as mock_get_auth_service, \
-             patch('imgstream.utils.collision_detection.get_metadata_service') as mock_get_metadata_service:
+        with (
+            patch("imgstream.ui.upload_handlers.get_auth_service") as mock_get_auth_service,
+            patch("imgstream.utils.collision_detection.get_metadata_service") as mock_get_metadata_service,
+        ):
 
             # Set up auth service to work
             mock_auth_service = MagicMock()
@@ -512,7 +494,7 @@ class TestErrorRecoveryIntegration:
             uploaded_files = [self.create_mock_uploaded_file("cascade_test.jpg")]
 
             # Mock image processor for validation
-            with patch('imgstream.ui.upload_handlers.ImageProcessor') as mock_processor_class:
+            with patch("imgstream.ui.upload_handlers.ImageProcessor") as mock_processor_class:
                 mock_processor = MagicMock()
                 mock_processor_class.return_value = mock_processor
                 mock_processor.is_supported_format.return_value = True
@@ -533,8 +515,7 @@ class TestErrorRecoveryIntegration:
 
                 # Verify system didn't crash and provided user-friendly error
                 collision_error = next(
-                    (error for error in validation_errors if "フォールバック" in error.get("error", "")),
-                    None
+                    (error for error in validation_errors if "フォールバック" in error.get("error", "")), None
                 )
                 assert collision_error is not None
                 assert "details" in collision_error
@@ -546,18 +527,12 @@ def _get_collision_detection_error_message(error: Exception) -> str:
 
     if "timeout" in error_str or "connection" in error_str:
         return (
-            "ネットワーク接続に問題があります。インターネット接続を確認して、"
-            "しばらく待ってから再試行してください。"
+            "ネットワーク接続に問題があります。インターネット接続を確認して、" "しばらく待ってから再試行してください。"
         )
     elif "database" in error_str or "metadata" in error_str:
-        return (
-            "データベースサービスに一時的な問題が発生しています。"
-            "数分待ってから再試行してください。"
-        )
+        return "データベースサービスに一時的な問題が発生しています。" "数分待ってから再試行してください。"
     elif "memory" in error_str:
-        return (
-            "システムリソースが不足しています。ファイル数を減らして再試行してください。"
-        )
+        return "システムリソースが不足しています。ファイル数を減らして再試行してください。"
     else:
         return (
             "衝突検出システムに予期しない問題が発生しました。"

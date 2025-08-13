@@ -314,9 +314,10 @@ class TestEdgeCases(E2ETestBase):
                         # Some special characters might cause issues, which is acceptable
                         # as long as the system handles them gracefully
                         error_msg = str(e).lower()
-                        assert any(keyword in error_msg for keyword in [
-                            "filename", "invalid", "permission", "access", "denied", "failed"
-                        ])
+                        assert any(
+                            keyword in error_msg
+                            for keyword in ["filename", "invalid", "permission", "access", "denied", "failed"]
+                        )
 
     def test_very_small_images(self, test_users):
         """Test handling of very small images."""

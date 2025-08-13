@@ -17,7 +17,6 @@ class TestSimpleAuthentication:
         assert user_info.user_id == "test-user-123"
         assert user_info.email == "test@example.com"
 
-
         # Test storage path generation
         storage_path = user_info.get_storage_path_prefix()
         assert "test_at_example_dot_com" in storage_path
