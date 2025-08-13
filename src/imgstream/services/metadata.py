@@ -1208,7 +1208,7 @@ class MetadataService:
                 existing_file_info = {
                     "upload_date": existing_photo.uploaded_at,
                     "file_size": existing_photo.file_size,
-                    "creation_date": existing_photo.created_at,
+                    "created_at": existing_photo.created_at,
                     "photo_id": existing_photo.id,
                 }
 

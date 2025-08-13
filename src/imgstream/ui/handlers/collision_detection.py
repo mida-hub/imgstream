@@ -322,7 +322,6 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
 
     try:
         metadata_service = get_metadata_service(user_id)
-        collision_results = {}
 
         logger.info(
             "batch_collision_detection_started",
@@ -501,7 +500,7 @@ def _create_fallback_collision_results(user_id: str, filenames: list[str]) -> di
                 "file_size": 0,  # Unknown
                 "photo_id": "unknown",
                 "upload_date": datetime.now(),
-                "creation_date": None,
+                "created_at": None,
             },
             "collision_detected": True,
             "fallback_mode": True,

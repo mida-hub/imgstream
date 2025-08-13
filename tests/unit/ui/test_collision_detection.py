@@ -49,7 +49,7 @@ class TestCollisionDetectionUtilities:
             "existing_file_info": {
                 "upload_date": photo_metadata.uploaded_at,
                 "file_size": photo_metadata.file_size,
-                "creation_date": photo_metadata.created_at,
+                "created_at": photo_metadata.created_at,
                 "photo_id": photo_metadata.id,
             },
             "user_decision": "pending",
@@ -318,7 +318,7 @@ class TestCollisionDetectionIntegration:
             "existing_file_info": {
                 "upload_date": photo_metadata.uploaded_at,
                 "file_size": photo_metadata.file_size,
-                "creation_date": photo_metadata.created_at,
+                "created_at": photo_metadata.created_at,
                 "photo_id": photo_metadata.id,
             },
             "user_decision": "pending",

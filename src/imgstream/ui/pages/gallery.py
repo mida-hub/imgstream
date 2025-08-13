@@ -259,17 +259,17 @@ def render_photo_thumbnail(photo: dict[str, Any], size: str = "medium") -> None:
             st.image(thumbnail_url, caption=photo.get("filename", "不明"), use_container_width=True)
 
             # Photo info overlay
-            creation_date = photo.get("created_at")
-            if creation_date:
-                if isinstance(creation_date, str):
+            created_at = photo.get("created_at")
+            if created_at:
+                if isinstance(created_at, str):
                     # Parse string date
                     try:
-                        creation_date = datetime.fromisoformat(creation_date.replace("Z", "+00:00"))
+                        created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
                     except (ValueError, TypeError):
-                        creation_date = None
+                        created_at = None
 
-                if creation_date:
-                    st.caption(f"📅 {creation_date.strftime('%Y-%m-%d')}")
+                if created_at:
+                    st.caption(f"📅 {created_at.strftime('%Y-%m-%d')}")
 
             # Enhanced click handler for photo details
             if st.button("🔍 詳細を表示", key=f"view_{photo.get('id', 'unknown')}", use_container_width=True):
@@ -311,18 +311,18 @@ def render_photo_details(photo: dict[str, Any]) -> None:
     st.markdown(f"**📷 {filename}**")
 
     # Creation date
-    creation_date = photo.get("created_at")
-    if creation_date:
-        if isinstance(creation_date, str):
+    created_at = photo.get("created_at")
+    if created_at:
+        if isinstance(created_at, str):
             try:
-                creation_date = datetime.fromisoformat(creation_date.replace("Z", "+00:00"))
-                st.write(f"📅 **作成日:** {creation_date.strftime('%Y-%m-%d %H:%M:%S')}")
+                created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                st.write(f"📅 **作成日:** {created_at.strftime('%Y-%m-%d %H:%M:%S')}")
             except (ValueError, TypeError):
-                st.write(f"📅 **作成日:** {creation_date}")
-        elif isinstance(creation_date, datetime):
-            st.write(f"📅 **作成日:** {creation_date.strftime('%Y-%m-%d %H:%M:%S')}")
+                st.write(f"📅 **作成日:** {created_at}")
+        elif isinstance(created_at, datetime):
+            st.write(f"📅 **作成日:** {created_at.strftime('%Y-%m-%d %H:%M:%S')}")
         else:
-            st.write(f"📅 **作成日:** {creation_date}")
+            st.write(f"📅 **作成日:** {created_at}")
 
     # Upload date
     upload_date = photo.get("uploaded_at")

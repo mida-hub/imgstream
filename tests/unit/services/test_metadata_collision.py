@@ -85,7 +85,7 @@ class TestMetadataServiceCollisionDetection:
         assert file_info["file_size"] == 1024000
         assert file_info["photo_id"] == "photo_123"
         assert file_info["upload_date"] == sample_photo_metadata.uploaded_at
-        assert file_info["creation_date"] == sample_photo_metadata.created_at
+        assert file_info["created_at"] == sample_photo_metadata.created_at
 
     def test_check_filename_exists_database_error(self, metadata_service):
         """Test check_filename_exists when database query fails."""
@@ -554,7 +554,7 @@ class TestUploadHandlersOverwriteSupport:
                     "file_size": 512000,
                     "photo_id": "existing_123",
                     "upload_date": datetime(2024, 1, 10, 10, 0, 0),
-                    "creation_date": datetime(2024, 1, 10, 9, 0, 0),
+                    "created_at": datetime(2024, 1, 10, 9, 0, 0),
                 },
                 "user_decision": "overwrite",
                 "warning_shown": True,
@@ -601,7 +601,7 @@ class TestUploadHandlersOverwriteSupport:
                     "file_size": 512000,
                     "photo_id": "existing_123",
                     "upload_date": datetime(2024, 1, 10, 10, 0, 0),
-                    "creation_date": datetime(2024, 1, 10, 9, 0, 0),
+                    "created_at": datetime(2024, 1, 10, 9, 0, 0),
                 },
                 "user_decision": "skip",
                 "warning_shown": True,
@@ -633,7 +633,7 @@ class TestUploadHandlersOverwriteSupport:
                     "file_size": 512000,
                     "photo_id": "existing_123",
                     "upload_date": datetime(2024, 1, 10, 10, 0, 0),
-                    "creation_date": datetime(2024, 1, 10, 9, 0, 0),
+                    "created_at": datetime(2024, 1, 10, 9, 0, 0),
                 },
                 "user_decision": "pending",
                 "warning_shown": True,
@@ -716,7 +716,7 @@ class TestUploadHandlersOverwriteSupport:
         mock_auth.return_value.ensure_authenticated.return_value = mock_user_info
 
         mock_processor = Mock()
-        mock_processor.extract_creation_date.return_value = datetime(2024, 1, 15, 10, 0, 0)
+        mock_processor.extract_created_at.return_value = datetime(2024, 1, 15, 10, 0, 0)
         mock_processor.generate_thumbnail.return_value = b"thumbnail_data"
         mock_image_processor.return_value = mock_processor
 
@@ -757,7 +757,7 @@ class TestUploadHandlersOverwriteSupport:
         mock_auth.return_value.ensure_authenticated.return_value = mock_user_info
 
         mock_processor = Mock()
-        mock_processor.extract_creation_date.return_value = datetime(2024, 1, 15, 10, 0, 0)
+        mock_processor.extract_created_at.return_value = datetime(2024, 1, 15, 10, 0, 0)
         mock_processor.generate_thumbnail.return_value = b"thumbnail_data"
         mock_image_processor.return_value = mock_processor
 

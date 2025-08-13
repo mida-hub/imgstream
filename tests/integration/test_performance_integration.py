@@ -84,7 +84,7 @@ class TestPerformanceIntegration:
                                 "photo_id": existing_photo.id,
                                 "file_size": existing_photo.file_size,
                                 "upload_date": existing_photo.uploaded_at,
-                                "creation_date": existing_photo.created_at,
+                                "created_at": existing_photo.created_at,
                             },
                             "collision_detected": True,
                         }
@@ -134,7 +134,7 @@ class TestPerformanceIntegration:
                             "photo_id": existing_photo.id,
                             "file_size": existing_photo.file_size,
                             "upload_date": existing_photo.uploaded_at,
-                            "creation_date": existing_photo.created_at,
+                            "created_at": existing_photo.created_at,
                         },
                         "collision_detected": True,
                     }
@@ -227,7 +227,7 @@ class TestPerformanceIntegration:
 
         mock_image_processor = MagicMock()
         mock_image_processor_class.return_value = mock_image_processor
-        mock_image_processor.extract_creation_date.return_value = datetime.now()
+        mock_image_processor.extract_created_at.return_value = datetime.now()
         mock_image_processor.generate_thumbnail.return_value = b"thumbnail_data"
 
         # Configure services for fast responses
@@ -308,7 +308,7 @@ class TestPerformanceIntegration:
                                 "photo_id": existing_photo.id,
                                 "file_size": existing_photo.file_size,
                                 "upload_date": existing_photo.uploaded_at,
-                                "creation_date": existing_photo.created_at,
+                                "created_at": existing_photo.created_at,
                             },
                             "collision_detected": True,
                         }
@@ -389,7 +389,7 @@ class TestPerformanceIntegration:
                         "photo_id": existing_photo.id,
                         "file_size": existing_photo.file_size,
                         "upload_date": existing_photo.uploaded_at,
-                        "creation_date": existing_photo.created_at,
+                        "created_at": existing_photo.created_at,
                     },
                     "collision_detected": True,
                     "additional_data": [f"data_{i}" for i in range(10)],  # Some extra data

@@ -92,9 +92,9 @@ def render_collision_warnings(collision_results: dict[str, dict[str, Any]]) -> d
                 )
 
             with info_col3:
-                creation_date = existing_file_info.get("creation_date")
-                if creation_date and isinstance(creation_date, datetime):
-                    creation_str = creation_date.strftime("%Y-%m-%d")
+                created_at = existing_file_info.get("created_at")
+                if created_at and isinstance(created_at, datetime):
+                    creation_str = created_at.strftime("%Y-%m-%d")
                     st.metric("作成日", creation_str, help="写真が撮影された日付")
                 else:
                     st.metric("作成日", "不明", help="写真の撮影日が不明です")

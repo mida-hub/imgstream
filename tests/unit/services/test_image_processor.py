@@ -110,7 +110,7 @@ class TestImageProcessor:
         assert metadata["width"] == 300
         assert metadata["height"] == 200
         assert isinstance(metadata["has_exif"], bool)
-        assert metadata["creation_date"] is None  # No EXIF in test image
+        assert metadata["created_at"] is None  # No EXIF in test image
         assert isinstance(metadata["processed_at"], datetime)
 
     def test_extract_metadata_unsupported_format(self):
@@ -655,7 +655,7 @@ class TestImageProcessorQuality:
             "width",
             "height",
             "has_exif",
-            "creation_date",
+            "created_at",
             "processed_at",
         ]
 
@@ -670,7 +670,7 @@ class TestImageProcessorQuality:
         assert isinstance(metadata["width"], int)
         assert isinstance(metadata["height"], int)
         assert isinstance(metadata["has_exif"], bool)
-        assert metadata["creation_date"] is None or isinstance(metadata["creation_date"], datetime)
+        assert metadata["created_at"] is None or isinstance(metadata["created_at"], datetime)
         assert isinstance(metadata["processed_at"], datetime)
 
     def test_format_validation_comprehensive(self):

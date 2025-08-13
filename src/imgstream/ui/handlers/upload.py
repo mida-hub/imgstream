@@ -245,11 +245,11 @@ def process_single_upload(file_info: dict[str, Any], is_overwrite: bool = False)
         # Step 1: Extract EXIF metadata
         logger.info("extracting_exif_metadata", filename=filename)
         try:
-            creation_date = image_processor.extract_creation_date(file_data)
+            created_at = image_processor.extract_created_at(file_data)
         except Exception as e:
             logger.warning("exif_extraction_failed", filename=filename, error=str(e))
             # Use current time as fallback
-            creation_date = datetime.now()
+            created_at = datetime.now()
 
         # Step 2: Generate thumbnail
         logger.info("generating_thumbnail", filename=filename)
@@ -281,7 +281,7 @@ def process_single_upload(file_info: dict[str, Any], is_overwrite: bool = False)
             thumbnail_path=thumbnail_gcs_path,
             file_size=len(file_data),
             mime_type=mime_type,
-            created_at=creation_date,
+            created_at=created_at,
             uploaded_at=datetime.now(),
         )
 
@@ -296,7 +296,7 @@ def process_single_upload(file_info: dict[str, Any], is_overwrite: bool = False)
             "filename": filename,
             "original_path": original_gcs_path,
             "thumbnail_path": thumbnail_gcs_path,
-            "creation_date": creation_date,
+            "created_at": created_at,
             "is_overwrite": is_overwrite,
             "message": f"正常にアップロードしました {operation_message} {filename}",
         }
@@ -577,11 +577,11 @@ def process_single_upload_with_progress(
         update_progress("📊 Extracting image metadata...")
         logger.info("extracting_exif_metadata", filename=filename)
         try:
-            creation_date = image_processor.extract_creation_date(file_data)
+            created_at = image_processor.extract_created_at(file_data)
         except Exception as e:
             logger.warning("exif_extraction_failed", filename=filename, error=str(e))
             # Use current time as fallback
-            creation_date = datetime.now()
+            created_at = datetime.now()
 
         # Step 2: Generate thumbnail
         update_progress("🖼️ Generating thumbnail...")
@@ -619,7 +619,7 @@ def process_single_upload_with_progress(
             thumbnail_path=thumbnail_gcs_path,
             file_size=len(file_data),
             mime_type=mime_type,
-            created_at=creation_date,
+            created_at=created_at,
             uploaded_at=datetime.now(),
         )
 
@@ -645,7 +645,7 @@ def process_single_upload_with_progress(
             "filename": filename,
             "original_path": original_gcs_path,
             "thumbnail_path": thumbnail_gcs_path,
-            "creation_date": creation_date,
+            "created_at": created_at,
             "file_size": len(file_data),
             "is_overwrite": is_overwrite,
             "processing_steps": processing_steps,

@@ -56,31 +56,32 @@ def render_file_validation_results_with_collisions(
         with st.expander("🔍 衝突検出結果", expanded=True):
             for filename, collision_info in collision_results.items():
                 st.markdown(f"### 📷 {filename}")
+                st.write(collision_info)
 
                 if collision_info.get("fallback_mode", False):
                     st.info("🔄 フォールバックモードで検出されました（一部情報が制限されています）")
 
-                existing_photo = collision_info.get("existing_photo", {})
-                if existing_photo:
+                existing_file_info = collision_info.get("existing_file_info", {})
+                if existing_file_info:
                     col1, col2 = st.columns(2)
 
                     with col1:
                         st.markdown("**📤 新しいファイル:**")
-                        new_file_info = collision_info.get("new_file_info", {})
-                        if new_file_info.get("file_size"):
-                            size_mb = new_file_info["file_size"] / (1024 * 1024)
+                        new_file_info = {} if collision_info.get("new_file_info") is None else collision_info.get("new_file_info").to_dict()
+
+                        if new_file_info.get('file_size'):
+                            size_mb = new_file_info.get('file_size') / (1024 * 1024)
                             st.write(f"💾 サイズ: {size_mb:.1f} MB")
-                        if new_file_info.get("creation_date"):
-                            st.write(f"📅 作成日: {new_file_info['creation_date']}")
+                        if new_file_info.get('created_at'):
+                            st.write(f"📅 作成日: {new_file_info.get('created_at')}")
 
                     with col2:
                         st.markdown("**📁 既存のファイル:**")
-                        st.write(f"🆔 ID: {existing_photo.get('id', 'N/A')}")
-                        if existing_photo.get("file_size"):
-                            existing_size_mb = existing_photo["file_size"] / (1024 * 1024)
+                        if existing_file_info.get('file_size'):
+                            existing_size_mb = existing_file_info.get('file_size') / (1024 * 1024)
                             st.write(f"💾 サイズ: {existing_size_mb:.1f} MB")
-                        if existing_photo.get("created_at"):
-                            st.write(f"📅 作成日: {existing_photo['created_at']}")
+                        if existing_file_info.get('created_at'):
+                            st.write(f"📅 作成日: {existing_file_info.get('created_at')}")
 
                 st.divider()
 
@@ -382,8 +383,8 @@ def render_new_uploads(new_upload_results: list[dict[str, Any]]) -> None:
             col1, col2 = st.columns([3, 1])
             with col1:
                 st.success(f"📷 **{result['filename']}**")
-                if "creation_date" in result:
-                    st.write(f"   📅 作成日時: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
+                if "created_at" in result:
+                    st.write(f"   📅 作成日時: {result['created_at'].strftime('%Y-%m-%d %H:%M:%S')}")
                 if "file_size" in result:
                     file_size_mb = result["file_size"] / (1024 * 1024)
                     st.write(f"   💾 サイズ: {file_size_mb:.1f} MB")
@@ -411,8 +412,8 @@ def render_overwrites(overwrite_results: list[dict[str, Any]]) -> None:
 
                 # Show new file information
                 st.markdown("**新しいファイル情報:**")
-                if "creation_date" in result:
-                    st.write(f"   📅 撮影日時: {result['creation_date'].strftime('%Y-%m-%d %H:%M:%S')}")
+                if "created_at" in result:
+                    st.write(f"   📅 撮影日時: {result['created_at'].strftime('%Y-%m-%d %H:%M:%S')}")
                 if "file_size" in result:
                     file_size_mb = result["file_size"] / (1024 * 1024)
                     st.write(f"   💾 ファイルサイズ: {file_size_mb:.1f} MB")

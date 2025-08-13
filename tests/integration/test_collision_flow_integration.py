@@ -91,7 +91,7 @@ class TestCollisionDetectionIntegration:
                         "photo_id": existing_photo1.id,
                         "file_size": existing_photo1.file_size,
                         "upload_date": existing_photo1.uploaded_at,
-                        "creation_date": existing_photo1.created_at,
+                        "created_at": existing_photo1.created_at,
                     },
                     "collision_detected": True,
                 }
@@ -102,7 +102,7 @@ class TestCollisionDetectionIntegration:
                         "photo_id": existing_photo2.id,
                         "file_size": existing_photo2.file_size,
                         "upload_date": existing_photo2.uploaded_at,
-                        "creation_date": existing_photo2.created_at,
+                        "created_at": existing_photo2.created_at,
                     },
                     "collision_detected": True,
                 }
@@ -175,7 +175,7 @@ class TestCollisionDetectionIntegration:
 
         mock_image_processor = MagicMock()
         mock_image_processor_class.return_value = mock_image_processor
-        mock_image_processor.extract_creation_date.return_value = datetime.now()
+        mock_image_processor.extract_created_at.return_value = datetime.now()
         mock_image_processor.generate_thumbnail.return_value = b"thumbnail_data"
 
         # Configure storage service
@@ -219,7 +219,7 @@ class TestCollisionDetectionIntegration:
                     "photo_id": "existing_overwrite_id",
                     "file_size": 1024,
                     "upload_date": datetime.now() - timedelta(days=1),
-                    "creation_date": datetime.now() - timedelta(days=2),
+                    "created_at": datetime.now() - timedelta(days=2),
                 },
                 "collision_detected": True,
                 "user_decision": "overwrite",
@@ -230,7 +230,7 @@ class TestCollisionDetectionIntegration:
                     "photo_id": "existing_skip_id",
                     "file_size": 2048,
                     "upload_date": datetime.now() - timedelta(days=1),
-                    "creation_date": datetime.now() - timedelta(days=2),
+                    "created_at": datetime.now() - timedelta(days=2),
                 },
                 "collision_detected": True,
                 "user_decision": "skip",
@@ -321,7 +321,7 @@ class TestCollisionDetectionIntegration:
 
         mock_image_processor = MagicMock()
         mock_image_processor_class.return_value = mock_image_processor
-        mock_image_processor.extract_creation_date.return_value = datetime.now()
+        mock_image_processor.extract_created_at.return_value = datetime.now()
         mock_image_processor.generate_thumbnail.return_value = b"thumbnail_data"
 
         # Configure storage service
@@ -409,7 +409,7 @@ class TestCollisionDetectionIntegration:
                         "photo_id": old_format_photo.id,
                         "file_size": old_format_photo.file_size,
                         "upload_date": old_format_photo.uploaded_at,
-                        "creation_date": old_format_photo.created_at,
+                        "created_at": old_format_photo.created_at,
                     },
                     "collision_detected": True,
                 }
@@ -455,7 +455,7 @@ class TestCollisionDetectionIntegration:
                         "photo_id": existing_photo.id,
                         "file_size": existing_photo.file_size,
                         "upload_date": existing_photo.uploaded_at,
-                        "creation_date": existing_photo.created_at,
+                        "created_at": existing_photo.created_at,
                     },
                     "collision_detected": True,
                 }
@@ -574,7 +574,7 @@ class TestCollisionDetectionIntegration:
                                 "photo_id": existing_photo.id,
                                 "file_size": existing_photo.file_size,
                                 "upload_date": existing_photo.uploaded_at,
-                                "creation_date": existing_photo.created_at,
+                                "created_at": existing_photo.created_at,
                             },
                             "collision_detected": True,
                         }
@@ -614,7 +614,7 @@ class TestCollisionDetectionIntegration:
                                 "photo_id": existing_photo.id,
                                 "file_size": existing_photo.file_size,
                                 "upload_date": existing_photo.uploaded_at,
-                                "creation_date": existing_photo.created_at,
+                                "created_at": existing_photo.created_at,
                             },
                             "collision_detected": True,
                         }
@@ -766,7 +766,7 @@ class TestDataIntegrity:
                         "photo_id": existing_photo.id,
                         "file_size": existing_photo.file_size,
                         "upload_date": existing_photo.uploaded_at,
-                        "creation_date": existing_photo.created_at,
+                        "created_at": existing_photo.created_at,
                     },
                     "collision_detected": True,
                 }

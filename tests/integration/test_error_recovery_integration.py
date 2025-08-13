@@ -245,7 +245,7 @@ class TestErrorRecoveryIntegration:
 
         mock_image_processor = MagicMock()
         mock_image_processor_class.return_value = mock_image_processor
-        mock_image_processor.extract_creation_date.return_value = datetime.now()
+        mock_image_processor.extract_created_at.return_value = datetime.now()
         mock_image_processor.generate_thumbnail.return_value = b"thumbnail_data"
 
         # Configure storage service to succeed
@@ -332,7 +332,7 @@ class TestErrorRecoveryIntegration:
 
         mock_image_processor = MagicMock()
         mock_image_processor_class.return_value = mock_image_processor
-        mock_image_processor.extract_creation_date.return_value = datetime.now()
+        mock_image_processor.extract_created_at.return_value = datetime.now()
         mock_image_processor.generate_thumbnail.return_value = b"thumbnail_data"
 
         # Configure storage service to succeed
@@ -409,7 +409,7 @@ class TestErrorRecoveryIntegration:
                         "photo_id": f"existing_{filename}",
                         "file_size": 1024 * 1024,
                         "upload_date": datetime.now(),
-                        "creation_date": datetime.now(),
+                        "created_at": datetime.now(),
                     },
                     "collision_detected": True,
                     "metadata": {f"key_{i}": f"value_{i}" for i in range(100)},  # Additional metadata

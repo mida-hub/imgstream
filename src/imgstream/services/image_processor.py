@@ -167,7 +167,7 @@ class ImageProcessor:
             log_error(e, {"operation": "extract_exif_date"})
             return None
 
-    def extract_creation_date(self, image_data: bytes) -> datetime:
+    def extract_created_at(self, image_data: bytes) -> datetime:
         """
         Extract creation date from image, with fallback to current time.
 
@@ -577,7 +577,7 @@ class ImageProcessor:
             thumbnail_info = self.get_image_info(thumbnail_data)
 
             # Extract EXIF date from original
-            creation_date = self.extract_exif_date(image_data)
+            created_at = self.extract_exif_date(image_data)
 
             result = {
                 "original": {
@@ -587,7 +587,7 @@ class ImageProcessor:
                     "width": original_info["width"],
                     "height": original_info["height"],
                     "has_exif": original_info["has_exif"],
-                    "creation_date": creation_date,
+                    "created_at": created_at,
                 },
                 "thumbnail": {
                     "data": thumbnail_data,
@@ -610,7 +610,7 @@ class ImageProcessor:
                 thumbnail_size=len(thumbnail_data),
                 format=original_info["format"],
                 has_exif=original_info["has_exif"],
-                creation_date=creation_date.isoformat() if creation_date else None,
+                created_at=created_at.isoformat() if created_at else None,
             )
 
             return result
@@ -652,7 +652,7 @@ class ImageProcessor:
             image_info = self.get_image_info(image_data)
 
             # Extract EXIF date
-            creation_date = self.extract_exif_date(image_data)
+            created_at = self.extract_exif_date(image_data)
 
             # Compile metadata
             metadata = {
@@ -663,7 +663,7 @@ class ImageProcessor:
                 "width": image_info["width"],
                 "height": image_info["height"],
                 "has_exif": image_info["has_exif"],
-                "creation_date": creation_date,
+                "created_at": created_at,
                 "processed_at": datetime.now(),
             }
 
@@ -675,7 +675,7 @@ class ImageProcessor:
                 mode=image_info["mode"],
                 file_size=len(image_data),
                 has_exif=image_info["has_exif"],
-                creation_date=creation_date.isoformat() if creation_date else None,
+                created_at=created_at.isoformat() if created_at else None,
             )
 
             return metadata
