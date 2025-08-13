@@ -48,43 +48,6 @@ def render_file_validation_results_with_collisions(
     # First render standard validation results
     render_file_validation_results(valid_files, validation_errors)
 
-    # Then render collision information if present
-    if collision_results:
-        collision_count = len(collision_results)
-        st.warning(f"⚠️ {collision_count}個のファイルで名前の衝突が検出されました")
-
-        with st.expander("🔍 衝突検出結果", expanded=True):
-            for filename, collision_info in collision_results.items():
-                st.markdown(f"### 📷 {filename}")
-                st.write(collision_info)
-
-                if collision_info.get("fallback_mode", False):
-                    st.info("🔄 フォールバックモードで検出されました（一部情報が制限されています）")
-
-                existing_file_info = collision_info.get("existing_file_info", {})
-                if existing_file_info:
-                    col1, col2 = st.columns(2)
-
-                    with col1:
-                        st.markdown("**📤 新しいファイル:**")
-                        new_file_info = {} if collision_info.get("new_file_info") is None else collision_info.get("new_file_info").to_dict()
-
-                        if new_file_info.get('file_size'):
-                            size_mb = new_file_info.get('file_size') / (1024 * 1024)
-                            st.write(f"💾 サイズ: {size_mb:.1f} MB")
-                        if new_file_info.get('created_at'):
-                            st.write(f"📅 作成日: {new_file_info.get('created_at')}")
-
-                    with col2:
-                        st.markdown("**📁 既存のファイル:**")
-                        if existing_file_info.get('file_size'):
-                            existing_size_mb = existing_file_info.get('file_size') / (1024 * 1024)
-                            st.write(f"💾 サイズ: {existing_size_mb:.1f} MB")
-                        if existing_file_info.get('created_at'):
-                            st.write(f"📅 作成日: {existing_file_info.get('created_at')}")
-
-                st.divider()
-
 
 def render_collision_error_messages(collision_errors: list) -> None:
     """

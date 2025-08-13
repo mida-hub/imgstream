@@ -34,15 +34,6 @@ def render_collision_warnings(collision_results: dict[str, dict[str, Any]]) -> d
         "以下のファイルは既にアップロード済みです。各ファイルについて、上書きするかスキップするかを選択してください。"
     )
 
-    # Summary information
-    with st.expander("📊 衝突の概要", expanded=False):
-        st.info(f"合計 {len(collision_results)} 件のファイル名衝突が検出されました。")
-
-        # Show list of conflicting files
-        st.markdown("**衝突ファイル一覧:**")
-        for filename in collision_results.keys():
-            st.write(f"• {filename}")
-
     st.divider()
 
     # Individual collision handling
