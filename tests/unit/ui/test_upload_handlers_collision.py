@@ -54,9 +54,9 @@ class TestUploadHandlersCollisionIntegration:
             "warning_shown": False,
         }
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("src.imgstream.ui.upload_handlers.get_auth_service")
-    @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
+    @patch("src.imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("src.imgstream.ui.handlers.upload.get_auth_service")
+    @patch("src.imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_no_collisions(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, mock_uploaded_file
     ):
@@ -88,9 +88,9 @@ class TestUploadHandlersCollisionIntegration:
         # Verify collision check was called
         mock_check_collisions.assert_called_once_with("test_user_123", ["test_photo.jpg"], enable_fallback=True)
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("src.imgstream.ui.upload_handlers.get_auth_service")
-    @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
+    @patch("src.imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("src.imgstream.ui.handlers.upload.get_auth_service")
+    @patch("src.imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_with_collisions(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, mock_uploaded_file, sample_collision_info
     ):
@@ -120,9 +120,9 @@ class TestUploadHandlersCollisionIntegration:
         assert "test_photo.jpg" in collision_results
         assert collision_results["test_photo.jpg"] == sample_collision_info
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("src.imgstream.ui.upload_handlers.get_auth_service")
-    @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
+    @patch("src.imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("src.imgstream.ui.handlers.upload.get_auth_service")
+    @patch("src.imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_empty_list(
         self, mock_image_processor, mock_get_auth, mock_check_collisions
     ):
@@ -136,9 +136,9 @@ class TestUploadHandlersCollisionIntegration:
         # Collision check should not be called for empty list
         mock_check_collisions.assert_not_called()
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("src.imgstream.ui.upload_handlers.get_auth_service")
-    @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
+    @patch("src.imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("src.imgstream.ui.handlers.upload.get_auth_service")
+    @patch("src.imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_invalid_files(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, mock_uploaded_file
     ):
@@ -158,9 +158,9 @@ class TestUploadHandlersCollisionIntegration:
         # Collision check should not be called when no valid files
         mock_check_collisions.assert_not_called()
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("src.imgstream.ui.upload_handlers.get_auth_service")
-    @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
+    @patch("src.imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("src.imgstream.ui.handlers.upload.get_auth_service")
+    @patch("src.imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_collision_error(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, mock_uploaded_file
     ):
@@ -196,9 +196,9 @@ class TestUploadHandlersCollisionIntegration:
         assert error["filename"] == "システム"
         assert "フォールバック" in error["error"]
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("src.imgstream.ui.upload_handlers.get_auth_service")
-    @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
+    @patch("src.imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("src.imgstream.ui.handlers.upload.get_auth_service")
+    @patch("src.imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_unexpected_error(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, mock_uploaded_file
     ):
@@ -233,9 +233,9 @@ class TestUploadHandlersCollisionIntegration:
         assert error["filename"] == "システム"
         assert "フォールバック" in error["error"]
 
-    @patch("src.imgstream.ui.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("src.imgstream.ui.upload_handlers.get_auth_service")
-    @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
+    @patch("src.imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("src.imgstream.ui.handlers.upload.get_auth_service")
+    @patch("src.imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_mixed_files(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, sample_collision_info
     ):

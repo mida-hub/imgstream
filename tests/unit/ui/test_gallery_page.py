@@ -341,7 +341,6 @@ class TestPhotoDetailDisplay:
         from src.imgstream.ui.pages.gallery import (
             copy_image_url,
             download_original_photo,
-            download_thumbnail_photo,
             render_photo_detail_header,
             render_photo_detail_image,
             render_photo_detail_modal,
@@ -354,7 +353,6 @@ class TestPhotoDetailDisplay:
         assert callable(render_photo_detail_image)
         assert callable(render_photo_detail_sidebar)
         assert callable(download_original_photo)
-        assert callable(download_thumbnail_photo)
         assert callable(copy_image_url)
 
     def test_photo_detail_modal_session_state(self):
@@ -402,21 +400,6 @@ class TestPhotoDetailDisplay:
                 download_original_photo(photo)
             except Exception:
                 pytest.fail("download_original_photo should handle failure gracefully")
-
-    def test_download_thumbnail_photo_success(self):
-        """Test successful thumbnail photo download."""
-        with patch("src.imgstream.ui.pages.gallery.get_photo_thumbnail_url") as mock_url:
-            mock_url.return_value = "https://example.com/thumbnail.jpg"
-
-            from src.imgstream.ui.pages.gallery import download_thumbnail_photo
-
-            photo = {"id": "photo1", "filename": "test.jpg"}
-
-            # Should not raise any errors
-            try:
-                download_thumbnail_photo(photo)
-            except Exception:
-                pytest.fail("download_thumbnail_photo should handle success case")
 
     def test_copy_image_url_success(self):
         """Test successful image URL copying."""

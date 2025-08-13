@@ -736,9 +736,6 @@ def collect_user_collision_decisions(collision_results: dict, user_id: str) -> d
         # Get current decision from session state
         current_decision = st.session_state.get(decision_key, "pending")
 
-        # Check if decision changed from previous state
-        previous_decision = collision_info.get("user_decision", "pending")
-
         # Record decision start time if not already recorded
         decision_start_key = f"decision_start_{filename}"
         if decision_start_key not in st.session_state:

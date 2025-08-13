@@ -427,7 +427,7 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
     if original_url:
         try:
             # Display original image
-            st.image(original_url, caption=f"オリジナル: {photo.get('filename', '不明')}", use_container_width=True)
+            st.image(original_url, caption=f"{photo.get('filename', '不明')}", use_container_width=True)
 
         except Exception as e:
             st.error(f"オリジナル画像の読み込みに失敗しました: {str(e)}")
@@ -449,21 +449,9 @@ def render_photo_detail_sidebar(photo: dict[str, Any]) -> None:
     st.markdown("#### 📋 写真詳細")
     render_photo_details(photo)
 
-    st.divider()
+    if st.button("📥 写真をダウンロード", use_container_width=True):
+        download_original_photo(photo)
 
-    # Photo actions
-    st.markdown("#### ⚡ アクション")
-
-    # Download actions
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("📥 オリジナルをダウンロード", use_container_width=True):
-            download_original_photo(photo)
-
-    with col2:
-        if st.button("📥 サムネイルをダウンロード", use_container_width=True):
-            download_thumbnail_photo(photo)
 
 
 def download_original_photo(photo: dict[str, Any]) -> None:
@@ -483,25 +471,6 @@ def download_original_photo(photo: dict[str, Any]) -> None:
             st.error("❌ ダウンロードリンクの生成に失敗しました")
     except Exception as e:
         st.error(f"❌ ダウンロードに失敗しました: {str(e)}")
-
-
-def download_thumbnail_photo(photo: dict[str, Any]) -> None:
-    """
-    Handle thumbnail photo download.
-
-    Args:
-        photo: Photo metadata dictionary
-    """
-    try:
-        thumbnail_url = get_photo_thumbnail_url(photo)
-        if thumbnail_url:
-            st.success("✅ サムネイルダウンロードリンクを生成しました！")
-            st.markdown(f"[📥 サムネイルをダウンロード]({thumbnail_url})")
-            st.info("💡 上記のリンクを右クリックして「名前を付けてリンク先を保存」を選択してダウンロードしてください")
-        else:
-            st.error("❌ サムネイルダウンロードリンクの生成に失敗しました")
-    except Exception as e:
-        st.error(f"❌ サムネイルダウンロードに失敗しました: {str(e)}")
 
 
 def copy_image_url(photo: dict[str, Any]) -> None:

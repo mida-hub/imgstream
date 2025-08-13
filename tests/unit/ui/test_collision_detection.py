@@ -6,6 +6,10 @@ from unittest.mock import Mock, patch, MagicMock
 
 from imgstream.ui.handlers.collision_detection import (
     CollisionDetectionError,
+    check_filename_collisions,
+    process_collision_results,
+    filter_files_by_collision_decision,
+    get_collision_summary_message,
 )
 from imgstream.models.photo import PhotoMetadata
 
@@ -15,13 +19,13 @@ class TestCollisionDetectionUtilities:
 
     def setup_method(self):
         """Clear cache before each test."""
-        from src.imgstream.utils.collision_detection import clear_collision_cache
+        from src.imgstream.ui.handlers.collision_detection import clear_collision_cache
 
         clear_collision_cache()
 
     def teardown_method(self):
         """Clear cache after each test."""
-        from src.imgstream.utils.collision_detection import clear_collision_cache
+        from src.imgstream.ui.handlers.collision_detection import clear_collision_cache
 
         clear_collision_cache()
 
@@ -76,7 +80,7 @@ class TestCollisionDetectionUtilities:
             },
         ]
 
-    @patch("src.imgstream.utils.collision_detection.get_metadata_service")
+    @patch("src.imgstream.ui.handlers.collision_detection.get_metadata_service")
     def test_check_filename_collisions_no_collisions(self, mock_get_service):
         """Test check_filename_collisions when no collisions exist."""
         # Mock metadata service
@@ -91,7 +95,7 @@ class TestCollisionDetectionUtilities:
         # Should be called once for each filename
         assert mock_service.check_filename_exists.call_count == 3
 
-    @patch("src.imgstream.utils.collision_detection.get_metadata_service")
+    @patch("src.imgstream.ui.handlers.collision_detection.get_metadata_service")
     def test_check_filename_collisions_with_collisions(self, mock_get_service, sample_collision_info):
         """Test check_filename_collisions when collisions exist."""
         # Mock metadata service
@@ -113,7 +117,7 @@ class TestCollisionDetectionUtilities:
         assert "photo2.jpg" in result
         assert result["photo2.jpg"] == sample_collision_info
 
-    @patch("src.imgstream.utils.collision_detection.get_metadata_service")
+    @patch("src.imgstream.ui.handlers.collision_detection.get_metadata_service")
     def test_check_filename_collisions_empty_list(self, mock_get_service):
         """Test check_filename_collisions with empty filename list."""
         result = check_filename_collisions("test_user_123", [])
@@ -121,7 +125,7 @@ class TestCollisionDetectionUtilities:
         assert result == {}
         mock_get_service.assert_not_called()
 
-    @patch("src.imgstream.utils.collision_detection.get_metadata_service")
+    @patch("src.imgstream.ui.handlers.collision_detection.get_metadata_service")
     def test_check_filename_collisions_service_error(self, mock_get_service):
         """Test check_filename_collisions when metadata service fails."""
         # Mock metadata service to raise exception
@@ -321,7 +325,7 @@ class TestCollisionDetectionIntegration:
             "warning_shown": False,
         }
 
-    @patch("src.imgstream.utils.collision_detection.get_metadata_service")
+    @patch("src.imgstream.ui.handlers.collision_detection.get_metadata_service")
     def test_full_collision_detection_workflow(self, mock_get_service, sample_collision_info):
         """Test complete collision detection workflow."""
         # Mock metadata service
