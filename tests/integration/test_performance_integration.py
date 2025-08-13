@@ -13,7 +13,7 @@ from imgstream.utils.collision_detection import (
     get_collision_cache_stats,
     clear_collision_cache,
 )
-from imgstream.ui.handlers.upload_handlers import (
+from imgstream.ui.handlers.upload import (
     process_batch_upload,
     monitor_batch_collision_processing,
 )

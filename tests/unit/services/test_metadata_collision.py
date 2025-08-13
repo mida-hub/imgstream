@@ -549,7 +549,7 @@ class TestUploadHandlersOverwriteSupport:
     @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
     def test_process_batch_upload_with_overwrite(self, mock_process_single, sample_file_info, collision_results):
         """Test batch upload processing with overwrite decisions."""
-        from imgstream.ui.handlers.upload_handlers import process_batch_upload
+        from imgstream.ui.handlers.upload import process_batch_upload
 
         # Mock successful overwrite result
         mock_process_single.return_value = {
@@ -577,7 +577,7 @@ class TestUploadHandlersOverwriteSupport:
     @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
     def test_process_batch_upload_with_skip(self, mock_process_single, sample_file_info):
         """Test batch upload processing with skip decisions."""
-        from imgstream.ui.handlers.upload_handlers import process_batch_upload
+        from imgstream.ui.handlers.upload import process_batch_upload
 
         collision_results = {
             "test_photo.jpg": {
@@ -609,7 +609,7 @@ class TestUploadHandlersOverwriteSupport:
     @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
     def test_process_batch_upload_with_pending_decision(self, mock_process_single, sample_file_info):
         """Test batch upload processing with pending collision decisions."""
-        from imgstream.ui.handlers.upload_handlers import process_batch_upload
+        from imgstream.ui.handlers.upload import process_batch_upload
 
         collision_results = {
             "test_photo.jpg": {
@@ -641,7 +641,7 @@ class TestUploadHandlersOverwriteSupport:
     @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
     def test_process_batch_upload_mixed_operations(self, mock_process_single, collision_results):
         """Test batch upload processing with mixed new uploads and overwrites."""
-        from imgstream.ui.handlers.upload_handlers import process_batch_upload
+        from imgstream.ui.handlers.upload import process_batch_upload
 
         file_infos = [
             {"filename": "test_photo.jpg", "size": 1024000, "data": b"fake_data_1"},
@@ -693,7 +693,7 @@ class TestUploadHandlersOverwriteSupport:
         self, mock_auth, mock_image_processor, mock_storage, mock_metadata, sample_file_info
     ):
         """Test single upload processing in overwrite mode."""
-        from imgstream.ui.handlers.upload_handlers import process_single_upload
+        from imgstream.ui.handlers.upload import process_single_upload
 
         # Mock services
         mock_user_info = Mock()
@@ -734,7 +734,7 @@ class TestUploadHandlersOverwriteSupport:
         self, mock_auth, mock_image_processor, mock_storage, mock_metadata, sample_file_info
     ):
         """Test single upload processing in new upload mode."""
-        from imgstream.ui.handlers.upload_handlers import process_single_upload
+        from imgstream.ui.handlers.upload import process_single_upload
 
         # Mock services
         mock_user_info = Mock()

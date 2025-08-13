@@ -5,7 +5,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 import streamlit as st
 
-from src.imgstream.ui.components.collision_components import (
+from src.imgstream.ui.components.collision_detection import (
     render_collision_warnings,
     render_collision_status_indicator,
     render_collision_help_section,

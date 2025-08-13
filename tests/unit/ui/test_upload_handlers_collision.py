@@ -5,12 +5,14 @@ from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 from io import BytesIO
 
-from imgstream.ui.handlers.upload_handlers import (
+from imgstream.ui.handlers.upload import (
     validate_uploaded_files_with_collision_check,
+)
+from imgstream.ui.components.upload import (
     render_file_validation_results_with_collisions,
 )
-from src.imgstream.models.photo import PhotoMetadata
-from src.imgstream.utils.collision_detection import CollisionDetectionError
+from imgstream.models.photo import PhotoMetadata
+from imgstream.ui.handlers.collision_detection import CollisionDetectionError
 
 
 class TestUploadHandlersCollisionIntegration:

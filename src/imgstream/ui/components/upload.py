@@ -128,82 +128,102 @@ def render_collision_error_messages(collision_errors: list) -> None:
 def render_upload_progress(
     progress_placeholder: Any,
     current_file: str,
-    current_index: int,
-    total_files: int,
-    operation_type: str = "アップロード",
+    current_step: str,
+    completed: int,
+    total: int,
+    stage: str = "processing",
 ) -> None:
     """
-    Render upload progress with enhanced visual feedback.
+    Render enhanced upload progress information with visual indicators.
 
     Args:
         progress_placeholder: Streamlit placeholder for progress display
-        current_file: Name of the current file being processed
-        current_index: Current file index (0-based)
-        total_files: Total number of files
-        operation_type: Type of operation being performed
+        current_file: Name of file currently being processed
+        current_step: Current processing step
+        completed: Number of completed files
+        total: Total number of files
+        stage: Current processing stage (processing, success, error, completed)
     """
+    progress_percentage = (completed / total) * 100 if total > 0 else 0
+
     with progress_placeholder.container():
-        # Calculate progress percentage
-        progress_percent = (current_index + 1) / total_files if total_files > 0 else 0
+        # Main progress bar
+        st.progress(progress_percentage / 100, text=f"Processing {completed}/{total} files")
 
-        # Progress bar
-        st.progress(progress_percent, text=f"{operation_type}中... ({current_index + 1}/{total_files})")
+        # Current file information with enhanced styling
+        if current_file:
+            # Color coding based on stage
+            stage_colors = {"processing": "🔄", "success": "✅", "error": "❌", "failed": "❌", "completed": "✅"}
 
-        # Current file info
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.write(f"📷 **処理中:** {current_file}")
-        with col2:
-            st.write(f"**{current_index + 1}/{total_files}**")
+            stage_icon = stage_colors.get(stage, "⚙️")
 
-        # Status indicators
-        if current_index > 0:
-            st.success(f"✅ {current_index}個のファイルが完了しました")
+            # File info with better formatting
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown(f"📷 **Current file:** `{current_file}`")
+                st.markdown(f"{stage_icon} **Status:** {current_step}")
+            with col2:
+                # Progress indicator for current file
+                if stage == "processing":
+                    st.markdown("🔄 **Processing...**")
+                elif stage == "success":
+                    st.markdown("✅ **Success**")
+                elif stage in ["error", "failed"]:
+                    st.markdown("❌ **Failed**")
+                else:
+                    st.markdown("⚙️ **Working...**")
 
-        if total_files - current_index - 1 > 0:
-            st.info(f"⏳ {total_files - current_index - 1}個のファイルが待機中です")
+        # Overall progress summary
+        if total > 1:
+            st.markdown(f"**Overall Progress:** {completed}/{total} files processed")
+
+            # Show completion percentage
+            if completed > 0:
+                success_rate = f"({progress_percentage:.1f}% complete)"
+                st.markdown(f"**Status:** {success_rate}")
 
 
 def render_detailed_progress_info(
     progress_info_placeholder: Any,
     batch_results: list[dict[str, Any]] | None = None,
-    current_operation: str | None = None,
+    current_processing: dict[str, Any] | None = None,
 ) -> None:
     """
     Render detailed progress information during batch processing.
 
     Args:
         progress_info_placeholder: Streamlit placeholder for detailed progress
-        batch_results: List of completed batch results
-        current_operation: Description of current operation
+        batch_results: List of completed processing results
+        current_processing: Information about currently processing file
     """
     with progress_info_placeholder.container():
-        if current_operation:
-            st.info(f"🔄 **現在の操作:** {current_operation}")
-
         if batch_results:
-            successful = len([r for r in batch_results if r.get("success", False)])
-            failed = len([r for r in batch_results if not r.get("success", False)])
-            total = len(batch_results)
+            # Show completed files summary
+            successful = sum(1 for r in batch_results if r.get("success", False))
+            failed = len(batch_results) - successful
 
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("完了", total)
+                st.metric("完了", len(batch_results))
             with col2:
                 st.metric("成功", successful, delta=successful if successful > 0 else None)
             with col3:
                 st.metric("失敗", failed, delta=-failed if failed > 0 else None)
 
-            # Show recent results
+            # Show recent completions
             if batch_results:
-                recent_results = batch_results[-3:]  # Show last 3 results
-                st.markdown("**最近の結果:**")
-                for result in recent_results:
-                    filename = result.get("filename", "不明")
-                    if result.get("success", False):
-                        st.success(f"✅ {filename}")
-                    else:
-                        st.error(f"❌ {filename}")
+                with st.expander("📋 Recent Completions", expanded=False):
+                    for result in batch_results[-5:]:  # Show last 5 results
+                        status_icon = "✅" if result.get("success", False) else "❌"
+                        filename = result.get("filename", "Unknown")
+                        message = result.get("message", "No message")
+                        st.write(f"{status_icon} **{filename}** - {message}")
+
+        if current_processing:
+            st.markdown("### 🔄 Current Processing")
+            filename = current_processing.get("filename", "Unknown")
+            step = current_processing.get("step", "Processing...")
+            st.info(f"**{filename}**: {step}")
 
 
 def render_upload_statistics(
@@ -219,45 +239,31 @@ def render_upload_statistics(
     """
     with stats_placeholder.container():
         current_time = datetime.now()
-        elapsed_time = (current_time - start_time).total_seconds()
+        elapsed_time = current_time - start_time
 
         st.markdown("### 📊 アップロード統計")
 
-        col1, col2, col3, col4 = st.columns(4)
-
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("経過時間", f"{elapsed_time:.1f}秒")
+            st.metric("Elapsed Time", f"{elapsed_time.total_seconds():.1f}s")
 
         if batch_result:
+            total_files = batch_result.get("total_files", 0)
+            successful = batch_result.get("successful_uploads", 0)
+
             with col2:
-                total_files = batch_result.get("total_files", 0)
-                st.metric("総ファイル数", total_files)
+                if total_files > 0 and elapsed_time.total_seconds() > 0:
+                    rate = total_files / elapsed_time.total_seconds()
+                    st.metric("Processing Rate", f"{rate:.1f} files/sec")
+                else:
+                    st.metric("Processing Rate", "N/A")
 
             with col3:
-                successful = batch_result.get("successful_uploads", 0)
-                st.metric("成功", successful)
-
-            with col4:
                 if total_files > 0:
                     success_rate = (successful / total_files) * 100
-                    st.metric("成功率", f"{success_rate:.1f}%")
-
-            # Performance metrics
-            if successful > 0 and elapsed_time > 0:
-                files_per_second = successful / elapsed_time
-                st.info(f"⚡ **処理速度:** {files_per_second:.2f} ファイル/秒")
-
-            # Data transfer info
-            total_size = sum(
-                result.get("file_size", 0) for result in batch_result.get("results", []) if result.get("success", False)
-            )
-            if total_size > 0:
-                size_mb = total_size / (1024 * 1024)
-                if elapsed_time > 0:
-                    transfer_rate = size_mb / elapsed_time
-                    st.info(f"📊 **転送量:** {size_mb:.1f} MB ({transfer_rate:.2f} MB/秒)")
+                    st.metric("Success Rate", f"{success_rate:.1f}%")
                 else:
-                    st.info(f"📊 **転送量:** {size_mb:.1f} MB")
+                    st.metric("Success Rate", "N/A")
 
 
 def render_collision_decision_help() -> None:

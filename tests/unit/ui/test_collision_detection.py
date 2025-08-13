@@ -4,14 +4,10 @@ import pytest
 from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 
-from src.imgstream.utils.collision_detection import (
-    check_filename_collisions,
-    process_collision_results,
-    filter_files_by_collision_decision,
-    get_collision_summary_message,
+from imgstream.ui.handlers.collision_detection import (
     CollisionDetectionError,
 )
-from src.imgstream.models.photo import PhotoMetadata
+from imgstream.models.photo import PhotoMetadata
 
 
 class TestCollisionDetectionUtilities:

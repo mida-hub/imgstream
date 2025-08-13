@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from imgstream.ui.handlers.error_handling import DatabaseError
+from imgstream.ui.handlers.error import DatabaseError
 from src.imgstream.models.photo import PhotoMetadata
 from src.imgstream.services.auth import CloudIAPAuthService
 from src.imgstream.services.metadata import MetadataService

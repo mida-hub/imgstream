@@ -8,7 +8,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from imgstream.ui.components.ui_components import (
+from imgstream.ui.components.common import (
     format_file_size,
     render_empty_state,
     render_error_message,

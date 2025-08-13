@@ -8,8 +8,8 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from imgstream.ui.handlers.auth_handlers import authenticate_user, handle_logout, require_authentication
-from imgstream.ui.components.ui_components import render_sidebar
+from imgstream.ui.handlers.auth import authenticate_user, handle_logout, require_authentication
+from imgstream.ui.components.common import render_sidebar
 
 
 class TestAuthHandlers:

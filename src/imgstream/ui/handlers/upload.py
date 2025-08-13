@@ -1,5 +1,6 @@
 """Upload handlers for imgstream application."""
 
+from datetime import datetime
 from typing import Any
 
 import streamlit as st
@@ -86,6 +87,121 @@ def validate_uploaded_files(uploaded_files: list) -> tuple[list, list]:
     return valid_files, validation_errors
 
 
+def validate_uploaded_files_with_collision_check(uploaded_files: list) -> tuple[list, list, dict]:
+    """
+    Validate uploaded files for format, size, and filename collisions.
+
+    Args:
+        uploaded_files: List of uploaded file objects from Streamlit
+
+    Returns:
+        tuple: (valid_files, validation_errors, collision_results)
+               collision_results: Dict mapping filename to collision info
+    """
+    if not uploaded_files:
+        return [], [], {}
+
+    # First, perform standard validation
+    valid_files, validation_errors = validate_uploaded_files(uploaded_files)
+
+    if not valid_files:
+        # No valid files to check for collisions
+        return valid_files, validation_errors, {}
+
+    # Extract filenames from valid files for collision detection
+    filenames = [file_info["filename"] for file_info in valid_files]
+
+    try:
+        # Get current user for collision detection
+        auth_service = get_auth_service()
+        user_info = auth_service.ensure_authenticated()
+
+        # Use optimized collision detection for better performance
+        if len(filenames) > 20:  # Use optimized version for larger batches
+            try:
+                collision_results = check_filename_collisions_optimized(user_info.user_id, filenames, batch_size=50)
+                fallback_used = False
+            except (CollisionDetectionError, CollisionDetectionRecoveryError):
+                # Fall back to regular collision detection with fallback
+                collision_results, fallback_used = check_filename_collisions_with_fallback(
+                    user_info.user_id, filenames, enable_fallback=True
+                )
+        else:
+            # Use regular collision detection with fallback for smaller batches
+            collision_results, fallback_used = check_filename_collisions_with_fallback(
+                user_info.user_id, filenames, enable_fallback=True
+            )
+
+        if fallback_used:
+            # Add warning about fallback mode
+            validation_errors.append(
+                {
+                    "filename": "システム",
+                    "error": "衝突検出フォールバック",
+                    "details": "衝突検出に問題が発生したため、安全モードで動作しています。すべてのファイルで既存ファイルの確認を求める場合があります。",
+                }
+            )
+
+        logger.info(
+            "file_validation_with_collision_completed",
+            total_files=len(uploaded_files),
+            valid_files=len(valid_files),
+            validation_errors=len(validation_errors),
+            collisions_found=len(collision_results),
+            fallback_used=fallback_used,
+        )
+
+        return valid_files, validation_errors, collision_results
+
+    except (CollisionDetectionError, CollisionDetectionRecoveryError) as e:
+        logger.error(
+            "collision_detection_completely_failed",
+            error=str(e),
+            total_files=len(uploaded_files),
+            error_type=type(e).__name__,
+        )
+
+        # Provide user-friendly error message with recovery options
+        error_details = _get_collision_detection_error_message(e)
+        validation_errors.append(
+            {
+                "filename": "システム",
+                "error": "衝突検出失敗",
+                "details": error_details,
+                "recovery_options": [
+                    "しばらく待ってから再試行してください",
+                    "ファイル数を減らして再試行してください",
+                    "ネットワーク接続を確認してください",
+                    "問題が続く場合は管理者にお問い合わせください",
+                ],
+            }
+        )
+        return valid_files, validation_errors, {}
+
+    except Exception as e:
+        logger.error(
+            "unexpected_error_during_collision_check",
+            error=str(e),
+            total_files=len(uploaded_files),
+            error_type=type(e).__name__,
+        )
+
+        # Continue without collision detection on unexpected errors
+        validation_errors.append(
+            {
+                "filename": "システム",
+                "error": "予期しないエラー",
+                "details": "衝突検出中に予期しないエラーが発生しました。アップロードは続行できますが、既存ファイルの上書きにご注意ください。",
+                "recovery_options": [
+                    "アップロードを続行する（注意が必要）",
+                    "ページを再読み込みして再試行する",
+                    "ファイルを個別にアップロードする",
+                ],
+            }
+        )
+        return valid_files, validation_errors, {}
+
+
 def get_file_size_limits() -> tuple[int, int]:
     """
     Get current file size limits from ImageProcessor.
@@ -97,27 +213,220 @@ def get_file_size_limits() -> tuple[int, int]:
     return image_processor.MIN_FILE_SIZE, image_processor.MAX_FILE_SIZE
 
 
-def clear_upload_session_state() -> None:
-    """Clear upload-related session state variables."""
-    session_keys_to_clear = [
-        "valid_files",
-        "validation_errors",
-        "upload_validated",
-        "upload_in_progress",
-        "upload_results",
-        "last_upload_result",
-        "upload_progress",
-    ]
+def process_single_upload(file_info: dict[str, Any], is_overwrite: bool = False) -> dict[str, Any]:
+    """
+    Process a single file upload through the complete pipeline.
 
-    # Clear specific keys
-    for key in session_keys_to_clear:
-        if key in st.session_state:
-            del st.session_state[key]
+    Args:
+        file_info: Dictionary containing file information from validation
+        is_overwrite: Whether this is an overwrite operation
 
-    # Clear collision decision keys (pattern-based)
-    for key in list(st.session_state.keys()):  # type: ignore
-        if isinstance(key, str) and (key.startswith("collision_decision_") or key.startswith("decision_start_")):
-            del st.session_state[key]
+    Returns:
+        dict: Processing result with success status and details
+    """
+    filename = file_info["filename"]
+    file_data = file_info["data"]
+
+    try:
+        operation_type = "overwrite" if is_overwrite else "new_upload"
+        logger.info("upload_processing_started", filename=filename, size=len(file_data), operation_type=operation_type)
+
+        # Get services
+        auth_service = get_auth_service()
+        image_processor = ImageProcessor()
+        storage_service = get_storage_service()
+
+        # Ensure user is authenticated
+        user_info = auth_service.ensure_authenticated()
+
+        # Get metadata service for this user
+        metadata_service = get_metadata_service(user_info.user_id)
+
+        # Step 1: Extract EXIF metadata
+        logger.info("extracting_exif_metadata", filename=filename)
+        try:
+            creation_date = image_processor.extract_creation_date(file_data)
+        except Exception as e:
+            logger.warning("exif_extraction_failed", filename=filename, error=str(e))
+            # Use current time as fallback
+            creation_date = datetime.now()
+
+        # Step 2: Generate thumbnail
+        logger.info("generating_thumbnail", filename=filename)
+        thumbnail_data = image_processor.generate_thumbnail(file_data)
+
+        # Step 3: Upload original image to GCS
+        logger.info("uploading_original_image", filename=filename, is_overwrite=is_overwrite)
+        original_upload_result = storage_service.upload_original_photo(user_info.user_id, file_data, filename)
+        original_gcs_path = original_upload_result["gcs_path"]
+
+        # Step 4: Upload thumbnail to GCS
+        logger.info("uploading_thumbnail", filename=filename, is_overwrite=is_overwrite)
+        thumbnail_upload_result = storage_service.upload_thumbnail(user_info.user_id, thumbnail_data, filename)
+        thumbnail_gcs_path = thumbnail_upload_result["gcs_path"]
+
+        # Step 5: Save or update metadata in DuckDB
+        logger.info("saving_metadata", filename=filename, is_overwrite=is_overwrite)
+
+        # Determine MIME type based on file extension
+        file_extension = filename.lower().split(".")[-1]
+        mime_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "heic": "image/heic", "heif": "image/heif"}.get(
+            file_extension, "application/octet-stream"
+        )
+
+        photo_metadata = PhotoMetadata.create_new(
+            user_id=user_info.user_id,
+            filename=filename,
+            original_path=original_gcs_path,
+            thumbnail_path=thumbnail_gcs_path,
+            file_size=len(file_data),
+            mime_type=mime_type,
+            created_at=creation_date,
+            uploaded_at=datetime.now(),
+        )
+
+        # Use the new save_or_update method based on operation type
+        metadata_service.save_or_update_photo_metadata(photo_metadata, is_overwrite=is_overwrite)
+
+        operation_message = "overwritten" if is_overwrite else "uploaded"
+        logger.info("upload_processing_completed", filename=filename, operation_type=operation_type)
+
+        return {
+            "success": True,
+            "filename": filename,
+            "original_path": original_gcs_path,
+            "thumbnail_path": thumbnail_gcs_path,
+            "creation_date": creation_date,
+            "is_overwrite": is_overwrite,
+            "message": f"正常にアップロードしました {operation_message} {filename}",
+        }
+
+    except Exception as e:
+        operation_type = "overwrite" if is_overwrite else "upload"
+        logger.error("upload_processing_failed", filename=filename, error=str(e), operation_type=operation_type)
+        return {
+            "success": False,
+            "filename": filename,
+            "error": str(e),
+            "is_overwrite": is_overwrite,
+            "message": f"アップロードに失敗しました: {filename}",
+        }
+
+
+def _update_progress_before_processing(progress_callback: Any, filename: str, index: int, total_files: int) -> None:
+    """Update progress before processing a file."""
+    if progress_callback:
+        progress_callback(
+            current_file=filename,
+            current_step="Starting processing...",
+            completed=index,
+            total=total_files,
+            stage="processing",
+        )
+
+
+def _determine_processing_action(filename: str, collision_results: dict[str, Any]) -> dict[str, Any]:
+    """
+    Determine what action to take for a file based on collision status.
+
+    Returns:
+        dict: Action information with 'action', 'is_overwrite', and 'reason' keys
+    """
+    collision_info = collision_results.get(filename)
+    if not collision_info:
+        return {"action": "process", "is_overwrite": False, "reason": "no_collision"}
+
+    user_decision = collision_info.get("user_decision", "pending")
+
+    if user_decision == "skip":
+        return {"action": "skip", "is_overwrite": False, "reason": "user_decision"}
+    elif user_decision == "overwrite":
+        logger.info("file_marked_for_overwrite", filename=filename)
+        return {"action": "process", "is_overwrite": True, "reason": "user_overwrite"}
+    else:
+        logger.warning("file_collision_decision_pending", filename=filename)
+        return {"action": "error", "is_overwrite": False, "reason": "decision_pending"}
+
+
+def _handle_skip_file(filename: str, reason: str) -> dict[str, Any]:
+    """Handle skipping a file."""
+    logger.info("file_skipped_by_user_decision", filename=filename)
+    return {
+        "success": True,
+        "filename": filename,
+        "skipped": True,
+        "is_overwrite": False,
+        "message": f"Skipped {filename} (user decision)",
+    }
+
+
+def _handle_processing_error(filename: str, reason: str) -> dict[str, Any]:
+    """Handle processing error for a file."""
+    return {
+        "success": False,
+        "filename": filename,
+        "error": "User decision pending for collision",
+        "is_overwrite": False,
+        "message": f"Failed to process {filename}: User decision required for collision",
+    }
+
+
+def _update_progress_after_skip(progress_callback: Any, filename: str, index: int, total_files: int) -> None:
+    """Update progress after skipping a file."""
+    if progress_callback:
+        progress_callback(
+            current_file=filename,
+            current_step="⏭️ Skipped by user",
+            completed=index + 1,
+            total=total_files,
+            stage="skipped",
+        )
+
+
+def _update_progress_after_error(progress_callback: Any, filename: str, index: int, total_files: int) -> None:
+    """Update progress after a processing error."""
+    if progress_callback:
+        progress_callback(
+            current_file=filename,
+            current_step="❌ Decision pending",
+            completed=index + 1,
+            total=total_files,
+            stage="failed",
+        )
+
+
+def _update_upload_counters(
+    result: dict[str, Any], is_overwrite: bool, successful_uploads: int, failed_uploads: int, overwrite_uploads: int
+) -> tuple[int, int, int]:
+    """Update upload counters based on result."""
+    if result["success"]:
+        successful_uploads += 1
+        if is_overwrite:
+            overwrite_uploads += 1
+    else:
+        failed_uploads += 1
+    return successful_uploads, failed_uploads, overwrite_uploads
+
+
+def _update_progress_after_processing(
+    progress_callback: Any, filename: str, result: dict[str, Any], is_overwrite: bool, index: int, total_files: int
+) -> None:
+    """Update progress after processing a file."""
+    if progress_callback:
+        if result["success"]:
+            status = "✅ Overwritten" if is_overwrite else "✅ Uploaded"
+            stage = "completed"
+        else:
+            status = "❌ Failed"
+            stage = "failed"
+
+        progress_callback(
+            current_file=filename,
+            current_step=status,
+            completed=index + 1,
+            total=total_files,
+            stage=stage,
+        )
 
 
 def process_batch_upload(
@@ -156,52 +465,44 @@ def process_batch_upload(
     overwrite_uploads = 0
     total_files = len(valid_files)
 
-    # Process each file
-    for _index, file_info in enumerate(valid_files):
+    # Process each file with progress tracking
+    for index, file_info in enumerate(valid_files):
         filename = file_info["filename"]
 
-        try:
-            # Check for collision decision
-            collision_info = collision_results.get(filename) if collision_results else None
-            user_decision = collision_info.get("user_decision", "upload") if collision_info else "upload"
+        # Update progress before processing
+        _update_progress_before_processing(progress_callback, filename, index, total_files)
 
-            if user_decision == "skip":
-                # User chose to skip this file
-                result = {
-                    "success": True,
-                    "filename": filename,
-                    "skipped": True,
-                    "message": f"ユーザーの選択により {filename} をスキップしました",
-                }
-                results.append(result)
-                skipped_uploads += 1
-                continue
+        # Determine processing action based on collision status
+        processing_action = _determine_processing_action(filename, collision_results)
 
-            # Determine if this is an overwrite operation
-            is_overwrite = collision_info is not None and user_decision == "overwrite"
-
-            # Process the file (simplified version)
-            result = process_single_upload(file_info, is_overwrite)
-
-            if result["success"]:
-                if is_overwrite:
-                    overwrite_uploads += 1
-                successful_uploads += 1
-            else:
-                failed_uploads += 1
-
+        if processing_action["action"] == "skip":
+            result = _handle_skip_file(filename, processing_action["reason"])
             results.append(result)
+            skipped_uploads += 1
+            _update_progress_after_skip(progress_callback, filename, index, total_files)
+            continue
 
-        except Exception as e:
-            logger.error("batch_upload_error", filename=filename, error=str(e))
-            result = {
-                "success": False,
-                "filename": filename,
-                "error": str(e),
-                "message": f"アップロード中にエラーが発生しました: {filename}",
-            }
+        if processing_action["action"] == "error":
+            result = _handle_processing_error(filename, processing_action["reason"])
             results.append(result)
             failed_uploads += 1
+            _update_progress_after_error(progress_callback, filename, index, total_files)
+            continue
+
+        # Process the file with detailed step tracking
+        is_overwrite = processing_action["is_overwrite"]
+        result = process_single_upload_with_progress(
+            file_info, progress_callback, index, total_files, is_overwrite=is_overwrite
+        )
+        results.append(result)
+
+        # Update counters
+        successful_uploads, failed_uploads, overwrite_uploads = _update_upload_counters(
+            result, is_overwrite, successful_uploads, failed_uploads, overwrite_uploads
+        )
+
+        # Update progress after processing
+        _update_progress_after_processing(progress_callback, filename, result, is_overwrite, index, total_files)
 
     # Create summary
     batch_result = {
@@ -227,146 +528,164 @@ def process_batch_upload(
     return batch_result
 
 
-def process_single_upload(file_info: dict[str, Any], is_overwrite: bool = False) -> dict[str, Any]:
+def process_single_upload_with_progress(
+    file_info: dict[str, Any],
+    progress_callback: Any = None,
+    file_index: int = 0,
+    total_files: int = 1,
+    is_overwrite: bool = False,
+) -> dict[str, Any]:
     """
-    Process a single file upload (simplified version).
+    Process a single file upload with detailed progress tracking.
 
     Args:
-        file_info: File information dictionary
+        file_info: Dictionary containing file information from validation
+        progress_callback: Optional callback function for progress updates
+        file_index: Index of current file in batch
+        total_files: Total number of files in batch
         is_overwrite: Whether this is an overwrite operation
 
     Returns:
-        dict: Upload result
+        dict: Processing result with success status and details
     """
     filename = file_info["filename"]
+    file_data = file_info["data"]
+
+    def update_progress(step: str, stage: str = "processing") -> None:
+        if progress_callback:
+            progress_callback(
+                current_file=filename, current_step=step, completed=file_index, total=total_files, stage=stage
+            )
 
     try:
+        operation_type = "overwrite" if is_overwrite else "new_upload"
+        logger.info("upload_processing_started", filename=filename, size=len(file_data), operation_type=operation_type)
+        update_progress("🔐 Authenticating user...")
+
         # Get services
         auth_service = get_auth_service()
-        user_id = auth_service.get_current_user_id()
-
-        if not user_id:
-            return {
-                "success": False,
-                "filename": filename,
-                "error": "User not authenticated",
-                "message": f"認証が必要です: {filename}",
-            }
-
-        storage_service = get_storage_service()
-        metadata_service = get_metadata_service()
         image_processor = ImageProcessor()
+        storage_service = get_storage_service()
 
-        # Process the image
-        file_data = file_info["data"]
-        processed_result = image_processor.process_image(file_data, filename)
+        # Ensure user is authenticated
+        user_info = auth_service.ensure_authenticated()
 
-        # Create photo metadata
-        photo_metadata = PhotoMetadata(
-            filename=filename,
-            user_id=user_id,
-            file_size=len(file_data),
-            mime_type=processed_result.get("mime_type", "image/jpeg"),
-            created_at=processed_result.get("creation_date"),
-            camera_make=processed_result.get("camera_make"),
-            camera_model=processed_result.get("camera_model"),
-            gps_latitude=processed_result.get("gps_latitude"),
-            gps_longitude=processed_result.get("gps_longitude"),
+        # Get metadata service for this user
+        metadata_service = get_metadata_service(user_info.user_id)
+
+        # Step 1: Extract EXIF metadata
+        update_progress("📊 Extracting image metadata...")
+        logger.info("extracting_exif_metadata", filename=filename)
+        try:
+            creation_date = image_processor.extract_creation_date(file_data)
+        except Exception as e:
+            logger.warning("exif_extraction_failed", filename=filename, error=str(e))
+            # Use current time as fallback
+            creation_date = datetime.now()
+
+        # Step 2: Generate thumbnail
+        update_progress("🖼️ Generating thumbnail...")
+        logger.info("generating_thumbnail", filename=filename)
+        thumbnail_data = image_processor.generate_thumbnail(file_data)
+
+        # Step 3: Upload original image to GCS
+        operation_text = "Overwriting" if is_overwrite else "Uploading"
+        update_progress(f"☁️ {operation_text} original image...")
+        logger.info("uploading_original_image", filename=filename, is_overwrite=is_overwrite)
+        original_upload_result = storage_service.upload_original_photo(user_info.user_id, file_data, filename)
+        original_gcs_path = original_upload_result["gcs_path"]
+
+        # Step 4: Upload thumbnail to GCS
+        update_progress(f"🔄 {operation_text} thumbnail...")
+        logger.info("uploading_thumbnail", filename=filename, is_overwrite=is_overwrite)
+        thumbnail_upload_result = storage_service.upload_thumbnail(user_info.user_id, thumbnail_data, filename)
+        thumbnail_gcs_path = thumbnail_upload_result["gcs_path"]
+
+        # Step 5: Save or update metadata in DuckDB
+        metadata_text = "Updating" if is_overwrite else "Saving"
+        update_progress(f"💾 {metadata_text} metadata...")
+        logger.info("saving_metadata", filename=filename, is_overwrite=is_overwrite)
+
+        # Determine MIME type based on file extension
+        file_extension = filename.lower().split(".")[-1]
+        mime_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "heic": "image/heic", "heif": "image/heif"}.get(
+            file_extension, "application/octet-stream"
         )
 
-        # Upload to storage
-        storage_path = storage_service.upload_photo(file_data, filename, user_id)
-        photo_metadata.storage_path = storage_path
+        photo_metadata = PhotoMetadata.create_new(
+            user_id=user_info.user_id,
+            filename=filename,
+            original_path=original_gcs_path,
+            thumbnail_path=thumbnail_gcs_path,
+            file_size=len(file_data),
+            mime_type=mime_type,
+            created_at=creation_date,
+            uploaded_at=datetime.now(),
+        )
 
-        # Save metadata
-        if is_overwrite:
-            metadata_service.update_photo_metadata(photo_metadata)
-        else:
-            metadata_service.save_photo_metadata(photo_metadata)
+        # Use the new save_or_update method based on operation type
+        metadata_service.save_or_update_photo_metadata(photo_metadata, is_overwrite=is_overwrite)
+
+        completion_text = "✅ Overwrite completed!" if is_overwrite else "✅ Upload completed!"
+        update_progress(completion_text, "success")
+        logger.info("upload_processing_completed", filename=filename, operation_type=operation_type)
+
+        operation_message = "overwritten" if is_overwrite else "uploaded"
+        processing_steps = [
+            "Authentication verified",
+            "EXIF metadata extracted",
+            "Thumbnail generated",
+            f"Original image {'overwritten' if is_overwrite else 'uploaded'} to GCS",
+            f"Thumbnail {'overwritten' if is_overwrite else 'uploaded'} to GCS",
+            f"Metadata {'updated' if is_overwrite else 'saved'} in database",
+        ]
 
         return {
             "success": True,
             "filename": filename,
+            "original_path": original_gcs_path,
+            "thumbnail_path": thumbnail_gcs_path,
+            "creation_date": creation_date,
             "file_size": len(file_data),
-            "creation_date": processed_result.get("creation_date"),
-            "storage_path": storage_path,
             "is_overwrite": is_overwrite,
-            "message": f"正常にアップロードしました: {filename}",
+            "processing_steps": processing_steps,
+            "message": f"Successfully {operation_message} {filename}",
         }
 
     except Exception as e:
-        logger.error("single_upload_error", filename=filename, error=str(e))
+        operation_type = "overwrite" if is_overwrite else "upload"
+        update_progress(f"❌ Error: {str(e)}", "error")
+        logger.error("upload_processing_failed", filename=filename, error=str(e), operation_type=operation_type)
         return {
             "success": False,
             "filename": filename,
             "error": str(e),
-            "message": f"アップロードに失敗しました: {filename}",
+            "error_type": type(e).__name__,
+            "is_overwrite": is_overwrite,
+            "message": f"Failed to {operation_type} {filename}: {str(e)}",
         }
 
+def clear_upload_session_state() -> None:
+    """Clear upload-related session state variables."""
+    session_keys_to_clear = [
+        "valid_files",
+        "validation_errors",
+        "upload_validated",
+        "upload_in_progress",
+        "upload_results",
+        "last_upload_result",
+        "upload_progress",
+    ]
 
-def validate_uploaded_files_with_collision_check(uploaded_files: list) -> tuple[list, list, dict]:
-    """
-    Validate uploaded files for format, size, and filename collisions.
+    # Clear specific keys
+    for key in session_keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
 
-    Args:
-        uploaded_files: List of uploaded file objects from Streamlit
-
-    Returns:
-        tuple: (valid_files, validation_errors, collision_results)
-    """
-    # First perform standard validation
-    valid_files, validation_errors = validate_uploaded_files(uploaded_files)
-
-    if not valid_files:
-        return valid_files, validation_errors, {}
-
-    # Get current user
-    auth_service = get_auth_service()
-    user_id = auth_service.get_current_user_id()
-
-    if not user_id:
-        validation_errors.append(
-            {
-                "filename": "authentication",
-                "error": "User not authenticated",
-                "details": "Please log in to upload files",
-            }
-        )
-        return valid_files, validation_errors, {}
-
-    # Check for filename collisions
-    try:
-        filenames = [file_info["filename"] for file_info in valid_files]
-        collision_results = check_filename_collisions_optimized(filenames, user_id)
-        return valid_files, validation_errors, collision_results
-
-    except CollisionDetectionError as e:
-        logger.error("collision_detection_error", error=str(e), user_id=user_id)
-
-        # Try fallback collision detection
-        try:
-            collision_results = check_filename_collisions_with_fallback(filenames, user_id)
-            logger.info("collision_detection_fallback_success", user_id=user_id, file_count=len(filenames))
-            return valid_files, validation_errors, collision_results
-
-        except (CollisionDetectionError, CollisionDetectionRecoveryError) as fallback_error:
-            logger.error("collision_detection_fallback_failed", error=str(fallback_error), user_id=user_id)
-
-            # Add collision detection error to validation errors
-            validation_errors.append(
-                {
-                    "filename": "collision_detection",
-                    "error": _get_collision_detection_error_message(fallback_error),
-                    "error_type": "CollisionDetectionError",
-                    "recovery_message": "衝突検出に失敗しましたが、アップロードは続行できます。",
-                    "recovery_options": [
-                        "アップロードを続行する（注意が必要）",
-                        "ページを再読み込みして再試行する",
-                        "ファイルを個別にアップロードする",
-                    ],
-                }
-            )
-            return valid_files, validation_errors, {}
+    # Clear collision decision keys (pattern-based)
+    for key in list(st.session_state.keys()):  # type: ignore
+        if isinstance(key, str) and (key.startswith("collision_decision_") or key.startswith("decision_start_")):
+            del st.session_state[key]
 
 
 def _get_collision_detection_error_message(error: Exception) -> str:
@@ -393,3 +712,109 @@ def _get_collision_detection_error_message(error: Exception) -> str:
         return "衝突検出の復旧に失敗しました。システムが一時的に不安定な状態です。"
     else:
         return f"衝突検出中にエラーが発生しました: {error_str[:100]}{'...' if len(error_str) > 100 else ''}"
+
+def handle_collision_decision_monitoring(
+    user_id: str, filename: str, decision: str, decision_start_time: float | None = None, **collision_context
+) -> None:
+    """
+    Handle monitoring of user collision decisions.
+
+    Args:
+        user_id: ID of the user making the decision
+        filename: Name of the file with collision
+        decision: User's decision ('overwrite', 'skip', 'pending')
+        decision_start_time: When the decision process started (for timing)
+        **collision_context: Additional context about the collision
+    """
+    # Monitoring functionality removed for personal development use
+    # Calculate decision time if start time provided would be here
+    # Log the user decision would be here
+    pass
+
+
+def collect_user_collision_decisions(collision_results: dict, user_id: str) -> dict:
+    """
+    Collect and monitor user decisions for collision handling.
+
+    Args:
+        collision_results: Dictionary mapping filename to collision info
+        user_id: ID of the user making decisions
+
+    Returns:
+        dict: Updated collision results with user decisions and monitoring
+    """
+    import time
+
+    updated_results = {}
+
+    for filename, collision_info in collision_results.items():
+        decision_key = f"collision_decision_{filename}"
+
+        # Get current decision from session state
+        current_decision = st.session_state.get(decision_key, "pending")
+
+        # Check if decision changed from previous state
+        previous_decision = collision_info.get("user_decision", "pending")
+
+        # Record decision start time if not already recorded
+        decision_start_key = f"decision_start_{filename}"
+        if decision_start_key not in st.session_state:
+            st.session_state[decision_start_key] = time.perf_counter()
+
+        decision_start_time = st.session_state[decision_start_key]
+
+        # If decision changed, log it
+        if current_decision != previous_decision and current_decision != "pending":
+            handle_collision_decision_monitoring(
+                user_id=user_id,
+                filename=filename,
+                decision=current_decision,
+                decision_start_time=decision_start_time,
+                existing_photo_id=collision_info.get("existing_photo", {}).get("id"),
+                fallback_mode=collision_info.get("fallback_mode", False),
+                file_size=collision_info.get("existing_file_info", {}).get("file_size"),
+                upload_date=collision_info.get("existing_file_info", {}).get("upload_date"),
+            )
+
+        # Update collision info with current decision
+        updated_collision_info = collision_info.copy()
+        updated_collision_info["user_decision"] = current_decision
+        updated_results[filename] = updated_collision_info
+
+    return updated_results
+
+
+def get_collision_decision_statistics(user_id: str) -> dict:
+    """
+    Get collision decision statistics for a user.
+
+    Args:
+        user_id: ID of the user
+
+    Returns:
+        dict: Statistics about collision decisions
+    """
+    # Monitoring functionality removed for personal development use
+    return {
+        "total_decisions": 0,
+        "overwrite_decisions": 0,
+        "skip_decisions": 0,
+        "average_decision_time": 0.0,
+        "user_id": user_id,
+    }
+
+
+def monitor_batch_collision_processing(
+    user_id: str, filenames: list, collision_results: dict, processing_time_ms: float
+) -> None:
+    """
+    Monitor batch collision processing for performance and reliability.
+
+    Args:
+        user_id: ID of the user
+        filenames: List of filenames being processed
+        collision_results: Results of collision detection
+        processing_time_ms: Time taken for processing in milliseconds
+    """
+    # Monitoring functionality removed for personal development use
+    pass

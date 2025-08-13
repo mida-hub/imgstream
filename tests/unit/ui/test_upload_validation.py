@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from imgstream.services.image_processor import ImageProcessingError
-from imgstream.ui.components.ui_components import format_file_size
-from imgstream.ui.handlers.upload_handlers import get_file_size_limits, validate_uploaded_files
+from imgstream.ui.components.common import format_file_size
+from imgstream.ui.handlers.upload import get_file_size_limits, validate_uploaded_files
 
 
 class TestFileValidation:
@@ -152,9 +152,9 @@ class TestUploadPageIntegration:
 
     def test_upload_page_functions_exist(self):
         """Test that upload page functions exist and are callable."""
-        from imgstream.ui.components.ui_components import format_file_size
+        from imgstream.ui.components.common import format_file_size
         from imgstream.ui.pages.upload import render_upload_page
-        from imgstream.ui.handlers.upload_handlers import validate_uploaded_files
+        from imgstream.ui.handlers.upload import validate_uploaded_files
 
         assert callable(render_upload_page)
         assert callable(validate_uploaded_files)

@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 import pytest
 from PIL import Image
 
-from imgstream.ui.handlers.error_handling import ImageProcessingError, ValidationError
+from imgstream.ui.handlers.error import ImageProcessingError, ValidationError
 from src.imgstream.services.image_processor import ImageProcessor
 
 

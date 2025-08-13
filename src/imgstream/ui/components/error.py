@@ -121,7 +121,7 @@ class ErrorDisplayManager:
             show_details: Whether to show technical details
             retry_callback: Function to call when retry is clicked
         """
-        from ..error_handling import handle_error
+        from ..handlers.error import handle_error
 
         error_info = handle_error(exception, context)
         self.display_error(
@@ -297,7 +297,7 @@ def handle_upload_errors(func: Callable) -> Callable:
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            from ..error_handling import UploadError, handle_error
+            from ..handlers.error import UploadError, handle_error
 
             # Convert to upload error if not already
             if not isinstance(e, UploadError):
@@ -318,7 +318,7 @@ def handle_auth_errors(func: Callable) -> Callable:
         try:
             return func(*args, **kwargs)
         except Exception as e:
-            from ..error_handling import AuthenticationError, handle_error
+            from ..handlers.error import AuthenticationError, handle_error
 
             # Convert to auth error if not already
             if not isinstance(e, AuthenticationError):
@@ -405,9 +405,8 @@ class StreamlitErrorContext:
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
         if exc_type is not None:
             # Import RerunException for special handling
+            from streamlit.runtime.scriptrunner_utils.exceptions import RerunException
             try:
-                from streamlit.runtime.scriptrunner_utils.exceptions import RerunException
-
                 # RerunException is a normal control flow exception, not an error
                 if isinstance(exc_val, RerunException):
                     return False  # Let RerunException propagate normally
