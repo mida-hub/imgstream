@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-from imgstream.ui.handlers.error_handling import AuthenticationError, AuthorizationError
+from imgstream.ui.handlers.error import AuthenticationError, AuthorizationError
 from ..logging_config import get_logger, log_error, log_security_event, log_user_action
 
 logger = get_logger(__name__)

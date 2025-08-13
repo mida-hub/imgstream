@@ -8,7 +8,7 @@ from typing import Any
 
 from PIL import ExifTags, Image
 
-from imgstream.ui.handlers.error_handling import ImageProcessingError, ValidationError
+from imgstream.ui.handlers.error import ImageProcessingError, ValidationError
 from ..logging_config import get_logger, log_error, log_performance
 
 try:

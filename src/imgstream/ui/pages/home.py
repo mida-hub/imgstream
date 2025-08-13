@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from imgstream.ui.components.ui_components import render_empty_state, render_info_card
+from imgstream.ui.components.common import render_empty_state, render_info_card
 
 
 def render_home_page() -> None:

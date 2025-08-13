@@ -626,7 +626,7 @@ def render_next_steps(batch_result: dict[str, Any]) -> None:
         with col2:
             if st.button("📤 さらにアップロード", use_container_width=True):
                 # Clear upload state for new upload
-                from imgstream.ui.handlers.upload_handlers import clear_upload_session_state
+                from imgstream.ui.handlers.upload import clear_upload_session_state
 
                 clear_upload_session_state()
                 st.rerun()

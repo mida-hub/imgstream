@@ -6,21 +6,21 @@ from typing import Any
 import streamlit as st
 import structlog
 
-from imgstream.ui.handlers.auth_handlers import require_authentication
-from imgstream.ui.components.ui_components import render_empty_state, render_info_card
-from imgstream.ui.handlers.upload_handlers import (
+from imgstream.ui.handlers.auth import require_authentication
+from imgstream.ui.components.common import render_empty_state, render_info_card
+from imgstream.ui.handlers.upload import (
     get_file_size_limits,
     process_batch_upload,
     validate_uploaded_files_with_collision_check,
 )
-from imgstream.ui.components.upload_components import (
+from imgstream.ui.components.upload import (
     render_detailed_progress_info,
     render_file_validation_results_with_collisions,
     render_upload_progress,
     render_upload_results,
     render_upload_statistics,
 )
-from imgstream.ui.components.collision_components import (
+from imgstream.ui.components.collision_detection import (
     render_collision_warnings,
     render_collision_status_indicator,
     render_collision_help_section,

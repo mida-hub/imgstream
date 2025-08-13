@@ -11,7 +11,7 @@ from typing import Any
 
 import streamlit as st
 
-from imgstream.ui.handlers.error_handling import ErrorInfo, ErrorSeverity
+from imgstream.ui.handlers.error import ErrorInfo, ErrorSeverity
 from ...logging_config import get_logger
 
 # Type alias for Streamlit container

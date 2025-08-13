@@ -60,7 +60,7 @@ from typing import Any
 
 from google.cloud.exceptions import NotFound
 
-from imgstream.ui.handlers.error_handling import DatabaseError, StorageError
+from imgstream.ui.handlers.error import DatabaseError, StorageError
 from ..logging_config import get_logger, log_error, log_performance, log_user_action
 from ..models.database import DatabaseManager, create_database, get_database_manager
 from ..models.photo import PhotoMetadata

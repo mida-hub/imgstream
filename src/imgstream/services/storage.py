@@ -8,7 +8,7 @@ from pathlib import Path
 from google.cloud import storage  # type: ignore[attr-defined]
 from google.cloud.exceptions import GoogleCloudError, NotFound
 
-from imgstream.ui.handlers.error_handling import StorageError
+from imgstream.ui.handlers.error import StorageError
 from ..logging_config import get_logger
 
 logger = get_logger(__name__)

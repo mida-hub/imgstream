@@ -6,7 +6,7 @@ from typing import Any
 import streamlit as st
 import structlog
 
-from imgstream.ui.components.ui_components import format_file_size
+from imgstream.ui.components.common import format_file_size
 
 logger = structlog.get_logger()
 
