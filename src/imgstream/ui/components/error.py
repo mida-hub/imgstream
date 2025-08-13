@@ -70,22 +70,15 @@ class ErrorDisplayManager:
                             if key not in ["original_exception"]:  # Hide sensitive info
                                 st.write(f"- {key}: {value}")
 
-            # Action buttons
-            col1, col2, col3 = st.columns([1, 1, 2])
+            if show_retry_button and error_info.retry_suggested and retry_callback:
+                if st.button("再試行", key=f"retry_{error_info.code}_{error_info.timestamp}"):
+                    try:
+                        retry_callback()
+                        st.success("再試行しました")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"再試行に失敗しました: {str(e)}")
 
-            with col1:
-                if show_retry_button and error_info.retry_suggested and retry_callback:
-                    if st.button("再試行", key=f"retry_{error_info.code}_{error_info.timestamp}"):
-                        try:
-                            retry_callback()
-                            st.success("再試行しました")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"再試行に失敗しました: {str(e)}")
-
-            with col2:
-                if st.button("閉じる", key=f"close_{error_info.code}_{error_info.timestamp}"):
-                    st.rerun()
 
         # Use container if provided, otherwise display directly
         if container is not None:
