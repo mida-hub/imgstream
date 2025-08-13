@@ -8,11 +8,11 @@ This module contains comprehensive security tests including:
 - Unauthorized access attempts
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
-from src.imgstream.error_handling import DatabaseError
+from imgstream.ui.handlers.error_handling import DatabaseError
 from src.imgstream.models.photo import PhotoMetadata
 from src.imgstream.services.auth import CloudIAPAuthService
 from src.imgstream.services.metadata import MetadataService

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from src.imgstream.error_handling import (
+from imgstream.ui.handlers.error_handling import (
     AuthenticationError,
     AuthorizationError,
     DatabaseError,

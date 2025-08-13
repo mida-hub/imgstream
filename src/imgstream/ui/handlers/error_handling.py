@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from .logging_config import get_logger, log_error, log_security_event
+from imgstream.logging_config import get_logger, log_error, log_security_event
 
 # Import Streamlit exceptions for special handling
 try:

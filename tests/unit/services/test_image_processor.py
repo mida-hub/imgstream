@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image
 
-from src.imgstream.error_handling import ValidationError
+from imgstream.ui.handlers.error_handling import ValidationError
 from src.imgstream.services.image_processor import (
     ImageProcessingError,
     ImageProcessor,
