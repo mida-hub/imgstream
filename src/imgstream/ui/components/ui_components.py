@@ -191,6 +191,6 @@ def render_footer() -> None:
 
 def _is_development_mode() -> bool:
     """Check if running in development mode."""
-    from .dev_auth import _is_development_mode as dev_auth_is_development_mode
+    from ..handlers.dev_auth import _is_development_mode as dev_auth_is_development_mode
 
     return dev_auth_is_development_mode()

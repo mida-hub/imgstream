@@ -8,14 +8,14 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from imgstream.ui.auth_handlers import authenticate_user, handle_logout, require_authentication
-from imgstream.ui.components import render_sidebar
+from imgstream.ui.handlers.auth_handlers import authenticate_user, handle_logout, require_authentication
+from imgstream.ui.components.ui_components import render_sidebar
 
 
 class TestAuthHandlers:
     """Test authentication handler functions."""
 
-    @patch("imgstream.ui.auth_handlers.get_auth_service")
+    @patch("imgstream.ui.handlers.auth_handlers.get_auth_service")
     @patch("streamlit.secrets")
     def test_authenticate_user_mock_success(self, mock_secrets, mock_get_auth_service):
         """Test authenticate_user with mock user success."""
@@ -42,7 +42,7 @@ class TestAuthHandlers:
         assert mock_session_state.authenticated is True
         assert mock_session_state.user_email == "test@example.com"
 
-    @patch("imgstream.ui.auth_handlers.get_auth_service")
+    @patch("imgstream.ui.handlers.auth_handlers.get_auth_service")
     def test_authenticate_user_failure(self, mock_get_auth_service):
         """Test authenticate_user failure."""
         # Mock auth service
@@ -63,7 +63,7 @@ class TestAuthHandlers:
         assert result is False
         assert mock_session_state.authenticated is False
 
-    @patch("imgstream.ui.auth_handlers.get_auth_service")
+    @patch("imgstream.ui.handlers.auth_handlers.get_auth_service")
     def test_handle_logout(self, mock_get_auth_service):
         """Test handle_logout."""
         # Mock auth service
@@ -80,7 +80,7 @@ class TestAuthHandlers:
         assert mock_session_state.authenticated is False
         mock_rerun.assert_called_once()
 
-    @patch("imgstream.ui.auth_handlers.render_error_message")
+    @patch("imgstream.ui.handlers.auth_handlers.render_error_message")
     @patch("streamlit.button")
     def test_require_authentication_failure(self, mock_button, mock_render_error):
         """Test require_authentication when not authenticated."""

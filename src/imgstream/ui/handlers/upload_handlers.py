@@ -11,8 +11,8 @@ from imgstream.services.auth import get_auth_service
 from imgstream.services.image_processor import ImageProcessingError, ImageProcessor, UnsupportedFormatError
 from imgstream.services.metadata import get_metadata_service
 from imgstream.services.storage import get_storage_service
-from imgstream.ui.components import format_file_size
-from imgstream.utils.collision_detection import (
+from imgstream.ui.components.ui_components import format_file_size
+from imgstream.ui.handlers.collision_detection import (
     check_filename_collisions_with_fallback,
     check_filename_collisions_optimized,
     CollisionDetectionError,
@@ -1310,7 +1310,6 @@ def _render_next_steps(batch_result: dict[str, Any]) -> None:
             if st.button("🏠 Go Home", use_container_width=True):
                 st.session_state.current_page = "home"
                 st.rerun()
-
 
     elif failed_uploads > 0:
         st.markdown("### 🔧 Need Help?")

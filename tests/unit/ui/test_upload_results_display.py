@@ -131,7 +131,7 @@ class TestUploadResultsDisplay:
     @patch("src.imgstream.ui.upload_handlers.st")
     def test_render_upload_results_mixed_operations(self, mock_st, sample_batch_result_mixed):
         """Test rendering results with mixed operations."""
-        from src.imgstream.ui.upload_handlers import render_upload_results
+        from imgstream.ui.handlers.upload_handlers import render_upload_results
 
         # Mock streamlit components with context manager support
         mock_col = Mock()
@@ -162,7 +162,7 @@ class TestUploadResultsDisplay:
     @patch("src.imgstream.ui.upload_handlers.st")
     def test_render_upload_results_overwrite_only(self, mock_st, sample_batch_result_overwrite_only):
         """Test rendering results with only overwrites."""
-        from src.imgstream.ui.upload_handlers import render_upload_results
+        from imgstream.ui.handlers.upload_handlers import render_upload_results
 
         # Mock streamlit components with context manager support
         mock_col = Mock()
@@ -188,7 +188,7 @@ class TestUploadResultsDisplay:
     @patch("src.imgstream.ui.upload_handlers.st")
     def test_render_upload_results_overwrite_failure(self, mock_st, sample_batch_result_overwrite_failure):
         """Test rendering results with overwrite failures."""
-        from src.imgstream.ui.upload_handlers import render_upload_results
+        from imgstream.ui.handlers.upload_handlers import render_upload_results
 
         # Mock streamlit components with context manager support
         mock_col = Mock()
@@ -219,7 +219,7 @@ class TestUploadResultsDisplay:
 
     def test_result_categorization_mixed_operations(self, sample_batch_result_mixed):
         """Test that results are properly categorized by operation type."""
-        from src.imgstream.ui.upload_handlers import render_upload_results
+        from imgstream.ui.handlers.upload_handlers import render_upload_results
 
         results = sample_batch_result_mixed["results"]
 
@@ -246,7 +246,7 @@ class TestUploadResultsDisplay:
 
     def test_overwrite_failure_identification(self, sample_batch_result_overwrite_failure):
         """Test identification of overwrite-specific failures."""
-        from src.imgstream.ui.upload_handlers import render_upload_results
+        from imgstream.ui.handlers.upload_handlers import render_upload_results
 
         results = sample_batch_result_overwrite_failure["results"]
         failed_results = [r for r in results if not r["success"]]
@@ -268,7 +268,7 @@ class TestUploadResultsDisplay:
     @patch("src.imgstream.ui.upload_handlers.st")
     def test_operation_impact_summary_display(self, mock_st, sample_batch_result_mixed):
         """Test that operation impact summary is displayed correctly."""
-        from src.imgstream.ui.upload_handlers import render_upload_results
+        from imgstream.ui.handlers.upload_handlers import render_upload_results
 
         # Mock streamlit components with context manager support
         mock_col = Mock()

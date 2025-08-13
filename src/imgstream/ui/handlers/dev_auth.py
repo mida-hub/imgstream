@@ -9,8 +9,8 @@ import os
 
 import streamlit as st
 
-from ..logging_config import get_logger
-from ..services.auth import UserInfo, get_auth_service
+from ...logging_config import get_logger
+from ...services.auth import UserInfo, get_auth_service
 
 logger = get_logger(__name__)
 

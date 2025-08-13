@@ -3,8 +3,8 @@
 import os
 from unittest.mock import Mock, patch
 
-from src.imgstream.services.auth import UserInfo
-from src.imgstream.ui.dev_auth import (
+from imgstream.services.auth import UserInfo
+from imgstream.ui.handlers.dev_auth import (
     _is_development_mode,
     authenticate_test_user,
     create_test_user,
@@ -60,7 +60,7 @@ class TestTestUserCreation:
         assert user.user_id == "custom-001"
         assert user.picture is None
 
-    @patch("src.imgstream.ui.dev_auth.get_auth_service")
+    @patch("imgstream.ui.handlers.dev_auth.get_auth_service")
     def test_authenticate_test_user_default(self, mock_get_auth_service):
         """Test authenticating test user with default values."""
         mock_auth_service = Mock()
@@ -75,7 +75,7 @@ class TestTestUserCreation:
         # Verify auth service was called
         mock_auth_service.set_current_user.assert_called_once_with(user)
 
-    @patch("src.imgstream.ui.dev_auth.get_auth_service")
+    @patch("imgstream.ui.handlers.dev_auth.get_auth_service")
     def test_authenticate_test_user_custom(self, mock_get_auth_service):
         """Test authenticating test user with custom user."""
         mock_auth_service = Mock()

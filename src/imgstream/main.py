@@ -8,9 +8,9 @@ import streamlit as st
 
 from imgstream.config import get_config
 from imgstream.logging_config import configure_structured_logging, get_logger
-from imgstream.ui.auth_handlers import authenticate_user
-from imgstream.ui.components import render_footer, render_header, render_sidebar
-from imgstream.ui.error_display import error_context, get_error_display_manager
+from imgstream.ui.handlers.auth_handlers import authenticate_user
+from imgstream.ui.components.ui_components import render_footer, render_header, render_sidebar
+from imgstream.ui.components.error_display import error_context, get_error_display_manager
 from imgstream.ui.pages.gallery import render_gallery_page
 from imgstream.ui.pages.home import render_home_page
 

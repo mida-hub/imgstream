@@ -5,7 +5,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 from io import BytesIO
 
-from src.imgstream.ui.upload_handlers import (
+from imgstream.ui.handlers.upload_handlers import (
     validate_uploaded_files_with_collision_check,
     render_file_validation_results_with_collisions,
 )

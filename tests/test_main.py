@@ -99,7 +99,7 @@ def test_structlog_configuration():
 
 def test_authentication_functions():
     """Test authentication-related functions."""
-    from imgstream.ui.auth_handlers import authenticate_user, handle_logout, require_authentication
+    from imgstream.ui.handlers.auth_handlers import authenticate_user, handle_logout, require_authentication
 
     # Verify functions exist and are callable
     assert callable(authenticate_user)
@@ -109,7 +109,7 @@ def test_authentication_functions():
 
 def test_ui_helper_functions():
     """Test UI helper functions."""
-    from imgstream.ui.components import render_empty_state, render_error_message, render_info_card
+    from imgstream.ui.components.ui_components import render_empty_state, render_error_message, render_info_card
 
     # Verify UI helper functions exist and are callable
     assert callable(render_empty_state)

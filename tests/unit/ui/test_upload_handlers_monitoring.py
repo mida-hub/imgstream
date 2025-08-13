@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 import streamlit as st
 
-from imgstream.ui.upload_handlers import (
+from imgstream.ui.handlers.upload_handlers import (
     handle_collision_decision_monitoring,
     collect_user_collision_decisions,
     get_collision_decision_statistics,
@@ -178,7 +178,7 @@ class TestSessionStateManagement:
     @patch("streamlit.session_state", new_callable=dict)
     def test_clear_upload_session_state(self, mock_session_state):
         """Test clearing upload-related session state."""
-        from src.imgstream.ui.upload_handlers import clear_upload_session_state
+        from imgstream.ui.handlers.upload_handlers import clear_upload_session_state
 
         # Set up session state with various keys
         mock_session_state.update({

@@ -17,7 +17,7 @@ from imgstream.utils.collision_detection import (
     check_filename_collisions_with_fallback,
     CollisionDetectionError,
 )
-from imgstream.ui.upload_handlers import (
+from imgstream.ui.handlers.upload_handlers import (
     validate_uploaded_files_with_collision_check,
     process_batch_upload,
     process_single_upload,
@@ -125,7 +125,7 @@ class TestCollisionDetectionIntegration:
         assert len(collision_events) == 2
 
         # Test collision resolution with user decisions
-        from imgstream.ui.upload_handlers import handle_collision_decision_monitoring
+        from imgstream.ui.handlers.upload_handlers import handle_collision_decision_monitoring
 
         # User decides to overwrite photo1.jpg and skip photo2.jpg
         handle_collision_decision_monitoring(
@@ -508,7 +508,7 @@ class TestCollisionDetectionIntegration:
         initial_event_count = len(monitor.collision_events)
 
         # Test batch collision detection monitoring
-        from imgstream.ui.upload_handlers import monitor_batch_collision_processing
+        from imgstream.ui.handlers.upload_handlers import monitor_batch_collision_processing
 
         filenames = ["photo1.jpg", "photo2.jpg", "photo3.jpg"]
         collision_results = {
@@ -528,7 +528,7 @@ class TestCollisionDetectionIntegration:
         # Note: The actual logging happens in the monitor, we're testing the integration
 
         # Test user decision monitoring
-        from imgstream.ui.upload_handlers import handle_collision_decision_monitoring
+        from imgstream.ui.handlers.upload_handlers import handle_collision_decision_monitoring
 
         handle_collision_decision_monitoring(
             user_id=self.user_id,

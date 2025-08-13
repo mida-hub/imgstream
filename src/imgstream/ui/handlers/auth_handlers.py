@@ -4,8 +4,8 @@ import streamlit as st
 import structlog
 
 from imgstream.services.auth import AuthenticationError, get_auth_service
-from imgstream.ui.components import render_error_message
-from imgstream.ui.dev_auth import render_dev_auth_ui, setup_dev_auth_middleware, _is_development_mode
+from imgstream.ui.components.ui_components import render_error_message
+from imgstream.ui.handlers.dev_auth import render_dev_auth_ui, setup_dev_auth_middleware, _is_development_mode
 
 logger = structlog.get_logger()
 

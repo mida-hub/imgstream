@@ -11,8 +11,8 @@ from typing import Any
 
 import streamlit as st
 
-from ..error_handling import ErrorInfo, ErrorSeverity
-from ..logging_config import get_logger
+from ...error_handling import ErrorInfo, ErrorSeverity
+from ...logging_config import get_logger
 
 # Type alias for Streamlit container
 StreamlitContainer = Any

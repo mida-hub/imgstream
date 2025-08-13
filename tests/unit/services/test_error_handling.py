@@ -13,7 +13,7 @@ from src.imgstream.utils.collision_detection import (
     _create_fallback_collision_results,
 )
 from src.imgstream.services.metadata import MetadataService, MetadataError
-from src.imgstream.ui.upload_handlers import (
+from imgstream.ui.handlers.upload_handlers import (
     _get_collision_detection_error_message,
     handle_overwrite_operation_error,
     clear_upload_session_state,
@@ -356,7 +356,7 @@ class TestErrorRecoveryIntegration:
     @patch("streamlit.session_state", new_callable=dict)
     def test_clear_upload_session_state(self, mock_session_state):
         """Test clearing of upload session state."""
-        from src.imgstream.ui.upload_handlers import clear_upload_session_state
+        from imgstream.ui.handlers.upload_handlers import clear_upload_session_state
 
         # Set up session state with upload-related keys
         mock_session_state.update({

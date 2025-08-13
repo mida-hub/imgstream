@@ -6,9 +6,9 @@ from typing import Any
 import streamlit as st
 import structlog
 
-from imgstream.ui.auth_handlers import require_authentication
-from imgstream.ui.components import render_empty_state, render_info_card
-from imgstream.ui.upload_handlers import (
+from imgstream.ui.handlers.auth_handlers import require_authentication
+from imgstream.ui.components.ui_components import render_empty_state, render_info_card
+from imgstream.ui.handlers.upload_handlers import (
     get_file_size_limits,
     process_batch_upload,
     render_detailed_progress_info,
@@ -18,7 +18,7 @@ from imgstream.ui.upload_handlers import (
     render_upload_statistics,
     validate_uploaded_files_with_collision_check,
 )
-from imgstream.ui.collision_components import (
+from imgstream.ui.components.collision_components import (
     render_collision_warnings,
     render_collision_status_indicator,
     render_collision_help_section,
@@ -26,7 +26,7 @@ from imgstream.ui.collision_components import (
     validate_collision_decisions,
     clear_collision_decisions,
 )
-from imgstream.utils.collision_detection import process_collision_results, filter_files_by_collision_decision
+from imgstream.ui.handlers.collision_detection import process_collision_results, filter_files_by_collision_decision
 
 logger = structlog.get_logger()
 

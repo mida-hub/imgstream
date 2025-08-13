@@ -9,8 +9,8 @@ import structlog
 from imgstream.services.auth import get_auth_service
 from imgstream.services.metadata import get_metadata_service
 from imgstream.services.storage import get_storage_service
-from imgstream.ui.auth_handlers import require_authentication
-from imgstream.ui.components import render_empty_state, render_error_message
+from imgstream.ui.handlers.auth_handlers import require_authentication
+from imgstream.ui.components.ui_components import render_empty_state, render_error_message
 
 logger = structlog.get_logger()
 

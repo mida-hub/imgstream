@@ -39,8 +39,8 @@ import structlog
 import os
 from datetime import datetime, timedelta
 
-from ..services.metadata import get_metadata_service, MetadataError
-from ..logging_config import log_error
+from ...services.metadata import get_metadata_service, MetadataError
+from ...logging_config import log_error
 
 logger = structlog.get_logger(__name__)
 
