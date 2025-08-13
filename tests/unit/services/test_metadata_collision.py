@@ -546,7 +546,7 @@ class TestUploadHandlersOverwriteSupport:
             }
         }
 
-    @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
+    @patch("imgstream.ui.handlers.upload.process_single_upload_with_progress")
     def test_process_batch_upload_with_overwrite(self, mock_process_single, sample_file_info, collision_results):
         """Test batch upload processing with overwrite decisions."""
         from imgstream.ui.handlers.upload import process_batch_upload
@@ -574,7 +574,7 @@ class TestUploadHandlersOverwriteSupport:
         call_args = mock_process_single.call_args
         assert call_args[1]["is_overwrite"] is True
 
-    @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
+    @patch("imgstream.ui.handlers.upload.process_single_upload")
     def test_process_batch_upload_with_skip(self, mock_process_single, sample_file_info):
         """Test batch upload processing with skip decisions."""
         from imgstream.ui.handlers.upload import process_batch_upload
@@ -606,7 +606,7 @@ class TestUploadHandlersOverwriteSupport:
         # Verify process_single_upload_with_progress was not called for skipped file
         mock_process_single.assert_not_called()
 
-    @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
+    @patch("imgstream.ui.handlers.upload.process_single_upload")
     def test_process_batch_upload_with_pending_decision(self, mock_process_single, sample_file_info):
         """Test batch upload processing with pending collision decisions."""
         from imgstream.ui.handlers.upload import process_batch_upload
@@ -638,7 +638,7 @@ class TestUploadHandlersOverwriteSupport:
         # Verify process_single_upload_with_progress was not called for pending decision
         mock_process_single.assert_not_called()
 
-    @patch("src.imgstream.ui.upload_handlers.process_single_upload_with_progress")
+    @patch("imgstream.ui.handlers.upload.process_single_upload")
     def test_process_batch_upload_mixed_operations(self, mock_process_single, collision_results):
         """Test batch upload processing with mixed new uploads and overwrites."""
         from imgstream.ui.handlers.upload import process_batch_upload
@@ -685,10 +685,10 @@ class TestUploadHandlersOverwriteSupport:
         second_call = mock_process_single.call_args_list[1]
         assert second_call[1]["is_overwrite"] is False
 
-    @patch("src.imgstream.ui.upload_handlers.get_metadata_service")
-    @patch("src.imgstream.ui.upload_handlers.get_storage_service")
-    @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
-    @patch("src.imgstream.ui.upload_handlers.get_auth_service")
+    @patch("imgstream.ui.handlers.upload.get_metadata_service")
+    @patch("imgstream.ui.handlers.upload.get_storage_service")
+    @patch("imgstream.ui.handlers.upload.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
     def test_process_single_upload_overwrite_mode(
         self, mock_auth, mock_image_processor, mock_storage, mock_metadata, sample_file_info
     ):
@@ -726,10 +726,10 @@ class TestUploadHandlersOverwriteSupport:
         call_args = mock_metadata_service.save_or_update_photo_metadata.call_args
         assert call_args[1]["is_overwrite"] is True
 
-    @patch("src.imgstream.ui.upload_handlers.get_metadata_service")
-    @patch("src.imgstream.ui.upload_handlers.get_storage_service")
-    @patch("src.imgstream.ui.upload_handlers.ImageProcessor")
-    @patch("src.imgstream.ui.upload_handlers.get_auth_service")
+    @patch("imgstream.ui.handlers.upload.get_metadata_service")
+    @patch("imgstream.ui.handlers.upload.get_storage_service")
+    @patch("imgstream.ui.handlers.upload.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
     def test_process_single_upload_new_mode(
         self, mock_auth, mock_image_processor, mock_storage, mock_metadata, sample_file_info
     ):
