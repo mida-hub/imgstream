@@ -319,8 +319,10 @@ def render_photo_details(photo: dict[str, Any]) -> None:
                 st.write(f"📅 **作成日:** {creation_date.strftime('%Y-%m-%d %H:%M:%S')}")
             except (ValueError, TypeError):
                 st.write(f"📅 **作成日:** {creation_date}")
-        else:
+        elif isinstance(creation_date, datetime):
             st.write(f"📅 **作成日:** {creation_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        else:
+            st.write(f"📅 **作成日:** {creation_date}")
 
     # Upload date
     upload_date = photo.get("uploaded_at")
@@ -331,8 +333,10 @@ def render_photo_details(photo: dict[str, Any]) -> None:
                 st.write(f"📤 **アップロード日:** {upload_date.strftime('%Y-%m-%d %H:%M:%S')}")
             except (ValueError, TypeError):
                 st.write(f"📤 **アップロード日:** {upload_date}")
-        else:
+        elif isinstance(upload_date, datetime):
             st.write(f"📤 **アップロード日:** {upload_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        else:
+            st.write(f"📤 **アップロード日:** {upload_date}")
 
     # File size
     file_size = photo.get("file_size")
