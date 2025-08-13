@@ -11,12 +11,14 @@ from imgstream.ui.components.ui_components import render_empty_state, render_inf
 from imgstream.ui.handlers.upload_handlers import (
     get_file_size_limits,
     process_batch_upload,
+    validate_uploaded_files_with_collision_check,
+)
+from imgstream.ui.components.upload_components import (
     render_detailed_progress_info,
     render_file_validation_results_with_collisions,
     render_upload_progress,
     render_upload_results,
     render_upload_statistics,
-    validate_uploaded_files_with_collision_check,
 )
 from imgstream.ui.components.collision_components import (
     render_collision_warnings,
