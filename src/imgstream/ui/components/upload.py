@@ -364,43 +364,6 @@ def render_overwrites(overwrite_results: list[dict[str, Any]]) -> None:
     if not overwrite_results:
         return
 
-    with st.expander(f"🔄 上書き ({len(overwrite_results)})", expanded=len(overwrite_results) <= 3):
-        st.markdown("**以下のファイルは既存の写真を上書きしました:**")
-        st.divider()
-
-        for result in overwrite_results:
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.info(f"📷 **{result['filename']}**")
-
-                # Show new file information
-                st.markdown("**新しいファイル情報:**")
-                if "created_at" in result:
-                    st.write(f"   📅 撮影日時: {result['created_at'].strftime('%Y-%m-%d %H:%M:%S')}")
-                if "file_size" in result:
-                    file_size_mb = result["file_size"] / (1024 * 1024)
-                    st.write(f"   💾 ファイルサイズ: {file_size_mb:.1f} MB")
-
-                # Show overwrite confirmation
-                st.success("   ✅ **上書き完了 - 既存の写真が新しいバージョンに置き換えられました**")
-
-                # Show what was preserved
-                st.markdown("**保持された情報:**")
-                st.write("   🔒 元の作成日時とファイルIDは保持されています")
-                st.write("   📊 メタデータは新しいファイルの情報に更新されました")
-
-                if "processing_steps" in result:
-                    with st.expander(f"上書き処理ステップ: {result['filename']}", expanded=False):
-                        for step in result["processing_steps"]:
-                            st.write(f"• {step}")
-            with col2:
-                st.markdown("🔄 **上書き完了**")
-                st.markdown("---")
-                st.markdown("**操作結果:**")
-                st.write("✅ 成功")
-                st.write("🔄 既存ファイル更新")
-                st.write("🔒 ID・作成日保持")
-
 
 def render_skipped_files(skipped_results: list[dict[str, Any]]) -> None:
     """Render skipped files results."""
@@ -534,49 +497,7 @@ def render_detailed_results(batch_result: dict[str, Any]) -> None:
 
 
 def render_processing_summary(batch_result: dict[str, Any]) -> None:
-    """Render processing summary for mixed operations."""
-    overwrite_uploads = batch_result.get("overwrite_uploads", 0)
-    skipped_uploads = batch_result.get("skipped_uploads", 0)
-    failed_uploads = batch_result["failed_uploads"]
-    successful_uploads = batch_result["successful_uploads"]
-
-    if overwrite_uploads > 0 or skipped_uploads > 0:
-        st.markdown("### 📊 処理サマリー")
-
-        # Create summary cards
-        summary_cols = st.columns(4)
-
-        with summary_cols[0]:
-            new_uploads = successful_uploads - overwrite_uploads
-            if new_uploads > 0:
-                st.metric(label="🆕 新規アップロード", value=new_uploads, help="新しく追加された写真の数")
-
-        with summary_cols[1]:
-            if overwrite_uploads > 0:
-                st.metric(label="🔄 上書き更新", value=overwrite_uploads, help="既存の写真を更新した数")
-
-        with summary_cols[2]:
-            if skipped_uploads > 0:
-                st.metric(label="⏭️ スキップ", value=skipped_uploads, help="ユーザー選択によりスキップされた数")
-
-        with summary_cols[3]:
-            if failed_uploads > 0:
-                st.metric(
-                    label="❌ 失敗", value=failed_uploads, delta=-failed_uploads, help="処理に失敗したファイルの数"
-                )
-
-        # Show operation impact summary
-        if overwrite_uploads > 0:
-            st.info(
-                f"🔄 **上書き操作について:** {overwrite_uploads}個のファイルが既存の写真を更新しました。"
-                "元の作成日時とファイルIDは保持され、メタデータのみが更新されています。"
-            )
-
-        if skipped_uploads > 0:
-            st.warning(
-                f"⏭️ **スキップされたファイル:** {skipped_uploads}個のファイルがスキップされました。"
-                "これらのファイルは処理されておらず、既存のファイルも変更されていません。"
-            )
+    pass
 
 
 def render_next_steps(batch_result: dict[str, Any]) -> None:
@@ -589,12 +510,12 @@ def render_next_steps(batch_result: dict[str, Any]) -> None:
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            if st.button("🖼️ ギャラリーを見る", use_container_width=True, type="primary"):
+            if st.button("🖼️ ギャラリー", use_container_width=True, type="primary"):
                 st.session_state.current_page = "gallery"
                 st.rerun()
 
         with col2:
-            if st.button("📤 さらにアップロード", use_container_width=True):
+            if st.button("📤 アップロード", use_container_width=True):
                 # Clear upload state for new upload
                 from imgstream.ui.handlers.upload import clear_upload_session_state
 
@@ -602,7 +523,7 @@ def render_next_steps(batch_result: dict[str, Any]) -> None:
                 st.rerun()
 
         with col3:
-            if st.button("🏠 ホームに戻る", use_container_width=True):
+            if st.button("🏠 ホーム", use_container_width=True):
                 st.session_state.current_page = "home"
                 st.rerun()
 

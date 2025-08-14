@@ -291,7 +291,7 @@ def _execute_upload() -> None:
 
     # Show enhanced results with processing time
     st.divider()
-    st.markdown("### 📊 Upload Results")
+    st.markdown("### 📊 アップロード結果")
     render_upload_results(batch_result, processing_time)
 
 
@@ -305,23 +305,23 @@ def _render_upload_button() -> None:
     # Determine upload status
     can_upload, upload_button_text = _determine_upload_status()
 
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        # Disable button during upload or if decisions are pending
-        upload_button_disabled = st.session_state.upload_in_progress or not can_upload
+    # col1, col2, col3 = st.columns([1, 2, 1])
+    # with col2:
+    # Disable button during upload or if decisions are pending
+    upload_button_disabled = st.session_state.upload_in_progress or not can_upload
 
-        if st.button(
-            upload_button_text,
-            use_container_width=True,
-            type="primary" if can_upload else "secondary",
-            disabled=upload_button_disabled,
-            help="衝突の決定を完了してからアップロードしてください" if not can_upload else None,
-        ):
-            _execute_upload()
+    if st.button(
+        upload_button_text,
+        use_container_width=True,
+        type="primary" if can_upload else "secondary",
+        disabled=upload_button_disabled,
+        help="衝突の決定を完了してからアップロードしてください" if not can_upload else None,
+    ):
+        _execute_upload()
 
-        # Show upload in progress indicator
-        if st.session_state.upload_in_progress:
-            st.info("🔄 アップロード中です... ページを更新しないでください。")
+    # Show upload in progress indicator
+    if st.session_state.upload_in_progress:
+        st.info("🔄 アップロード中です... ページを更新しないでください。")
 
 
 def _render_results_or_empty_state() -> None:

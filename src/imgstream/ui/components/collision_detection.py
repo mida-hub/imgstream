@@ -43,18 +43,8 @@ def render_collision_warnings(collision_results: dict[str, dict[str, Any]]) -> d
         # Create a container for each collision with better styling
         with st.container():
             # File header with number
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.markdown(f"#### {i}. 📷 {filename}")
-            with col2:
-                # Show current decision status
-                current_decision = collision_info.get("user_decision", "pending")
-                if current_decision == "overwrite":
-                    st.success("✅ 上書き")
-                elif current_decision == "skip":
-                    st.error("❌ スキップ")
-                else:
-                    st.warning("⏳ 決定待ち")
+
+            st.markdown(f"#### {i}. 📷 {filename}")
 
             # Existing file information in a nice layout
             st.markdown("**既存ファイルの情報:**")
@@ -70,15 +60,12 @@ def render_collision_warnings(collision_results: dict[str, dict[str, Any]]) -> d
                 upload_date = existing_file_info["upload_date"]
                 if isinstance(upload_date, datetime):
                     date_str = upload_date.strftime("%Y-%m-%d")
-                    time_str = upload_date.strftime("%H:%M")
                 else:
                     date_str = str(upload_date)
-                    time_str = ""
 
                 st.metric(
                     "アップロード日",
                     date_str,
-                    delta=time_str if time_str else None,
                     help="既存ファイルがアップロードされた日時",
                 )
 
@@ -93,7 +80,7 @@ def render_collision_warnings(collision_results: dict[str, dict[str, Any]]) -> d
             # Decision selection with better UX
             st.markdown("**選択してください:**")
 
-            decision_col1, decision_col2, decision_col3 = st.columns([1, 1, 2])
+            decision_col1, decision_col2 = st.columns([1, 1])
 
             decision_key = f"collision_decision_{filename}_{i}"
 
@@ -103,7 +90,7 @@ def render_collision_warnings(collision_results: dict[str, dict[str, Any]]) -> d
                     key=f"overwrite_{decision_key}",
                     help="既存ファイルを新しいファイルで置き換えます",
                     use_container_width=True,
-                    type="primary" if current_decision == "overwrite" else "secondary",
+                    type="primary" if f"decision_{filename}" in st.session_state and st.session_state[f"decision_{filename}"] == "overwrite" else "secondary",
                 ):
                     user_decisions[filename] = "overwrite"
                     # Update session state to persist decision
@@ -116,21 +103,12 @@ def render_collision_warnings(collision_results: dict[str, dict[str, Any]]) -> d
                     key=f"skip_{decision_key}",
                     help="このファイルをアップロードせず、既存ファイルを保持します",
                     use_container_width=True,
-                    type="primary" if current_decision == "skip" else "secondary",
+                    type="primary" if f"decision_{filename}" in st.session_state and st.session_state[f"decision_{filename}"] == "skip" else "secondary",
                 ):
                     user_decisions[filename] = "skip"
                     # Update session state to persist decision
                     st.session_state[f"decision_{filename}"] = "skip"
                     st.rerun()
-
-            with decision_col3:
-                # Show additional information based on decision
-                if current_decision == "overwrite":
-                    st.warning("⚠️ 既存ファイルは完全に置き換えられます")
-                elif current_decision == "skip":
-                    st.info("ℹ️ このファイルはアップロードされません")
-                else:
-                    st.info("👆 上記のボタンから選択してください")
 
             # Check session state for persisted decisions
             session_decision = st.session_state.get(f"decision_{filename}")
@@ -186,14 +164,6 @@ def _render_decision_summary(user_decisions: dict[str, str], collision_results: 
             delta="要決定" if pending_count > 0 else "完了",
             help="まだ決定していないファイル数",
         )
-
-    # Show detailed list if there are decisions
-    if user_decisions:
-        with st.expander("📝 決定の詳細", expanded=False):
-            for filename, decision in user_decisions.items():
-                decision_icon = "🔄" if decision == "overwrite" else "⏭️"
-                decision_text = "上書き" if decision == "overwrite" else "スキップ"
-                st.write(f"{decision_icon} **{filename}** → {decision_text}")
 
 
 def render_collision_status_indicator(
