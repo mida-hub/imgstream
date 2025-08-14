@@ -20,7 +20,7 @@ class TestFileValidation:
         assert valid_files == []
         assert errors == []
 
-    @patch("imgstream.ui.handlers.upload.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_valid_file(self, mock_processor_class):
         """Test validation with valid file."""
         # Mock ImageProcessor
@@ -41,7 +41,7 @@ class TestFileValidation:
         assert valid_files[0]["filename"] == "test.jpg"
         assert valid_files[0]["size"] == len(b"fake_image_data")
 
-    @patch("imgstream.ui.handlers.upload.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_unsupported_format(self, mock_processor_class):
         """Test validation with unsupported file format."""
         # Mock ImageProcessor
@@ -61,7 +61,7 @@ class TestFileValidation:
         assert errors[0]["filename"] == "test.png"
         assert "Unsupported file format" in errors[0]["error"]
 
-    @patch("imgstream.ui.handlers.upload.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_size_error(self, mock_processor_class):
         """Test validation with file size error."""
         # Mock ImageProcessor
@@ -82,7 +82,7 @@ class TestFileValidation:
         assert errors[0]["filename"] == "large_file.jpg"
         assert "Validation failed" in errors[0]["error"]
 
-    @patch("imgstream.ui.handlers.upload.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
     def test_validate_uploaded_files_mixed_results(self, mock_processor_class):
         """Test validation with mix of valid and invalid files."""
         # Mock ImageProcessor
@@ -133,7 +133,7 @@ class TestFileUtilities:
         assert format_file_size(1024 * 1024 * 2.5) == "2.5 MB"
         assert format_file_size(1024 * 1024 * 50) == "50.0 MB"
 
-    @patch("imgstream.ui.handlers.upload.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
     def test_get_file_size_limits(self, mock_processor_class):
         """Test getting file size limits."""
         mock_processor = MagicMock()

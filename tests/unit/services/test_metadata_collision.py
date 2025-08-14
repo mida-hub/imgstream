@@ -561,10 +561,16 @@ class TestUploadHandlersOverwriteSupport:
             }
         }
 
-    @patch("imgstream.ui.handlers.upload.process_single_upload_with_progress")
-    def test_process_batch_upload_with_overwrite(self, mock_process_single, sample_file_info, collision_results):
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
+    @patch("imgstream.ui.handlers.upload.process_single_upload")
+    def test_process_batch_upload_with_overwrite(self, mock_process_single, mock_get_auth_service, sample_file_info, collision_results):
         """Test batch upload processing with overwrite decisions."""
         from imgstream.ui.handlers.upload import process_batch_upload
+
+        # Mock auth service
+        mock_auth_service = MagicMock()
+        mock_auth_service.get_current_user_id.return_value = "test_user_123"
+        mock_get_auth_service.return_value = mock_auth_service
 
         # Mock successful overwrite result
         mock_process_single.return_value = {
@@ -589,10 +595,16 @@ class TestUploadHandlersOverwriteSupport:
         call_args = mock_process_single.call_args
         assert call_args[1]["is_overwrite"] is True
 
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
     @patch("imgstream.ui.handlers.upload.process_single_upload")
-    def test_process_batch_upload_with_skip(self, mock_process_single, sample_file_info):
+    def test_process_batch_upload_with_skip(self, mock_process_single, mock_get_auth_service, sample_file_info):
         """Test batch upload processing with skip decisions."""
         from imgstream.ui.handlers.upload import process_batch_upload
+
+        # Mock auth service
+        mock_auth_service = MagicMock()
+        mock_auth_service.get_current_user_id.return_value = "test_user_123"
+        mock_get_auth_service.return_value = mock_auth_service
 
         collision_results = {
             "test_photo.jpg": {
@@ -621,10 +633,16 @@ class TestUploadHandlersOverwriteSupport:
         # Verify process_single_upload_with_progress was not called for skipped file
         mock_process_single.assert_not_called()
 
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
     @patch("imgstream.ui.handlers.upload.process_single_upload")
-    def test_process_batch_upload_with_pending_decision(self, mock_process_single, sample_file_info):
+    def test_process_batch_upload_with_pending_decision(self, mock_process_single, mock_get_auth_service, sample_file_info):
         """Test batch upload processing with pending collision decisions."""
         from imgstream.ui.handlers.upload import process_batch_upload
+
+        # Mock auth service
+        mock_auth_service = MagicMock()
+        mock_auth_service.get_current_user_id.return_value = "test_user_123"
+        mock_get_auth_service.return_value = mock_auth_service
 
         collision_results = {
             "test_photo.jpg": {
@@ -653,10 +671,16 @@ class TestUploadHandlersOverwriteSupport:
         # Verify process_single_upload_with_progress was not called for pending decision
         mock_process_single.assert_not_called()
 
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
     @patch("imgstream.ui.handlers.upload.process_single_upload")
-    def test_process_batch_upload_mixed_operations(self, mock_process_single, collision_results):
+    def test_process_batch_upload_mixed_operations(self, mock_process_single, mock_get_auth_service, collision_results):
         """Test batch upload processing with mixed new uploads and overwrites."""
         from imgstream.ui.handlers.upload import process_batch_upload
+
+        # Mock auth service
+        mock_auth_service = MagicMock()
+        mock_auth_service.get_current_user_id.return_value = "test_user_123"
+        mock_get_auth_service.return_value = mock_auth_service
 
         file_infos = [
             {"filename": "test_photo.jpg", "size": 1024000, "data": b"fake_data_1"},

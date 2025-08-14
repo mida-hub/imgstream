@@ -128,7 +128,7 @@ class TestUploadResultsDisplay:
             "message": "Processed 2 files: 1 successful, 0 skipped, 1 failed",
         }
 
-    @patch("src.imgstream.ui.handlers.upload.st")
+    @patch("imgstream.ui.handlers.upload_handlers.st")
     def test_render_upload_results_mixed_operations(self, mock_st, sample_batch_result_mixed):
         """Test rendering results with mixed operations."""
         from imgstream.ui.components.upload import render_upload_results
@@ -159,7 +159,7 @@ class TestUploadResultsDisplay:
         mock_st.success.assert_called()
         # Just verify that success was called - the exact message format may vary
 
-    @patch("src.imgstream.ui.handlers.upload.st")
+    @patch("imgstream.ui.handlers.upload_handlers.st")
     def test_render_upload_results_overwrite_only(self, mock_st, sample_batch_result_overwrite_only):
         """Test rendering results with only overwrites."""
         from imgstream.ui.components.upload import render_upload_results
@@ -185,7 +185,7 @@ class TestUploadResultsDisplay:
         mock_st.success.assert_called()
         # Just verify that success was called - the exact message format may vary
 
-    @patch("src.imgstream.ui.handlers.upload.st")
+    @patch("imgstream.ui.handlers.upload_handlers.st")
     def test_render_upload_results_overwrite_failure(self, mock_st, sample_batch_result_overwrite_failure):
         """Test rendering results with overwrite failures."""
         from imgstream.ui.components.upload import render_upload_results
@@ -265,7 +265,7 @@ class TestUploadResultsDisplay:
         assert overwrite_failure["is_overwrite"] is True
         assert "Database update failed" in overwrite_failure["error"]
 
-    @patch("src.imgstream.ui.handlers.upload.st")
+    @patch("imgstream.ui.handlers.upload_handlers.st")
     def test_operation_impact_summary_display(self, mock_st, sample_batch_result_mixed):
         """Test that operation impact summary is displayed correctly."""
         from imgstream.ui.components.upload import render_upload_results

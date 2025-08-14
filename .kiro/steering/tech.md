@@ -42,3 +42,49 @@ unittest.mock が使えるシーンでは mock を利用してテストコード
 - `tests/integration/` - 統合テスト（開発が一段落したら有効化予定）
 
 必要に応じて pyproject.toml の `addopts` から `--ignore=` を削除して有効化できます。
+
+# code tree
+リファクタリングを行い、ディレクトリ構造が変更されました
+テストコードで異なるファイルを参照している際はこちらを参考に import の修正などお願いします
+
+```
+src/imgstream
+├── __init__.py
+├── api
+│   ├── __init__.py
+│   └── database_admin.py
+├── config.py
+├── logging_config.py
+├── main.py
+├── models
+│   ├── __init__.py
+│   ├── database.py
+│   ├── photo.py
+│   └── schema.py
+├── services
+│   ├── __init__.py
+│   ├── auth.py
+│   ├── image_processor.py
+│   ├── metadata.py
+│   └── storage.py
+└── ui
+    ├── __init__.py
+    ├── components
+    │   ├── __init__.py
+    │   ├── collision_detection.py
+    │   ├── common.py
+    │   ├── error.py
+    │   └── upload.py
+    ├── handlers
+    │   ├── __init__.py
+    │   ├── auth.py
+    │   ├── collision_detection.py
+    │   ├── dev_auth.py
+    │   ├── error.py
+    │   └── upload.py
+    └── pages
+        ├── __init__.py
+        ├── gallery.py
+        ├── home.py
+        └── upload.py
+```

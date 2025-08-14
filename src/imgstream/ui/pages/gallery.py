@@ -453,7 +453,6 @@ def render_photo_detail_sidebar(photo: dict[str, Any]) -> None:
         download_original_photo(photo)
 
 
-
 def download_original_photo(photo: dict[str, Any]) -> None:
     """
     Handle original photo download.

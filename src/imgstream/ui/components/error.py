@@ -79,7 +79,6 @@ class ErrorDisplayManager:
                     except Exception as e:
                         st.error(f"再試行に失敗しました: {str(e)}")
 
-
         # Use container if provided, otherwise display directly
         if container is not None:
             with container:

@@ -335,7 +335,7 @@ def _render_results_or_empty_state() -> None:
         # Clear results button
         if st.button("🗑️ 結果をクリア", use_container_width=True):
             # Clear all upload-related session state
-            from imgstream.ui.upload_handlers import clear_upload_session_state
+            from imgstream.ui.handlers.upload import clear_upload_session_state
 
             clear_upload_session_state()
             st.rerun()

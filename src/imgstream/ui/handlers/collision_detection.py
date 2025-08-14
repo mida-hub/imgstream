@@ -78,7 +78,7 @@ class CollisionCache:
         (collision_results_dict, timestamp)
     """
 
-    def __init__(self, ttl_seconds: int = None):
+    def __init__(self, ttl_seconds: int | None = None):
         """
         Initialize collision cache with configurable TTL.
 
@@ -90,7 +90,7 @@ class CollisionCache:
         if ttl_seconds is None:
             ttl_seconds = int(os.getenv("COLLISION_CACHE_TTL_SECONDS", 300))
 
-        self.cache = {}
+        self.cache: dict[str, Any] = {}
         self.ttl_seconds = ttl_seconds
         self.max_entries = int(os.getenv("COLLISION_CACHE_MAX_ENTRIES", 10000))
 
@@ -139,7 +139,7 @@ class CollisionCache:
                     cache_key=cache_key,
                     cached_results=len(cached_data),
                 )
-                return cached_data
+                return cached_data  # type: ignore[no-any-return]
             else:
                 # Cache expired, remove it
                 del self.cache[cache_key]
@@ -318,7 +318,7 @@ def check_filename_collisions(user_id: str, filenames: list[str], use_cache: boo
             )
             return cached_results
 
-    failed_files = []
+    failed_files: list[str] = []
 
     try:
         metadata_service = get_metadata_service(user_id)
