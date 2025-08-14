@@ -176,17 +176,17 @@ def render_detailed_progress_info(
 
             # Show recent completions
             if batch_results:
-                with st.expander("📋 Recent Completions", expanded=False):
+                with st.expander("📋 最近の完了", expanded=False):
                     for result in batch_results[-5:]:  # Show last 5 results
                         status_icon = "✅" if result.get("success", False) else "❌"
-                        filename = result.get("filename", "Unknown")
-                        message = result.get("message", "No message")
+                        filename = result.get("filename", "不明")
+                        message = result.get("message", "メッセージなし")
                         st.write(f"{status_icon} **{filename}** - {message}")
 
         if current_processing:
-            st.markdown("### 🔄 Current Processing")
-            filename = current_processing.get("filename", "Unknown")
-            step = current_processing.get("step", "Processing...")
+            st.markdown("### 🔄 現在の処理")
+            filename = current_processing.get("filename", "不明")
+            step = current_processing.get("step", "処理中...")
             st.info(f"**{filename}**: {step}")
 
 
@@ -515,7 +515,7 @@ def render_next_steps(batch_result: dict[str, Any]) -> None:
                 st.rerun()
 
         with col2:
-            if st.button("📤 アップロード", use_container_width=True):
+            if st.button("📤 さらにアップロード", use_container_width=True):
                 # Clear upload state for new upload
                 from imgstream.ui.handlers.upload import clear_upload_session_state
 

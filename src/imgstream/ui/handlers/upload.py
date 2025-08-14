@@ -676,17 +676,33 @@ def clear_upload_session_state() -> None:
         "upload_results",
         "last_upload_result",
         "upload_progress",
+        "collision_results",
+        "collision_decisions_made",
+        "photo_uploader",  # Streamlit file uploader widget state
     ]
 
     # Clear specific keys
+    cleared_keys = []
     for key in session_keys_to_clear:
         if key in st.session_state:
             del st.session_state[key]
+            cleared_keys.append(key)
 
     # Clear collision decision keys (pattern-based)
+    collision_keys_to_delete = []
     for key in list(st.session_state.keys()):  # type: ignore
-        if isinstance(key, str) and (key.startswith("collision_decision_") or key.startswith("decision_start_")):
-            del st.session_state[key]
+        if isinstance(key, str) and (
+            key.startswith("collision_decision_")
+            or key.startswith("decision_start_")
+            or key.startswith("decision_")  # Include decision_IMG_2430.JPG pattern
+        ):
+            collision_keys_to_delete.append(key)
+
+    for key in collision_keys_to_delete:
+        del st.session_state[key]
+        cleared_keys.append(key)
+
+    logger.info("upload_session_state_cleared", cleared_keys=cleared_keys, total_cleared=len(cleared_keys))
 
 
 def _get_collision_detection_error_message(error: Exception) -> str:
