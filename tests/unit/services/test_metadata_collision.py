@@ -562,7 +562,7 @@ class TestUploadHandlersOverwriteSupport:
         }
 
     @patch("imgstream.ui.handlers.upload.get_auth_service")
-    @patch("imgstream.ui.handlers.upload.process_single_upload")
+    @patch("imgstream.ui.handlers.upload.process_single_upload_with_progress")
     def test_process_batch_upload_with_overwrite(self, mock_process_single, mock_get_auth_service, sample_file_info, collision_results):
         """Test batch upload processing with overwrite decisions."""
         from imgstream.ui.handlers.upload import process_batch_upload
@@ -596,7 +596,7 @@ class TestUploadHandlersOverwriteSupport:
         assert call_args[1]["is_overwrite"] is True
 
     @patch("imgstream.ui.handlers.upload.get_auth_service")
-    @patch("imgstream.ui.handlers.upload.process_single_upload")
+    @patch("imgstream.ui.handlers.upload.process_single_upload_with_progress")
     def test_process_batch_upload_with_skip(self, mock_process_single, mock_get_auth_service, sample_file_info):
         """Test batch upload processing with skip decisions."""
         from imgstream.ui.handlers.upload import process_batch_upload
@@ -634,7 +634,7 @@ class TestUploadHandlersOverwriteSupport:
         mock_process_single.assert_not_called()
 
     @patch("imgstream.ui.handlers.upload.get_auth_service")
-    @patch("imgstream.ui.handlers.upload.process_single_upload")
+    @patch("imgstream.ui.handlers.upload.process_single_upload_with_progress")
     def test_process_batch_upload_with_pending_decision(self, mock_process_single, mock_get_auth_service, sample_file_info):
         """Test batch upload processing with pending collision decisions."""
         from imgstream.ui.handlers.upload import process_batch_upload
@@ -672,7 +672,7 @@ class TestUploadHandlersOverwriteSupport:
         mock_process_single.assert_not_called()
 
     @patch("imgstream.ui.handlers.upload.get_auth_service")
-    @patch("imgstream.ui.handlers.upload.process_single_upload")
+    @patch("imgstream.ui.handlers.upload.process_single_upload_with_progress")
     def test_process_batch_upload_mixed_operations(self, mock_process_single, mock_get_auth_service, collision_results):
         """Test batch upload processing with mixed new uploads and overwrites."""
         from imgstream.ui.handlers.upload import process_batch_upload
