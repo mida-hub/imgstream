@@ -511,8 +511,8 @@ class StorageService:
             StorageError: If URL generation fails
         """
         try:
-            # credentials, _ = google.auth.default()
-            # credentials.refresh(google.auth.transport.requests.Request())
+            credentials, _ = google.auth.default()
+            credentials.refresh(google.auth.transport.requests.Request())
 
             blob = self.photos_bucket.blob(gcs_path)
 
@@ -525,8 +525,8 @@ class StorageService:
             signed_url: str = blob.generate_signed_url(expiration=expiration_time,
                                                        method="GET",
                                                        version="v4",
-                                                       # service_account_email=credentials.service_account_email,
-                                                       # access_token=credentials.token
+                                                       service_account_email=credentials.service_account_email,
+                                                       access_token=credentials.token
                                                        )
 
             logger.debug(f"Generated signed URL for: {gcs_path} (expires in {expiration}s)")
