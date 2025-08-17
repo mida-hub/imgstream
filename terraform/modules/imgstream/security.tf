@@ -6,6 +6,7 @@ resource "google_project_iam_member" "cloud_run_permissions" {
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
     "roles/cloudtrace.agent",
+    "roles/iam.serviceAccountTokenCreator",
   ])
 
   project = var.project_id

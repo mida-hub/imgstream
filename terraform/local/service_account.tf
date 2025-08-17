@@ -10,6 +10,16 @@ resource "google_storage_bucket_iam_member" "cloud_run" {
   member = "serviceAccount:${google_service_account.cloud_run.email}"
 }
 
+resource "google_project_iam_member" "cloud_run_permissions" {
+  for_each = toset([
+    "roles/iam.serviceAccountTokenCreator",
+  ])
+
+  project = "apps-466614"
+  role    = each.value
+  member  = "serviceAccount:${google_service_account.cloud_run.email}"
+}
+
 resource "google_service_account_key" "cloud_run" {
   service_account_id = google_service_account.cloud_run.name
 }
