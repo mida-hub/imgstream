@@ -159,13 +159,13 @@ fi
 # Configure Docker for registry if pushing
 if [[ "$PUSH" == "true" ]]; then
     print_status "Configuring Docker for container registry..."
-    
+
     # Check if gcloud is installed
     if ! command -v gcloud &> /dev/null; then
         print_error "gcloud CLI is not installed. Please install it to push to registry."
         exit 1
     fi
-    
+
     # Configure Docker auth based on registry
     if [[ "$REGISTRY" == "gcr.io" ]]; then
         gcloud auth configure-docker --quiet || {
@@ -179,7 +179,7 @@ if [[ "$PUSH" == "true" ]]; then
             exit 1
         }
     fi
-    
+
     # Set project
     gcloud config set project "$PROJECT_ID" || {
         print_error "Failed to set GCP project"
@@ -250,14 +250,14 @@ fi
 # Push image if requested
 if [[ "$PUSH" == "true" ]]; then
     print_status "Pushing image to registry..."
-    
+
     docker push "$FULL_IMAGE_NAME" || {
         print_error "Failed to push image to registry"
         exit 1
     }
-    
+
     print_success "Image pushed successfully to registry"
-    
+
     # Get image digest
     IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$FULL_IMAGE_NAME" 2>/dev/null || echo "N/A")
     if [[ "$IMAGE_DIGEST" != "N/A" ]]; then
@@ -279,19 +279,3 @@ echo "=================================="
 echo ""
 
 print_success "Build completed successfully!"
-
-# Show next steps
-echo ""
-echo "Next steps:"
-if [[ "$PUSH" == "true" ]]; then
-    echo "1. Deploy to Cloud Run:"
-    echo "   ./scripts/deploy-cloud-run.sh -p $PROJECT_ID -e dev -i $FULL_IMAGE_NAME"
-    echo "2. Test the deployment"
-    echo "3. Monitor application logs"
-else
-    echo "1. Test the image locally:"
-    echo "   docker run -p 8501:8501 $FULL_IMAGE_NAME"
-    echo "2. Push to registry:"
-    echo "   $0 -p $PROJECT_ID -t $TAG --push"
-    echo "3. Deploy to Cloud Run"
-fi

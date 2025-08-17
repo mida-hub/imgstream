@@ -16,6 +16,7 @@ services:
       # Mount temporary directory for DuckDB files
       - ./imgstream_tmp:/tmp
       - ./terraform/local/output/secrets/sa-key-imgstream-cloud-run-local.json:/etc/secrets/key.json:ro
+      # - ~/.config/gcloud:/root/.config/gcloud:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -52,5 +53,6 @@ services:
       - ./.streamlit:/app/.streamlit
       - ./imgstream_tmp:/tmp
       - ./terraform/local/output/secrets/sa-key-imgstream-cloud-run-local.json:/etc/secrets/key.json:ro
+      # - ~/.config/gcloud:/root/.config/gcloud:ro
     profiles:
       - dev

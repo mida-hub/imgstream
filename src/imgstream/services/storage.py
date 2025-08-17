@@ -512,7 +512,11 @@ class StorageService:
         """
         try:
             credentials, _ = google.auth.default()
-            credentials.refresh(google.auth.transport.requests.Request())
+            try:
+                credentials.refresh(google.auth.transport.requests.Request())
+            except:
+                # occurred by local env only for Invalid OAuth scope or ID token audience provided
+                pass
 
             blob = self.photos_bucket.blob(gcs_path)
 
