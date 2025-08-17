@@ -23,17 +23,6 @@ class UserInfo:
     email: str
     picture: str | None = None
 
-    def get_storage_path_prefix(self) -> str:
-        """Get the storage path prefix for this user."""
-        safe_email = self.email.replace("@", "_at_").replace(".", "_dot_")
-        return f"photos/{safe_email}/"
-
-    def get_database_path(self) -> str:
-        """Get the database file path for this user."""
-        safe_email = self.email.replace("@", "_at_").replace(".", "_dot_")
-        return f"dbs/{safe_email}/metadata.db"
-
-
 class CloudIAPAuthService:
     """Service for handling Cloud IAP authentication."""
 
@@ -229,18 +218,6 @@ class CloudIAPAuthService:
         """Get the current user's email."""
         return self._current_user.email if self._current_user else None
 
-    def get_user_storage_path(self) -> str | None:
-        """Get the storage path prefix for the current user."""
-        if self._current_user:
-            return self._current_user.get_storage_path_prefix()
-        return None
-
-    def get_user_database_path(self) -> str | None:
-        """Get the database path for the current user."""
-        if self._current_user:
-            return self._current_user.get_database_path()
-        return None
-
     def clear_authentication(self) -> None:
         """Clear the current authentication state."""
         user_id = self._current_user.user_id if self._current_user else None
@@ -268,102 +245,6 @@ class CloudIAPAuthService:
                 details={"operation": "ensure_authenticated"},
             )
         return self._current_user  # type: ignore
-
-    def check_resource_access(self, resource_path: str) -> bool:
-        """
-        Check if current user has access to the specified resource path.
-
-        Args:
-            resource_path: Path to the resource (e.g., "photos/user123/file.jpg")
-
-        Returns:
-            bool: True if user has access, False otherwise
-        """
-        if not self.is_authenticated():
-            log_security_event("access_check_unauthenticated", context={"resource_path": resource_path})
-            return False
-
-        user_storage_prefix = self.get_user_storage_path()
-        user_db_prefix = self.get_user_database_path()
-
-        # Check storage path access with exact prefix matching
-        if user_storage_prefix:
-            storage_prefix_clean = user_storage_prefix.rstrip("/")
-            if resource_path == storage_prefix_clean or resource_path.startswith(storage_prefix_clean + "/"):
-                logger.debug(
-                    "resource_access_granted",
-                    user_id=self.get_user_id(),
-                    resource_path=resource_path,
-                    access_type="storage",
-                )
-                return True
-
-        # Check database path access
-        if user_db_prefix:
-            db_dir = user_db_prefix.rsplit("/", 1)[0]
-            if resource_path == db_dir or resource_path.startswith(db_dir + "/") or resource_path == user_db_prefix:
-                logger.debug(
-                    "resource_access_granted",
-                    user_id=self.get_user_id(),
-                    resource_path=resource_path,
-                    access_type="database",
-                )
-                return True
-
-        user_email = self.get_user_email()
-        log_security_event(
-            "access_denied",
-            user_id=self.get_user_id(),
-            context={"user_email": user_email, "resource_path": resource_path},
-        )
-        return False
-
-    def get_user_resource_paths(self) -> dict[str, str]:
-        """
-        Get all resource paths for the current user.
-
-        Returns:
-            dict: Dictionary containing user's resource paths
-
-        Raises:
-            AuthenticationError: If user is not authenticated
-        """
-        user = self.ensure_authenticated()
-
-        safe_email = user.email.replace("@", "_at_").replace(".", "_dot_")
-        storage_prefix = user.get_storage_path_prefix()
-
-        return {
-            "storage_prefix": storage_prefix,
-            "database_path": user.get_database_path(),
-            "original_photos": f"{storage_prefix}original/",
-            "thumbnails": f"{storage_prefix}thumbs/",
-            "database_dir": f"dbs/{safe_email}/",
-        }
-
-    def validate_user_ownership(self, resource_path: str) -> None:
-        """
-        Validate that the current user owns the specified resource.
-
-        Args:
-            resource_path: Path to the resource to validate
-
-        Raises:
-            AuthenticationError: If user is not authenticated
-            AuthorizationError: If user doesn't own the resource
-        """
-        self.ensure_authenticated()
-
-        if not self.check_resource_access(resource_path):
-            raise AuthorizationError(
-                f"Access denied to resource: {resource_path}",
-                code="resource_access_denied",
-                details={
-                    "resource_path": resource_path,
-                    "user_id": self.get_user_id(),
-                    "user_email": self.get_user_email(),
-                },
-            )
 
     def require_authentication(self) -> None:
         """

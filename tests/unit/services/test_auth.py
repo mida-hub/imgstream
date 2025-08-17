@@ -37,35 +37,6 @@ class TestUserInfo:
         assert user_info.email == "user@example.com"
         assert user_info.picture is None
 
-    def test_get_storage_path_prefix(self):
-        """Test storage path prefix generation."""
-        user_info = UserInfo(user_id="123456789", email="user@example.com")
-
-        path = user_info.get_storage_path_prefix()
-        assert path == "photos/user_at_example_dot_com/"
-
-    def test_get_storage_path_prefix_special_chars(self):
-        """Test storage path prefix with special characters in email."""
-        user_info = UserInfo(user_id="123456789", email="test.user+tag@sub.example.com")
-
-        path = user_info.get_storage_path_prefix()
-        assert path == "photos/test_dot_user+tag_at_sub_dot_example_dot_com/"
-
-    def test_get_database_path(self):
-        """Test database path generation."""
-        user_info = UserInfo(user_id="123456789", email="user@example.com")
-
-        path = user_info.get_database_path()
-        assert path == "dbs/user_at_example_dot_com/metadata.db"
-
-    def test_get_database_path_special_chars(self):
-        """Test database path with special characters in email."""
-        user_info = UserInfo(user_id="123456789", email="test.user+tag@sub.example.com")
-
-        path = user_info.get_database_path()
-        assert path == "dbs/test_dot_user+tag_at_sub_dot_example_dot_com/metadata.db"
-
-
 class TestCloudIAPAuthService:
     """Test cases for CloudIAPAuthService class."""
 
@@ -247,38 +218,6 @@ class TestCloudIAPAuthService:
         assert self.auth_service.get_user_id() is None
         assert self.auth_service.get_user_email() is None
 
-    def test_get_user_storage_path(self):
-        """Test getting user storage path."""
-        payload = {"sub": "123456789", "email": "user@example.com"}
-        jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
-
-        self.auth_service.authenticate_request(headers)
-
-        path = self.auth_service.get_user_storage_path()
-        assert path == "photos/user_at_example_dot_com/"
-
-    def test_get_user_storage_path_not_authenticated(self):
-        """Test getting user storage path when not authenticated."""
-        path = self.auth_service.get_user_storage_path()
-        assert path is None
-
-    def test_get_user_database_path(self):
-        """Test getting user database path."""
-        payload = {"sub": "123456789", "email": "user@example.com"}
-        jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
-
-        self.auth_service.authenticate_request(headers)
-
-        path = self.auth_service.get_user_database_path()
-        assert path == "dbs/user_at_example_dot_com/metadata.db"
-
-    def test_get_user_database_path_not_authenticated(self):
-        """Test getting user database path when not authenticated."""
-        path = self.auth_service.get_user_database_path()
-        assert path is None
-
     def test_clear_authentication(self):
         """Test clearing authentication state."""
         payload = {"sub": "123456789", "email": "user@example.com"}
@@ -336,103 +275,6 @@ class TestAccessControl:
         """Test ensure_authenticated with unauthenticated user."""
         with pytest.raises(AuthenticationError, match="User is not authenticated"):
             self.auth_service.ensure_authenticated()
-
-    def test_check_resource_access_storage_success(self):
-        """Test resource access check for user's storage path."""
-        payload = {"sub": "123456789", "email": "user@example.com"}
-        jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
-
-        self.auth_service.authenticate_request(headers)
-
-        # Test access to user's storage path
-        user_path = "photos/user_at_example_dot_com/original/photo.jpg"
-        assert self.auth_service.check_resource_access(user_path) is True
-
-    def test_check_resource_access_database_success(self):
-        """Test resource access check for user's database path."""
-        payload = {"sub": "123456789", "email": "user@example.com"}
-        jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
-
-        self.auth_service.authenticate_request(headers)
-
-        # Test access to user's database path
-        db_path = "dbs/user_at_example_dot_com/metadata.db"
-        assert self.auth_service.check_resource_access(db_path) is True
-
-    def test_check_resource_access_denied(self):
-        """Test resource access check for other user's resources."""
-        payload = {"sub": "123456789", "email": "user@example.com"}
-        jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
-
-        self.auth_service.authenticate_request(headers)
-
-        # Test access to another user's path
-        other_user_path = "photos/other_at_example_dot_com/original/photo.jpg"
-        assert self.auth_service.check_resource_access(other_user_path) is False
-
-    def test_check_resource_access_unauthenticated(self):
-        """Test resource access check with unauthenticated user."""
-        user_path = "photos/user_at_example_dot_com/original/photo.jpg"
-        assert self.auth_service.check_resource_access(user_path) is False
-
-    def test_get_user_resource_paths_success(self):
-        """Test getting user resource paths."""
-        payload = {"sub": "123456789", "email": "user@example.com"}
-        jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
-
-        self.auth_service.authenticate_request(headers)
-
-        paths = self.auth_service.get_user_resource_paths()
-
-        expected_paths = {
-            "storage_prefix": "photos/user_at_example_dot_com/",
-            "database_path": "dbs/user_at_example_dot_com/metadata.db",
-            "original_photos": "photos/user_at_example_dot_com/original/",
-            "thumbnails": "photos/user_at_example_dot_com/thumbs/",
-            "database_dir": "dbs/user_at_example_dot_com/",
-        }
-
-        assert paths == expected_paths
-
-    def test_get_user_resource_paths_unauthenticated(self):
-        """Test getting user resource paths with unauthenticated user."""
-        with pytest.raises(AuthenticationError, match="User is not authenticated"):
-            self.auth_service.get_user_resource_paths()
-
-    def test_validate_user_ownership_success(self):
-        """Test validating user ownership of resource."""
-        payload = {"sub": "123456789", "email": "user@example.com"}
-        jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
-
-        self.auth_service.authenticate_request(headers)
-
-        # Should not raise exception for user's resource
-        user_path = "photos/user_at_example_dot_com/original/photo.jpg"
-        self.auth_service.validate_user_ownership(user_path)
-
-    def test_validate_user_ownership_access_denied(self):
-        """Test validating user ownership with access denied."""
-        payload = {"sub": "123456789", "email": "user@example.com"}
-        jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
-
-        self.auth_service.authenticate_request(headers)
-
-        # Should raise exception for other user's resource
-        other_user_path = "photos/other_at_example_dot_com/original/photo.jpg"
-        with pytest.raises(AccessDeniedError, match="Access denied to resource"):
-            self.auth_service.validate_user_ownership(other_user_path)
-
-    def test_validate_user_ownership_unauthenticated(self):
-        """Test validating user ownership with unauthenticated user."""
-        user_path = "photos/user_at_example_dot_com/original/photo.jpg"
-        with pytest.raises(AuthenticationError, match="User is not authenticated"):
-            self.auth_service.validate_user_ownership(user_path)
 
     def test_require_authentication_success(self):
         """Test require authentication with authenticated user."""
@@ -567,26 +409,6 @@ class TestErrorHandling:
 
             mock_user_log.assert_called_with("123456789", "authentication_success", email="user@example.com")
 
-    def test_logging_on_access_denied(self):
-        """Test that security event is logged on access denied."""
-        payload = {"sub": "123456789", "email": "user@example.com"}
-        jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
-
-        self.auth_service.authenticate_request(headers)
-
-        # Try to access another user's resource
-        other_user_path = "photos/other_at_example_dot_com/original/photo.jpg"
-
-        with patch("src.imgstream.services.auth.log_security_event") as mock_security_log:
-            self.auth_service.check_resource_access(other_user_path)
-
-            mock_security_log.assert_called_with(
-                "access_denied",
-                user_id="123456789",
-                context={"user_email": "user@example.com", "resource_path": other_user_path},
-            )
-
     def test_logging_on_clear_authentication(self):
         """Test that user action is logged when authentication is cleared."""
         with patch("src.imgstream.services.auth.log_user_action") as mock_user_log:
@@ -613,10 +435,6 @@ class TestEdgeCases:
 
         assert user_info is not None
         assert user_info.email == long_email
-        # Test that path generation works with long email
-        storage_path = user_info.get_storage_path_prefix()
-        assert storage_path.startswith("photos/")
-        assert storage_path.endswith("/")
 
     def test_email_with_multiple_special_chars(self):
         """Test email with multiple special characters."""
@@ -629,11 +447,6 @@ class TestEdgeCases:
 
         assert user_info is not None
         assert user_info.email == special_email
-
-        # Test path generation
-        storage_path = user_info.get_storage_path_prefix()
-        expected_path = "photos/test_dot_user+tag_at_sub_dot_domain_dot_example_dot_com/"
-        assert storage_path == expected_path
 
     def test_concurrent_authentication_requests(self):
         """Test concurrent authentication requests don't interfere."""
@@ -655,32 +468,6 @@ class TestEdgeCases:
         result2 = self.auth_service.authenticate_request(headers2)
         assert result2 is not None
         assert self.auth_service.get_user_email() == "user2@example.com"
-
-    def test_resource_path_edge_cases(self):
-        """Test resource access with edge case paths."""
-        payload = {"sub": "123456789", "email": "user@example.com"}
-        jwt_token = TestDataFactory.create_valid_jwt_token(payload)
-        headers = {"X-Goog-Iap-Jwt-Assertion": jwt_token}
-
-        self.auth_service.authenticate_request(headers)
-
-        # Test various path formats
-        test_cases = [
-            ("photos/user_at_example_dot_com/", True),  # Exact prefix match
-            ("photos/user_at_example_dot_com/original/", True),  # Subdirectory
-            ("photos/user_at_example_dot_com", True),  # Without trailing slash
-            ("photos/user_at_example_dot_com_malicious/", False),  # Similar but different
-            ("photos/other_user_at_example_dot_com/", False),  # Different user
-            ("dbs/user_at_example_dot_com/", True),  # Database path
-            ("dbs/user_at_example_dot_com/metadata.db", True),  # Exact DB file
-            ("", False),  # Empty path
-            ("/", False),  # Root path
-            ("photos/", False),  # Just photos directory
-        ]
-
-        for path, expected in test_cases:
-            result = self.auth_service.check_resource_access(path)
-            assert result == expected, f"Path '{path}' should return {expected}, got {result}"
 
     def test_multiple_authentication_cycles(self):
         """Test multiple authentication and clearing cycles."""
