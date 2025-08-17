@@ -560,7 +560,7 @@ def process_single_upload_with_progress(
     try:
         operation_type = "overwrite" if is_overwrite else "new_upload"
         logger.info("upload_processing_started", filename=filename, size=len(file_data), operation_type=operation_type)
-        update_progress("🔐 Authenticating user...")
+        update_progress("🔐 ユーザー認証中...")
 
         # Get services
         auth_service = get_auth_service()
@@ -574,7 +574,7 @@ def process_single_upload_with_progress(
         metadata_service = get_metadata_service(user_info.user_id)
 
         # Step 1: Extract EXIF metadata
-        update_progress("📊 Extracting image metadata...")
+        update_progress("📊 画像メタデータを抽出中...")
         logger.info("extracting_exif_metadata", filename=filename)
         try:
             created_at = image_processor.extract_created_at(file_data)
@@ -584,26 +584,34 @@ def process_single_upload_with_progress(
             created_at = datetime.now()
 
         # Step 2: Generate thumbnail
-        update_progress("🖼️ Generating thumbnail...")
+        update_progress("🖼️ サムネイルを生成中...")
         logger.info("generating_thumbnail", filename=filename)
         thumbnail_data = image_processor.generate_thumbnail(file_data)
 
         # Step 3: Upload original image to GCS
-        operation_text = "Overwriting" if is_overwrite else "Uploading"
-        update_progress(f"☁️ {operation_text} original image...")
+        if is_overwrite:
+            update_progress("☁️ 元画像を上書き中...")
+        else:
+            update_progress("☁️ 元画像をアップロード中...")
         logger.info("uploading_original_image", filename=filename, is_overwrite=is_overwrite)
         original_upload_result = storage_service.upload_original_photo(user_info.user_id, file_data, filename)
         original_gcs_path = original_upload_result["gcs_path"]
 
         # Step 4: Upload thumbnail to GCS
-        update_progress(f"🔄 {operation_text} thumbnail...")
+        if is_overwrite:
+            update_progress("🔄 サムネイルを上書き中...")
+        else:
+            update_progress("🔄 サムネイルをアップロード中...")
         logger.info("uploading_thumbnail", filename=filename, is_overwrite=is_overwrite)
         thumbnail_upload_result = storage_service.upload_thumbnail(user_info.user_id, thumbnail_data, filename)
         thumbnail_gcs_path = thumbnail_upload_result["gcs_path"]
 
         # Step 5: Save or update metadata in DuckDB
-        metadata_text = "Updating" if is_overwrite else "Saving"
-        update_progress(f"💾 {metadata_text} metadata...")
+        if is_overwrite:
+            update_progress("💾 メタデータを更新中...")
+        else:
+            update_progress("💾 メタデータを保存中...")
+        logger.info("saving_metadata", filename=filename, is_overwrite=is_overwrite)
         logger.info("saving_metadata", filename=filename, is_overwrite=is_overwrite)
 
         # Determine MIME type based on file extension
@@ -626,19 +634,29 @@ def process_single_upload_with_progress(
         # Use the new save_or_update method based on operation type
         metadata_service.save_or_update_photo_metadata(photo_metadata, is_overwrite=is_overwrite)
 
-        completion_text = "✅ Overwrite completed!" if is_overwrite else "✅ Upload completed!"
+        completion_text = "✅ 上書き完了！" if is_overwrite else "✅ アップロード完了！"
         update_progress(completion_text, "success")
         logger.info("upload_processing_completed", filename=filename, operation_type=operation_type)
 
         operation_message = "overwritten" if is_overwrite else "uploaded"
-        processing_steps = [
-            "Authentication verified",
-            "EXIF metadata extracted",
-            "Thumbnail generated",
-            f"Original image {'overwritten' if is_overwrite else 'uploaded'} to GCS",
-            f"Thumbnail {'overwritten' if is_overwrite else 'uploaded'} to GCS",
-            f"Metadata {'updated' if is_overwrite else 'saved'} in database",
-        ]
+        if is_overwrite:
+            processing_steps = [
+                "ユーザー認証完了",
+                "EXIFメタデータ抽出完了",
+                "サムネイル生成完了",
+                "元画像を上書き完了",
+                "サムネイルを上書き完了",
+                "メタデータを更新完了",
+            ]
+        else:
+            processing_steps = [
+                "ユーザー認証完了",
+                "EXIFメタデータ抽出完了",
+                "サムネイル生成完了",
+                "元画像をアップロード完了",
+                "サムネイルをアップロード完了",
+                "メタデータを保存完了",
+            ]
 
         return {
             "success": True,
@@ -654,7 +672,7 @@ def process_single_upload_with_progress(
 
     except Exception as e:
         operation_type = "overwrite" if is_overwrite else "upload"
-        update_progress(f"❌ Error: {str(e)}", "error")
+        update_progress(f"❌ エラー: {str(e)}", "error")
         logger.error("upload_processing_failed", filename=filename, error=str(e), operation_type=operation_type)
         return {
             "success": False,
@@ -668,6 +686,7 @@ def process_single_upload_with_progress(
 
 def clear_upload_session_state() -> None:
     """Clear upload-related session state variables."""
+    logger.info("call clear_upload_session_state")
     session_keys_to_clear = [
         "valid_files",
         "validation_errors",

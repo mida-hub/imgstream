@@ -113,38 +113,38 @@ def render_upload_progress(
     with progress_placeholder.container():
         # Main progress bar
         st.progress(progress_percentage / 100, text=f"Processing {completed}/{total} files")
-
-        # Current file information with enhanced styling
-        if current_file:
-            # Color coding based on stage
-            stage_colors = {"processing": "🔄", "success": "✅", "error": "❌", "failed": "❌", "completed": "✅"}
-
-            stage_icon = stage_colors.get(stage, "⚙️")
-
-            # File info with better formatting
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.markdown(f"📷 **Current file:** `{current_file}`")
-                st.markdown(f"{stage_icon} **Status:** {current_step}")
-            with col2:
-                # Progress indicator for current file
-                if stage == "processing":
-                    st.markdown("🔄 **Processing...**")
-                elif stage == "success":
-                    st.markdown("✅ **Success**")
-                elif stage in ["error", "failed"]:
-                    st.markdown("❌ **Failed**")
-                else:
-                    st.markdown("⚙️ **Working...**")
-
-        # Overall progress summary
-        if total > 1:
-            st.markdown(f"**Overall Progress:** {completed}/{total} files processed")
-
-            # Show completion percentage
-            if completed > 0:
-                success_rate = f"({progress_percentage:.1f}% complete)"
-                st.markdown(f"**Status:** {success_rate}")
+        #
+        # # Current file information with enhanced styling
+        # if current_file:
+        #     # Color coding based on stage
+        #     stage_colors = {"processing": "🔄", "success": "✅", "error": "❌", "failed": "❌", "completed": "✅"}
+        #
+        #     stage_icon = stage_colors.get(stage, "⚙️")
+        #
+        #     # File info with better formatting
+        #     col1, col2 = st.columns([3, 1])
+        #     with col1:
+        #         st.markdown(f"📷 **Current file:** `{current_file}`")
+        #         st.markdown(f"{stage_icon} **Status:** {current_step}")
+        #     with col2:
+        #         # Progress indicator for current file
+        #         if stage == "processing":
+        #             st.markdown("🔄 **Processing...**")
+        #         elif stage == "success":
+        #             st.markdown("✅ **Success**")
+        #         elif stage in ["error", "failed"]:
+        #             st.markdown("❌ **Failed**")
+        #         else:
+        #             st.markdown("⚙️ **Working...**")
+        #
+        # # Overall progress summary
+        # if total > 1:
+        #     st.markdown(f"**Overall Progress:** {completed}/{total} files processed")
+        #
+        #     # Show completion percentage
+        #     if completed > 0:
+        #         success_rate = f"({progress_percentage:.1f}% complete)"
+        #         st.markdown(f"**Status:** {success_rate}")
 
 
 def render_detailed_progress_info(
@@ -209,7 +209,7 @@ def render_upload_statistics(
 
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Elapsed Time", f"{elapsed_time.total_seconds():.1f}s")
+            st.metric("経過時間", f"{elapsed_time.total_seconds():.1f}秒")
 
         if batch_result:
             total_files = batch_result.get("total_files", 0)
@@ -218,16 +218,16 @@ def render_upload_statistics(
             with col2:
                 if total_files > 0 and elapsed_time.total_seconds() > 0:
                     rate = total_files / elapsed_time.total_seconds()
-                    st.metric("Processing Rate", f"{rate:.1f} files/sec")
+                    st.metric("処理速度", f"{rate:.1f} ファイル/秒")
                 else:
-                    st.metric("Processing Rate", "N/A")
+                    st.metric("処理速度", "N/A")
 
             with col3:
                 if total_files > 0:
                     success_rate = (successful / total_files) * 100
-                    st.metric("Success Rate", f"{success_rate:.1f}%")
+                    st.metric("成功率", f"{success_rate:.1f}%")
                 else:
-                    st.metric("Success Rate", "N/A")
+                    st.metric("成功率", "N/A")
 
 
 def render_collision_decision_help() -> None:
@@ -311,29 +311,14 @@ def render_summary_metrics(batch_result: dict[str, Any], processing_time: float 
     skipped_uploads = batch_result.get("skipped_uploads", 0)
     overwrite_uploads = batch_result.get("overwrite_uploads", 0)
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("総ファイル数", total_files)
     with col2:
         st.metric("成功", successful_uploads, delta=successful_uploads if successful_uploads > 0 else None)
     with col3:
-        if overwrite_uploads > 0:
-            st.metric("上書き", overwrite_uploads, delta=overwrite_uploads)
-        else:
-            st.metric("失敗", failed_uploads, delta=-failed_uploads if failed_uploads > 0 else None)
-    with col4:
-        if skipped_uploads > 0:
-            st.metric("スキップ", skipped_uploads)
-        elif processing_time:
+        if processing_time:
             st.metric("処理時間", f"{processing_time:.1f}秒")
-        else:
-            success_rate = (successful_uploads / total_files * 100) if total_files > 0 else 0
-            st.metric("成功率", f"{success_rate:.1f}%")
-    with col5:
-        if processing_time and (overwrite_uploads > 0 or skipped_uploads > 0):
-            st.metric("処理時間", f"{processing_time:.1f}秒")
-        elif failed_uploads > 0 and not (overwrite_uploads > 0 or skipped_uploads > 0):
-            st.metric("失敗", failed_uploads, delta=-failed_uploads)
 
 
 def render_new_uploads(new_upload_results: list[dict[str, Any]]) -> None:
@@ -548,17 +533,13 @@ def render_upload_results(batch_result: dict[str, Any], processing_time: float |
     """
     # Render overall status
     render_overall_status(batch_result)
-
     # Render summary metrics
     render_summary_metrics(batch_result, processing_time)
-
     # Render detailed results
     render_detailed_results(batch_result)
-
     # Enhanced processing summary for mixed operations
     st.divider()
     render_processing_summary(batch_result)
-
     # Render next steps
     render_next_steps(batch_result)
 

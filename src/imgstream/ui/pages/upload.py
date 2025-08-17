@@ -82,7 +82,7 @@ def _render_file_uploader(max_size_mb: float) -> Any:
         Uploaded files from Streamlit file uploader
     """
     st.markdown("#### アップロードする写真を選択")
-
+    # st.write(st.session_state)
     return st.file_uploader(
         "写真をここにドラッグ&ドロップするか、クリックして参照",
         type=["heic", "heif", "jpg", "jpeg"],
@@ -263,7 +263,7 @@ def _execute_upload() -> None:
         "🚀 アップロードプロセスを開始中...",
         0,
         len(files_to_upload),
-        "processing",
+        "処理中",
     )
 
     # Get collision results with user decisions

@@ -7,6 +7,8 @@ from pathlib import Path
 
 from google.cloud import storage  # type: ignore[attr-defined]
 from google.cloud.exceptions import GoogleCloudError, NotFound
+import google.auth
+import google.auth.transport.requests
 
 from imgstream.ui.handlers.error import StorageError
 from ..logging_config import get_logger
@@ -509,6 +511,9 @@ class StorageService:
             StorageError: If URL generation fails
         """
         try:
+            # credentials, _ = google.auth.default()
+            # credentials.refresh(google.auth.transport.requests.Request())
+
             blob = self.photos_bucket.blob(gcs_path)
 
             # Use configured default if expiration not specified
@@ -517,7 +522,12 @@ class StorageService:
 
             # Generate signed URL
             expiration_time = datetime.now() + timedelta(seconds=expiration)
-            signed_url: str = blob.generate_signed_url(expiration=expiration_time, method="GET")
+            signed_url: str = blob.generate_signed_url(expiration=expiration_time,
+                                                       method="GET",
+                                                       version="v4",
+                                                       # service_account_email=credentials.service_account_email,
+                                                       # access_token=credentials.token
+                                                       )
 
             logger.debug(f"Generated signed URL for: {gcs_path} (expires in {expiration}s)")
             return signed_url
