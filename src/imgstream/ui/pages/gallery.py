@@ -18,6 +18,32 @@ logger = structlog.get_logger()
 JST = timezone(timedelta(hours=9))
 
 
+def is_heic_file(filename: str | None) -> bool:
+    """
+    Check if a file is a HEIC format based on its extension.
+
+    Args:
+        filename: The filename to check
+
+    Returns:
+        bool: True if the file is HEIC format, False otherwise
+    """
+    if not filename or not isinstance(filename, str):
+        return False
+
+    try:
+        # Get file extension and normalize to lowercase
+        if "." not in filename:
+            return False
+
+        extension = filename.lower().split(".")[-1]
+
+        # Check for HEIC/HEIF extensions
+        return extension in ["heic", "heif"]
+    except (AttributeError, IndexError):
+        return False
+
+
 def convert_utc_to_jst(utc_datetime: datetime) -> datetime:
     """
     Convert UTC datetime to JST.
@@ -56,31 +82,6 @@ def parse_datetime_string(datetime_str: str) -> datetime | None:
         return datetime.fromisoformat(datetime_str)
     except (ValueError, TypeError):
         return None
-
-
-def is_heic_file(photo: dict[str, Any]) -> bool:
-    """
-    Check if the photo is a HEIC file based on filename or mime type.
-
-    Args:
-        photo: Photo metadata dictionary
-
-    Returns:
-        bool: True if the photo is a HEIC file, False otherwise
-    """
-    # Check filename extension
-    filename = photo.get("filename", "")
-    if filename:
-        extension = filename.lower().split(".")[-1]
-        if extension in ["heic", "heif"]:
-            return True
-
-    # Check MIME type as fallback
-    mime_type = photo.get("mime_type", "")
-    if mime_type and "heic" in mime_type.lower():
-        return True
-
-    return False
 
 
 def convert_heic_to_web_display(photo: dict[str, Any]) -> bytes | None:
@@ -544,7 +545,7 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
     filename = photo.get("filename", "不明")
 
     # Check if this is a HEIC file that needs conversion
-    if is_heic_file(photo):
+    if is_heic_file(filename):
         try:
             # Show loading message for HEIC conversion
             with st.spinner("HEIC画像を変換中..."):
