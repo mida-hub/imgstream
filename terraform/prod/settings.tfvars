@@ -11,7 +11,7 @@ lifecycle_archive_days  = 365 # Archive after 1 year
 lifecycle_delete_days   = 0   # Never auto-delete in production
 
 # Cloud Run configuration for production
-min_instances = 0  # Keep at least 1 instance running
+min_instances = 0 # Keep at least 1 instance running
 max_instances = 1 # Allow scaling up to 10 instances
 cpu_limit     = "1000m"
 memory_limit  = "2Gi"

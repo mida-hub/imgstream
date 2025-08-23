@@ -1,6 +1,6 @@
 """Gallery page for imgstream application."""
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta, UTC
 from typing import Any
 
 import streamlit as st
@@ -13,6 +13,125 @@ from imgstream.ui.handlers.auth import require_authentication
 from imgstream.ui.components.common import render_empty_state, render_error_message
 
 logger = structlog.get_logger()
+
+# JST timezone (UTC+9)
+JST = timezone(timedelta(hours=9))
+
+
+def convert_utc_to_jst(utc_datetime: datetime) -> datetime:
+    """
+    Convert UTC datetime to JST.
+
+    Args:
+        utc_datetime: UTC datetime object
+
+    Returns:
+        datetime: JST datetime object
+    """
+    if utc_datetime.tzinfo is None:
+        # Assume UTC if no timezone info
+        utc_datetime = utc_datetime.replace(tzinfo=UTC)
+    elif utc_datetime.tzinfo != UTC:
+        # Convert to UTC first if it's in a different timezone
+        utc_datetime = utc_datetime.astimezone(UTC)
+
+    return utc_datetime.astimezone(JST)
+
+
+def parse_datetime_string(datetime_str: str) -> datetime | None:
+    """
+    Parse datetime string and return datetime object.
+
+    Args:
+        datetime_str: Datetime string in various formats
+
+    Returns:
+        datetime: Parsed datetime object or None if parsing fails
+    """
+    try:
+        # Handle ISO format with Z suffix
+        if datetime_str.endswith("Z"):
+            datetime_str = datetime_str.replace("Z", "+00:00")
+
+        return datetime.fromisoformat(datetime_str)
+    except (ValueError, TypeError):
+        return None
+
+
+def is_heic_file(photo: dict[str, Any]) -> bool:
+    """
+    Check if the photo is a HEIC file based on filename or mime type.
+
+    Args:
+        photo: Photo metadata dictionary
+
+    Returns:
+        bool: True if the photo is a HEIC file, False otherwise
+    """
+    # Check filename extension
+    filename = photo.get("filename", "")
+    if filename:
+        extension = filename.lower().split(".")[-1]
+        if extension in ["heic", "heif"]:
+            return True
+
+    # Check MIME type as fallback
+    mime_type = photo.get("mime_type", "")
+    if mime_type and "heic" in mime_type.lower():
+        return True
+
+    return False
+
+
+def convert_heic_to_web_display(photo: dict[str, Any]) -> bytes | None:
+    """
+    Convert HEIC photo to JPEG for web display.
+
+    Args:
+        photo: Photo metadata dictionary
+
+    Returns:
+        bytes: Converted JPEG data, or None if conversion fails
+    """
+    try:
+        from imgstream.services.storage import get_storage_service
+        from imgstream.services.image_processor import get_image_processor
+
+        # Get original image data from storage
+        storage_service = get_storage_service()
+        original_path = photo.get("original_path")
+
+        if not original_path:
+            logger.warning("no_original_path_for_conversion", photo_id=photo.get("id"))
+            return None
+
+        # Download original image data
+        image_data = storage_service.download_file(original_path)
+        if not image_data:
+            logger.warning("failed_to_download_original", photo_id=photo.get("id"), path=original_path)
+            return None
+
+        # Convert to web display JPEG
+        image_processor = get_image_processor()
+        jpeg_data = image_processor.convert_to_web_display_jpeg(image_data)
+
+        logger.info(
+            "heic_converted_for_web_display",
+            photo_id=photo.get("id"),
+            original_size=len(image_data),
+            jpeg_size=len(jpeg_data),
+        )
+
+        return jpeg_data
+
+    except Exception as e:
+        logger.error(
+            "heic_conversion_failed",
+            photo_id=photo.get("id"),
+            original_path=photo.get("original_path"),
+            error=str(e),
+        )
+        return None
 
 
 def render_gallery_page() -> None:
@@ -262,14 +381,12 @@ def render_photo_thumbnail(photo: dict[str, Any], size: str = "medium") -> None:
             created_at = photo.get("created_at")
             if created_at:
                 if isinstance(created_at, str):
-                    # Parse string date
-                    try:
-                        created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-                    except (ValueError, TypeError):
-                        created_at = None
+                    created_at = parse_datetime_string(created_at)
 
                 if created_at:
-                    st.caption(f"📅 {created_at.strftime('%Y-%m-%d')}")
+                    # Convert to JST for display
+                    jst_created_at = convert_utc_to_jst(created_at)
+                    st.caption(f"📅 {jst_created_at.strftime('%Y-%m-%d')}")
 
             # Enhanced click handler for photo details
             if st.button("🔍 詳細を表示", key=f"view_{photo.get('id', 'unknown')}", use_container_width=True):
@@ -314,13 +431,15 @@ def render_photo_details(photo: dict[str, Any]) -> None:
     created_at = photo.get("created_at")
     if created_at:
         if isinstance(created_at, str):
-            try:
-                created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-                st.write(f"📅 **作成日:** {created_at.strftime('%Y-%m-%d %H:%M:%S')}")
-            except (ValueError, TypeError):
+            parsed_created_at = parse_datetime_string(created_at)
+            if parsed_created_at:
+                jst_created_at = convert_utc_to_jst(parsed_created_at)
+                st.write(f"📅 **作成日:** {jst_created_at.strftime('%Y-%m-%d %H:%M:%S')} JST")
+            else:
                 st.write(f"📅 **作成日:** {created_at}")
         elif isinstance(created_at, datetime):
-            st.write(f"📅 **作成日:** {created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+            jst_created_at = convert_utc_to_jst(created_at)
+            st.write(f"📅 **作成日:** {jst_created_at.strftime('%Y-%m-%d %H:%M:%S')} JST")
         else:
             st.write(f"📅 **作成日:** {created_at}")
 
@@ -328,13 +447,15 @@ def render_photo_details(photo: dict[str, Any]) -> None:
     upload_date = photo.get("uploaded_at")
     if upload_date:
         if isinstance(upload_date, str):
-            try:
-                upload_date = datetime.fromisoformat(upload_date.replace("Z", "+00:00"))
-                st.write(f"📤 **アップロード日:** {upload_date.strftime('%Y-%m-%d %H:%M:%S')}")
-            except (ValueError, TypeError):
+            parsed_upload_date = parse_datetime_string(upload_date)
+            if parsed_upload_date:
+                jst_upload_date = convert_utc_to_jst(parsed_upload_date)
+                st.write(f"📤 **アップロード日:** {jst_upload_date.strftime('%Y-%m-%d %H:%M:%S')} JST")
+            else:
                 st.write(f"📤 **アップロード日:** {upload_date}")
         elif isinstance(upload_date, datetime):
-            st.write(f"📤 **アップロード日:** {upload_date.strftime('%Y-%m-%d %H:%M:%S')}")
+            jst_upload_date = convert_utc_to_jst(upload_date)
+            st.write(f"📤 **アップロード日:** {jst_upload_date.strftime('%Y-%m-%d %H:%M:%S')} JST")
         else:
             st.write(f"📤 **アップロード日:** {upload_date}")
 
@@ -420,14 +541,39 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
     Args:
         photo: Photo metadata dictionary
     """
+    filename = photo.get("filename", "不明")
 
-    # Main image display
+    # Check if this is a HEIC file that needs conversion
+    if is_heic_file(photo):
+        try:
+            # Show loading message for HEIC conversion
+            with st.spinner("HEIC画像を変換中..."):
+                jpeg_data = convert_heic_to_web_display(photo)
+
+            if jpeg_data:
+                # Display converted JPEG
+                st.image(jpeg_data, caption=f"{filename} (HEIC → JPEG変換済み)", use_container_width=True)
+                st.info("💡 この画像はHEIC形式からJPEGに変換されて表示されています。")
+                return
+            else:
+                # Conversion failed, fall back to thumbnail
+                st.error("❌ HEIC画像の変換に失敗しました")
+                render_heic_fallback_display(photo)
+                return
+
+        except Exception as e:
+            logger.error("heic_display_error", photo_id=photo.get("id"), error=str(e))
+            st.error(f"❌ HEIC画像の表示に失敗しました: {str(e)}")
+            render_heic_fallback_display(photo)
+            return
+
+    # For non-HEIC files, use original URL display
     original_url = get_photo_original_url(photo)
 
     if original_url:
         try:
             # Display original image
-            st.image(original_url, caption=f"{photo.get('filename', '不明')}", use_container_width=True)
+            st.image(original_url, caption=filename, use_container_width=True)
 
         except Exception as e:
             st.error(f"オリジナル画像の読み込みに失敗しました: {str(e)}")
@@ -436,6 +582,34 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
     else:
         st.error("画像が利用できません")
         st.info("画像がストレージから移動または削除された可能性があります。")
+
+
+def render_heic_fallback_display(photo: dict[str, Any]) -> None:
+    """
+    Render fallback display for HEIC files when conversion fails.
+
+    Args:
+        photo: Photo metadata dictionary
+    """
+    st.warning("🔄 HEIC画像の変換に失敗したため、サムネイルを表示しています")
+
+    # Try to display thumbnail as fallback
+    thumbnail_url = get_photo_thumbnail_url(photo)
+    if thumbnail_url:
+        try:
+            st.image(
+                thumbnail_url,
+                caption=f"{photo.get('filename', '不明')} (サムネイル表示)",
+                use_container_width=True,
+            )
+            st.info("💡 元の画像を表示するには、HEIC対応の画像ビューアーをご利用ください。")
+        except Exception as e:
+            logger.error("thumbnail_fallback_failed", photo_id=photo.get("id"), error=str(e))
+            st.error("❌ サムネイルの表示にも失敗しました")
+            st.info("画像ファイルに問題がある可能性があります。")
+    else:
+        st.error("❌ サムネイルが利用できません")
+        st.info("画像ファイルに問題がある可能性があります。")
 
 
 def render_photo_detail_sidebar(photo: dict[str, Any]) -> None:

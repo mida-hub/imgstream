@@ -538,6 +538,83 @@ class ImageProcessor:
 
         return (new_width, new_height)
 
+    def convert_to_web_display_jpeg(self, image_data: bytes, quality: int = 90) -> bytes:
+        """
+        Convert image to high-quality JPEG for web display, maintaining original dimensions.
+
+        Args:
+            image_data: Raw image data as bytes
+            quality: JPEG quality (1-100, higher is better quality)
+
+        Returns:
+            bytes: Converted image data as JPEG bytes
+
+        Raises:
+            ImageProcessingError: If conversion fails
+        """
+        start_time = datetime.now()
+
+        try:
+            with Image.open(io.BytesIO(image_data)) as image:
+                original_size = image.size
+                original_mode = image.mode
+                original_format = image.format
+
+                # Convert to RGB if necessary (for HEIC and other formats)
+                if image.mode not in ("RGB", "L"):
+                    image = image.convert("RGB")
+
+                # Save as JPEG to bytes with original dimensions
+                jpeg_buffer = io.BytesIO()
+                image.save(jpeg_buffer, format="JPEG", quality=quality, optimize=True)
+
+                jpeg_data = jpeg_buffer.getvalue()
+
+                duration = (datetime.now() - start_time).total_seconds()
+                log_performance(
+                    "convert_to_web_display_jpeg",
+                    duration,
+                    original_size=original_size,
+                    original_format=original_format,
+                    original_file_size=len(image_data),
+                    jpeg_file_size=len(jpeg_data),
+                    quality=quality,
+                    compression_ratio=len(image_data) / len(jpeg_data),
+                )
+
+                logger.debug(
+                    "web_display_jpeg_converted",
+                    original_size=original_size,
+                    original_mode=original_mode,
+                    original_format=original_format,
+                    original_file_size=len(image_data),
+                    jpeg_file_size=len(jpeg_data),
+                    quality=quality,
+                )
+
+                return jpeg_data
+
+        except Exception as e:
+            log_error(
+                e,
+                {
+                    "operation": "convert_to_web_display_jpeg",
+                    "original_file_size": len(image_data),
+                    "quality": quality,
+                },
+            )
+            raise ImageProcessingError(
+                f"Failed to convert image to web display JPEG: {e}",
+                code="web_display_conversion_failed",
+                user_message="画像のWeb表示用JPEG変換に失敗しました。",
+                details={
+                    "original_file_size": len(image_data),
+                    "quality": quality,
+                    "operation": "convert_to_web_display_jpeg",
+                },
+                original_exception=e,
+            ) from e
+
     def generate_thumbnail_with_metadata(
         self, image_data: bytes, filename: str, max_size: tuple[int, int] | None = None, quality: int | None = None
     ) -> dict:

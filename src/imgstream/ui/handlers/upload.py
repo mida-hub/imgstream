@@ -22,6 +22,35 @@ from imgstream.ui.handlers.collision_detection import (
 logger = structlog.get_logger()
 
 
+def normalize_filename(filename: str) -> str:
+    """
+    Normalize filename by standardizing file extensions.
+
+    Args:
+        filename: Original filename
+
+    Returns:
+        str: Normalized filename with standardized extension
+    """
+    if not filename:
+        return filename
+
+    # Split filename and extension
+    name_parts = filename.rsplit(".", 1)
+    if len(name_parts) != 2:
+        return filename
+
+    name, extension = name_parts
+    extension_lower = extension.lower()
+
+    # Normalize JPEG extensions to 'jpg'
+    if extension_lower in ["jpeg", "jpg"]:
+        return f"{name}.jpg"
+
+    # Keep other extensions as lowercase
+    return f"{name}.{extension_lower}"
+
+
 def validate_uploaded_files(uploaded_files: list) -> tuple[list, list]:
     """
     Validate uploaded files for format and size.
@@ -41,11 +70,14 @@ def validate_uploaded_files(uploaded_files: list) -> tuple[list, list]:
 
     for uploaded_file in uploaded_files:
         try:
+            # Normalize filename
+            normalized_filename = normalize_filename(uploaded_file.name)
+
             # Check file format
             if not image_processor.is_supported_format(uploaded_file.name):
                 validation_errors.append(
                     {
-                        "filename": uploaded_file.name,
+                        "filename": normalized_filename,
                         "error": "Unsupported file format",
                         "details": "Only HEIC, HEIF, JPG, and JPEG files are supported",
                     }
@@ -57,32 +89,35 @@ def validate_uploaded_files(uploaded_files: list) -> tuple[list, list]:
             uploaded_file.seek(0)  # Reset file pointer for later use
 
             # Validate file size
-            image_processor.validate_file_size(file_data, uploaded_file.name)
+            image_processor.validate_file_size(file_data, normalized_filename)
 
-            # Add to valid files
+            # Add to valid files with normalized filename
             valid_files.append(
                 {
                     "file_object": uploaded_file,
-                    "filename": uploaded_file.name,
+                    "filename": normalized_filename,
+                    "original_filename": uploaded_file.name,  # Keep original for reference
                     "size": len(file_data),
                     "data": file_data,
                 }
             )
 
-            logger.info("file_validation_success", filename=uploaded_file.name, size=len(file_data))
+            logger.info("file_validation_success", filename=normalized_filename, original_filename=uploaded_file.name, size=len(file_data))
 
         except (ImageProcessingError, UnsupportedFormatError) as e:
-            validation_errors.append({"filename": uploaded_file.name, "error": "Validation failed", "details": str(e)})
-            logger.warning("file_validation_failed", filename=uploaded_file.name, error=str(e))
+            normalized_filename = normalize_filename(uploaded_file.name)
+            validation_errors.append({"filename": normalized_filename, "error": "Validation failed", "details": str(e)})
+            logger.warning("file_validation_failed", filename=normalized_filename, original_filename=uploaded_file.name, error=str(e))
         except Exception as e:
+            normalized_filename = normalize_filename(uploaded_file.name)
             validation_errors.append(
                 {
-                    "filename": uploaded_file.name,
+                    "filename": normalized_filename,
                     "error": "Unexpected error",
                     "details": f"An unexpected error occurred: {str(e)}",
                 }
             )
-            logger.error("file_validation_error", filename=uploaded_file.name, error=str(e))
+            logger.error("file_validation_error", filename=normalized_filename, original_filename=uploaded_file.name, error=str(e))
 
     return valid_files, validation_errors
 
@@ -268,9 +303,9 @@ def process_single_upload(file_info: dict[str, Any], is_overwrite: bool = False)
         # Step 5: Save or update metadata in DuckDB
         logger.info("saving_metadata", filename=filename, is_overwrite=is_overwrite)
 
-        # Determine MIME type based on file extension
+        # Determine MIME type based on normalized file extension
         file_extension = filename.lower().split(".")[-1]
-        mime_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "heic": "image/heic", "heif": "image/heif"}.get(
+        mime_type = {"jpg": "image/jpeg", "heic": "image/heic", "heif": "image/heif"}.get(
             file_extension, "application/octet-stream"
         )
 
@@ -614,9 +649,9 @@ def process_single_upload_with_progress(
         logger.info("saving_metadata", filename=filename, is_overwrite=is_overwrite)
         logger.info("saving_metadata", filename=filename, is_overwrite=is_overwrite)
 
-        # Determine MIME type based on file extension
+        # Determine MIME type based on normalized file extension
         file_extension = filename.lower().split(".")[-1]
-        mime_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "heic": "image/heic", "heif": "image/heif"}.get(
+        mime_type = {"jpg": "image/jpeg", "heic": "image/heic", "heif": "image/heif"}.get(
             file_extension, "application/octet-stream"
         )
 
@@ -802,3 +837,26 @@ def get_collision_decision_statistics(user_id: str) -> dict:
         "average_decision_time": 0.0,
         "user_id": user_id,
     }
+
+
+# Test function for filename normalization (can be removed in production)
+def test_filename_normalization():
+    """Test function to verify filename normalization works correctly."""
+    test_cases = [
+        ("IMG_2430.JPG", "IMG_2430.jpg"),
+        ("IMG_2430.JPEG", "IMG_2430.jpg"),
+        ("IMG_2430.jpeg", "IMG_2430.jpg"),
+        ("IMG_2430.jpg", "IMG_2430.jpg"),
+        ("photo.HEIC", "photo.heic"),
+        ("photo.HEIF", "photo.heif"),
+        ("document.pdf", "document.pdf"),  # Non-image files should remain unchanged
+        ("file_without_extension", "file_without_extension"),
+    ]
+
+    for original, expected in test_cases:
+        result = normalize_filename(original)
+        print(f"{original} -> {result} (expected: {expected}) {'✓' if result == expected else '✗'}")
+
+
+if __name__ == "__main__":
+    test_filename_normalization()
