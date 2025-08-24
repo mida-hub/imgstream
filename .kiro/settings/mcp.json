@@ -12,7 +12,10 @@
         "playwright_screenshot",
         "playwright_get_visible_text",
         "playwright_click",
-        "playwright_close"
+        "playwright_close",
+        "playwright_console_logs",
+        "playwright_evaluate",
+        "playwright_evaluate"
       ]
     }
   }
