@@ -106,15 +106,18 @@ def main() -> None:
 
         # Handle page navigation from session state
         if st.session_state.get("next_page"):
+            current_page_before_navigation = st.session_state.get("current_page", "home")
             logger.info(f"navigating_to_page_{st.session_state.next_page}")
             st.session_state.current_page = st.session_state.next_page
             del st.session_state.next_page
 
-            # When navigating away from upload, clear its state
-            if st.session_state.current_page != "upload":
+            # When navigating away from upload, clear its state and relevant caches
+            if current_page_before_navigation == "upload":
                 from imgstream.ui.handlers.upload import clear_upload_session_state
 
+                logger.info("clearing upload session state and all data cache after upload.")
                 clear_upload_session_state()
+                st.cache_data.clear()
 
         # Attempt authentication with error handling
         with error_context("認証処理中にエラーが発生しました"):

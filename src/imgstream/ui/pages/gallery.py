@@ -84,12 +84,14 @@ def parse_datetime_string(datetime_str: str) -> datetime | None:
         return None
 
 
-def convert_heic_to_web_display(photo: dict[str, Any]) -> bytes | None:
+@st.cache_data(ttl=86400)  # 1 day cache
+def convert_heic_to_web_display(original_path: str, photo_id: str) -> bytes | None:
     """
     Convert HEIC photo to JPEG for web display.
 
     Args:
-        photo: Photo metadata dictionary
+        original_path: The GCS path to the original photo
+        photo_id: The ID of the photo for logging
 
     Returns:
         bytes: Converted JPEG data, or None if conversion fails
@@ -100,16 +102,15 @@ def convert_heic_to_web_display(photo: dict[str, Any]) -> bytes | None:
 
         # Get original image data from storage
         storage_service = get_storage_service()
-        original_path = photo.get("original_path")
 
         if not original_path:
-            logger.warning("no_original_path_for_conversion", photo_id=photo.get("id"))
+            logger.warning("no_original_path_for_conversion", photo_id=photo_id)
             return None
 
         # Download original image data
         image_data = storage_service.download_file(original_path)
         if not image_data:
-            logger.warning("failed_to_download_original", photo_id=photo.get("id"), path=original_path)
+            logger.warning("failed_to_download_original", photo_id=photo_id, path=original_path)
             return None
 
         # Convert to web display JPEG
@@ -118,7 +119,7 @@ def convert_heic_to_web_display(photo: dict[str, Any]) -> bytes | None:
 
         logger.info(
             "heic_converted_for_web_display",
-            photo_id=photo.get("id"),
+            photo_id=photo_id,
             original_size=len(image_data),
             jpeg_size=len(jpeg_data),
         )
@@ -128,8 +129,8 @@ def convert_heic_to_web_display(photo: dict[str, Any]) -> bytes | None:
     except Exception as e:
         logger.error(
             "heic_conversion_failed",
-            photo_id=photo.get("id"),
-            original_path=photo.get("original_path"),
+            photo_id=photo_id,
+            original_path=original_path,
             error=str(e),
         )
         return None
@@ -226,6 +227,7 @@ def reset_gallery_pagination() -> None:
     st.session_state.gallery_total_loaded = 0
 
 
+@st.cache_data(ttl=300)
 def load_user_photos_paginated(
     user_id: str, sort_order: str = "新しい順", page: int = 0, page_size: int = 20
 ) -> tuple[list[dict[str, Any]], int, bool]:
@@ -283,6 +285,7 @@ def load_user_photos_paginated(
         return [], 0, False
 
 
+@st.cache_data(ttl=300)
 def get_user_photos_count(user_id: str) -> int:
     """
     Get total count of user photos.
@@ -372,7 +375,9 @@ def render_photo_thumbnail(photo: dict[str, Any], size: str = "medium") -> None:
     """
     try:
         # Get thumbnail URL
-        thumbnail_url = get_photo_thumbnail_url(photo)
+        thumbnail_path = photo.get("thumbnail_path")
+        photo_id = photo.get("id")
+        thumbnail_url = get_photo_thumbnail_url(thumbnail_path, photo_id)
 
         if thumbnail_url:
             # Display thumbnail image
@@ -472,22 +477,23 @@ def render_photo_details(photo: dict[str, Any]) -> None:
         st.write(f"📄 **タイプ:** {mime_type}")
 
 
-def get_photo_thumbnail_url(photo: dict[str, Any]) -> str | None:
+@st.cache_data(ttl=3000)  # 50 minute cache
+def get_photo_thumbnail_url(thumbnail_path: str | None, photo_id: str | None) -> str | None:
     """
     Get signed URL for photo thumbnail.
 
     Args:
-        photo: Photo metadata dictionary
+        thumbnail_path: The GCS path to the thumbnail
+        photo_id: The ID of the photo for logging
 
     Returns:
         str: Signed URL for thumbnail, or None if failed
     """
     try:
         storage_service = get_storage_service()
-        thumbnail_path = photo.get("thumbnail_path")
 
         if not thumbnail_path:
-            logger.warning("no_thumbnail_path", photo_id=photo.get("id"))
+            logger.warning("no_thumbnail_path", photo_id=photo_id)
             return None
 
         # Generate signed URL for thumbnail (1 hour expiration)
@@ -497,8 +503,8 @@ def get_photo_thumbnail_url(photo: dict[str, Any]) -> str | None:
     except Exception as e:
         logger.error(
             "get_thumbnail_url_error",
-            photo_id=photo.get("id"),
-            thumbnail_path=photo.get("thumbnail_path"),
+            photo_id=photo_id,
+            thumbnail_path=thumbnail_path,
             error=str(e),
         )
         return None
@@ -543,13 +549,15 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
         photo: Photo metadata dictionary
     """
     filename = photo.get("filename", "不明")
+    photo_id = photo.get("id")
+    original_path = photo.get("original_path")
 
     # Check if this is a HEIC file that needs conversion
     if is_heic_file(filename):
         try:
             # Show loading message for HEIC conversion
             with st.spinner("HEIC画像を変換中..."):
-                jpeg_data = convert_heic_to_web_display(photo)
+                jpeg_data = convert_heic_to_web_display(original_path, photo_id)
 
             if jpeg_data:
                 # Display converted JPEG
@@ -563,13 +571,13 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
                 return
 
         except Exception as e:
-            logger.error("heic_display_error", photo_id=photo.get("id"), error=str(e))
+            logger.error("heic_display_error", photo_id=photo_id, error=str(e))
             st.error(f"❌ HEIC画像の表示に失敗しました: {str(e)}")
             render_heic_fallback_display(photo)
             return
 
     # For non-HEIC files, use original URL display
-    original_url = get_photo_original_url(photo)
+    original_url = get_photo_original_url(original_path, photo_id)
 
     if original_url:
         try:
@@ -593,9 +601,11 @@ def render_heic_fallback_display(photo: dict[str, Any]) -> None:
         photo: Photo metadata dictionary
     """
     st.warning("🔄 HEIC画像の変換に失敗したため、サムネイルを表示しています")
+    thumbnail_path = photo.get("thumbnail_path")
+    photo_id = photo.get("id")
 
     # Try to display thumbnail as fallback
-    thumbnail_url = get_photo_thumbnail_url(photo)
+    thumbnail_url = get_photo_thumbnail_url(thumbnail_path, photo_id)
     if thumbnail_url:
         try:
             st.image(
@@ -636,7 +646,9 @@ def download_original_photo(photo: dict[str, Any]) -> None:
         photo: Photo metadata dictionary
     """
     try:
-        original_url = get_photo_original_url(photo)
+        original_path = photo.get("original_path")
+        photo_id = photo.get("id")
+        original_url = get_photo_original_url(original_path, photo_id)
         if original_url:
             st.success("✅ ダウンロードリンクを生成しました！")
             st.markdown(f"[📥 オリジナル写真をダウンロード]({original_url})")
@@ -655,7 +667,9 @@ def copy_image_url(photo: dict[str, Any]) -> None:
         photo: Photo metadata dictionary
     """
     try:
-        original_url = get_photo_original_url(photo)
+        original_path = photo.get("original_path")
+        photo_id = photo.get("id")
+        original_url = get_photo_original_url(original_path, photo_id)
         if original_url:
             # Since we can't directly copy to clipboard in Streamlit,
             # we'll display the URL for manual copying
@@ -668,22 +682,23 @@ def copy_image_url(photo: dict[str, Any]) -> None:
         st.error(f"❌ 画像URLの取得に失敗しました: {str(e)}")
 
 
-def get_photo_original_url(photo: dict[str, Any]) -> str | None:
+@st.cache_data(ttl=3000)  # 50 minute cache
+def get_photo_original_url(original_path: str | None, photo_id: str | None) -> str | None:
     """
     Get signed URL for original photo.
 
     Args:
-        photo: Photo metadata dictionary
+        original_path: The GCS path to the original photo
+        photo_id: The ID of the photo for logging
 
     Returns:
         str: Signed URL for original photo, or None if failed
     """
     try:
         storage_service = get_storage_service()
-        original_path = photo.get("original_path")
 
         if not original_path:
-            logger.warning("no_original_path", photo_id=photo.get("id"))
+            logger.warning("no_original_path", photo_id=photo_id)
             return None
 
         # Generate signed URL for original (1 hour expiration)
@@ -692,7 +707,7 @@ def get_photo_original_url(photo: dict[str, Any]) -> str | None:
 
     except Exception as e:
         logger.error(
-            "get_original_url_error", photo_id=photo.get("id"), original_path=photo.get("original_path"), error=str(e)
+            "get_original_url_error", photo_id=photo_id, original_path=original_path, error=str(e)
         )
         return None
 
