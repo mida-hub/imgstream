@@ -370,8 +370,8 @@ def render_upload_page() -> None:
         _handle_collision_resolution()
         _render_upload_button()
 
-        # Clear validation state when files are removed
-    elif st.session_state.upload_validated:
+        # Clear validation state when files are removed (but preserve upload results)
+    elif st.session_state.upload_validated and not st.session_state.last_upload_result:
         st.session_state.upload_validated = False
         st.session_state.valid_files = []
         st.session_state.validation_errors = []
@@ -385,4 +385,10 @@ def render_upload_page() -> None:
 
     # Show results or empty state when no files are uploaded
     if not uploaded_files:
+        logger.info(
+            "render_upload_page_no_files",
+            has_last_result=bool(st.session_state.last_upload_result),
+            upload_in_progress=st.session_state.upload_in_progress,
+            upload_validated=st.session_state.upload_validated,
+        )
         _render_results_or_empty_state()

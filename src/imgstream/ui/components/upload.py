@@ -4,6 +4,9 @@ from datetime import datetime
 from typing import Any
 
 import streamlit as st
+import structlog
+
+logger = structlog.get_logger()
 
 
 def render_file_validation_results(valid_files: list, validation_errors: list) -> None:
@@ -307,9 +310,6 @@ def render_summary_metrics(batch_result: dict[str, Any], processing_time: float 
     """Render summary metrics for batch upload results."""
     total_files = batch_result["total_files"]
     successful_uploads = batch_result["successful_uploads"]
-    failed_uploads = batch_result["failed_uploads"]
-    skipped_uploads = batch_result.get("skipped_uploads", 0)
-    overwrite_uploads = batch_result.get("overwrite_uploads", 0)
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -490,27 +490,50 @@ def render_next_steps(batch_result: dict[str, Any]) -> None:
     successful_uploads = batch_result["successful_uploads"]
     failed_uploads = batch_result["failed_uploads"]
 
+    logger.info(
+        "render_next_steps_called",
+        success=batch_result["success"],
+        successful_uploads=successful_uploads,
+        failed_uploads=failed_uploads,
+    )
+
+    def set_next_page(page_name: str):
+        """Callback to set the next page in session state."""
+        logger.info(f"set_next_page_callback_triggered_for_{page_name}")
+        st.session_state.next_page = page_name
+
     if batch_result["success"] and successful_uploads > 0:
-        from imgstream.ui.handlers.upload import clear_upload_session_state
+        logger.info("render_next_steps_showing_buttons")
         st.markdown("### 🎯 次のステップ")
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            if st.button("🖼️ ギャラリー", use_container_width=True, type="primary"):
-                clear_upload_session_state()
-                st.session_state.current_page = "gallery"
-                st.rerun()
+            st.button(
+                "🖼️ ギャラリー",
+                key="next_step_gallery",
+                use_container_width=True,
+                type="primary",
+                on_click=set_next_page,
+                args=("gallery",),
+            )
 
         with col2:
-            if st.button("📤 さらにアップロード", use_container_width=True):
-                clear_upload_session_state()
-                st.rerun()
+            st.button(
+                "📤 さらにアップロード",
+                key="next_step_upload_more",
+                use_container_width=True,
+                on_click=set_next_page,
+                args=("upload",),
+            )
 
         with col3:
-            if st.button("🏠 ホーム", use_container_width=True):
-                clear_upload_session_state()
-                st.session_state.current_page = "home"
-                st.rerun()
+            st.button(
+                "🏠 ホーム",
+                key="next_step_home",
+                use_container_width=True,
+                on_click=set_next_page,
+                args=("home",),
+            )
 
     elif failed_uploads > 0:
         st.markdown("### 🔧 ヘルプが必要ですか？")

@@ -102,12 +102,22 @@ def validate_uploaded_files(uploaded_files: list) -> tuple[list, list]:
                 }
             )
 
-            logger.info("file_validation_success", filename=normalized_filename, original_filename=uploaded_file.name, size=len(file_data))
+            logger.info(
+                "file_validation_success",
+                filename=normalized_filename,
+                original_filename=uploaded_file.name,
+                size=len(file_data),
+            )
 
         except (ImageProcessingError, UnsupportedFormatError) as e:
             normalized_filename = normalize_filename(uploaded_file.name)
             validation_errors.append({"filename": normalized_filename, "error": "Validation failed", "details": str(e)})
-            logger.warning("file_validation_failed", filename=normalized_filename, original_filename=uploaded_file.name, error=str(e))
+            logger.warning(
+                "file_validation_failed",
+                filename=normalized_filename,
+                original_filename=uploaded_file.name,
+                error=str(e),
+            )
         except Exception as e:
             normalized_filename = normalize_filename(uploaded_file.name)
             validation_errors.append(
@@ -117,7 +127,12 @@ def validate_uploaded_files(uploaded_files: list) -> tuple[list, list]:
                     "details": f"An unexpected error occurred: {str(e)}",
                 }
             )
-            logger.error("file_validation_error", filename=normalized_filename, original_filename=uploaded_file.name, error=str(e))
+            logger.error(
+                "file_validation_error",
+                filename=normalized_filename,
+                original_filename=uploaded_file.name,
+                error=str(e),
+            )
 
     return valid_files, validation_errors
 
@@ -719,21 +734,28 @@ def process_single_upload_with_progress(
         }
 
 
-def clear_upload_session_state() -> None:
-    """Clear upload-related session state variables."""
-    logger.info("call clear_upload_session_state")
+def clear_upload_session_state(preserve_last_result: bool = False) -> None:
+    """Clear upload-related session state variables.
+
+    Args:
+        preserve_last_result: If True, preserve last_upload_result for display purposes
+    """
+    logger.info("call clear_upload_session_state", preserve_last_result=preserve_last_result)
     session_keys_to_clear = [
         "valid_files",
         "validation_errors",
         "upload_validated",
         "upload_in_progress",
         "upload_results",
-        "last_upload_result",
         "upload_progress",
         "collision_results",
         "collision_decisions_made",
         "photo_uploader",  # Streamlit file uploader widget state
     ]
+
+    # Add last_upload_result to clear list only if not preserving
+    if not preserve_last_result:
+        session_keys_to_clear.append("last_upload_result")
 
     # Clear specific keys
     cleared_keys = []
