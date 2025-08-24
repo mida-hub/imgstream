@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from PIL import ExifTags, Image
+from PIL import ExifTags, Image, ImageOps
 
 from imgstream.ui.handlers.error import ImageProcessingError, ValidationError
 from ..logging_config import get_logger, log_error, log_performance
@@ -445,6 +445,9 @@ class ImageProcessor:
 
         try:
             with Image.open(io.BytesIO(image_data)) as image:
+                # Apply EXIF orientation to correct rotation
+                image = ImageOps.exif_transpose(image)
+
                 original_size = image.size
                 original_mode = image.mode
 
@@ -556,6 +559,9 @@ class ImageProcessor:
 
         try:
             with Image.open(io.BytesIO(image_data)) as image:
+                # Apply EXIF orientation to correct rotation
+                image = ImageOps.exif_transpose(image)
+
                 original_size = image.size
                 original_mode = image.mode
                 original_format = image.format
