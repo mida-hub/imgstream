@@ -491,24 +491,24 @@ def render_next_steps(batch_result: dict[str, Any]) -> None:
     failed_uploads = batch_result["failed_uploads"]
 
     if batch_result["success"] and successful_uploads > 0:
+        from imgstream.ui.handlers.upload import clear_upload_session_state
         st.markdown("### 🎯 次のステップ")
         col1, col2, col3 = st.columns(3)
 
         with col1:
             if st.button("🖼️ ギャラリー", use_container_width=True, type="primary"):
+                clear_upload_session_state()
                 st.session_state.current_page = "gallery"
                 st.rerun()
 
         with col2:
             if st.button("📤 さらにアップロード", use_container_width=True):
-                # Clear upload state for new upload
-                from imgstream.ui.handlers.upload import clear_upload_session_state
-
                 clear_upload_session_state()
                 st.rerun()
 
         with col3:
             if st.button("🏠 ホーム", use_container_width=True):
+                clear_upload_session_state()
                 st.session_state.current_page = "home"
                 st.rerun()
 
