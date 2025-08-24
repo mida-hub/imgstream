@@ -417,6 +417,22 @@ def render_photo_thumbnail(photo: dict[str, Any], size: str = "medium") -> None:
         st.caption(photo.get("filename", "不明"))
 
 
+def _print_datetime(target_at, should_convert_utc_to_jst: bool):
+    if not target_at:
+        return None
+    target_at_datetime = None
+    if isinstance(target_at, str):
+        target_at_datetime = parse_datetime_string(target_at)
+    if isinstance(target_at, datetime):
+        target_at_datetime = target_at
+    if target_at_datetime:
+        if should_convert_utc_to_jst:
+            return convert_utc_to_jst(target_at_datetime).strftime('%Y-%m-%d %H:%M:%S')
+        return target_at_datetime.strftime('%Y-%m-%d %H:%M:%S')
+
+    return target_at
+
+
 def render_photo_details(photo: dict[str, Any]) -> None:
     """
     Render detailed information about a photo.
@@ -430,35 +446,19 @@ def render_photo_details(photo: dict[str, Any]) -> None:
 
     # Creation date
     created_at = photo.get("created_at")
-    if created_at:
-        if isinstance(created_at, str):
-            parsed_created_at = parse_datetime_string(created_at)
-            if parsed_created_at:
-                jst_created_at = convert_utc_to_jst(parsed_created_at)
-                st.write(f"📅 **作成日:** {jst_created_at.strftime('%Y-%m-%d %H:%M:%S')} JST")
-            else:
-                st.write(f"📅 **作成日:** {created_at}")
-        elif isinstance(created_at, datetime):
-            jst_created_at = convert_utc_to_jst(created_at)
-            st.write(f"📅 **作成日:** {jst_created_at.strftime('%Y-%m-%d %H:%M:%S')} JST")
-        else:
-            st.write(f"📅 **作成日:** {created_at}")
-
     # Upload date
-    upload_date = photo.get("uploaded_at")
-    if upload_date:
-        if isinstance(upload_date, str):
-            parsed_upload_date = parse_datetime_string(upload_date)
-            if parsed_upload_date:
-                jst_upload_date = convert_utc_to_jst(parsed_upload_date)
-                st.write(f"📤 **アップロード日:** {jst_upload_date.strftime('%Y-%m-%d %H:%M:%S')} JST")
-            else:
-                st.write(f"📤 **アップロード日:** {upload_date}")
-        elif isinstance(upload_date, datetime):
-            jst_upload_date = convert_utc_to_jst(upload_date)
-            st.write(f"📤 **アップロード日:** {jst_upload_date.strftime('%Y-%m-%d %H:%M:%S')} JST")
-        else:
-            st.write(f"📤 **アップロード日:** {upload_date}")
+    uploaded_at = photo.get("uploaded_at")
+
+    created_at_should_convert_utc_to_jst = False
+    if created_at and uploaded_at and isinstance(created_at, str) and isinstance(uploaded_at, str):
+        # 分単位まで一致していれば exif 情報を抽出できず、作成日=アップロード日とみなして jst 変換フラグをたてる
+        created_at_should_convert_utc_to_jst = created_at[0:16] == uploaded_at[0:16]
+
+    if created_at:
+        st.write(f"""📅 **作成日:** {_print_datetime(created_at, should_convert_utc_to_jst=created_at_should_convert_utc_to_jst)} JST""")
+
+    if uploaded_at:
+        st.write(f"📤 **アップロード日:** {_print_datetime(uploaded_at, should_convert_utc_to_jst=True)} JST")
 
     # File size
     file_size = photo.get("file_size")
