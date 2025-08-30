@@ -45,8 +45,8 @@ class TestGalleryHEICDisplay:
         # Test rendering HEIC photo
         render_photo_detail_image(self.sample_heic_photo)
 
-        # Verify conversion was called
-        mock_convert.assert_called_once_with(self.sample_heic_photo)
+        # Verify conversion was called with correct arguments
+        mock_convert.assert_called_once_with(self.sample_heic_photo["original_path"], self.sample_heic_photo["id"])
 
         # Verify image display was called with converted data
         mock_st.image.assert_called_once()
@@ -75,8 +75,8 @@ class TestGalleryHEICDisplay:
         # Test rendering HEIC photo with conversion failure
         render_photo_detail_image(self.sample_heic_photo)
 
-        # Verify conversion was attempted
-        mock_convert.assert_called_once_with(self.sample_heic_photo)
+        # Verify conversion was attempted with correct arguments
+        mock_convert.assert_called_once_with(self.sample_heic_photo["original_path"], self.sample_heic_photo["id"])
 
         # Verify error message was shown
         mock_st.error.assert_called_once()
@@ -110,16 +110,14 @@ class TestGalleryHEICDisplay:
         # Verify fallback display was called
         mock_fallback.assert_called_once_with(self.sample_heic_photo)
 
-    @patch("src.imgstream.ui.pages.gallery.get_storage_service")
+    @patch("src.imgstream.ui.pages.gallery.get_photo_original_url")
     @patch("src.imgstream.ui.pages.gallery.st")
-    def test_render_photo_detail_image_regular_photo(self, mock_st, mock_get_storage):
+    def test_render_photo_detail_image_regular_photo(self, mock_st, mock_get_original_url):
         """Test rendering regular (non-HEIC) photo."""
         from src.imgstream.ui.pages.gallery import render_photo_detail_image
 
-        # Mock storage service
-        mock_storage = Mock()
-        mock_storage.get_signed_url.return_value = "https://example.com/photo.jpg"
-        mock_get_storage.return_value = mock_storage
+        # Mock original URL
+        mock_get_original_url.return_value = "https://example.com/photo.jpg"
 
         # Mock streamlit components
         mock_st.image = Mock()
@@ -127,8 +125,10 @@ class TestGalleryHEICDisplay:
         # Test rendering regular photo
         render_photo_detail_image(self.sample_jpeg_photo)
 
-        # Verify signed URL was requested
-        mock_storage.get_signed_url.assert_called_once_with("photos/IMG_5678.jpg", expiration=3600)
+        # Verify original URL was requested with correct arguments
+        mock_get_original_url.assert_called_once_with(
+            self.sample_jpeg_photo["original_path"], self.sample_jpeg_photo["id"]
+        )
 
         # Verify image was displayed with URL
         mock_st.image.assert_called_once()
@@ -162,8 +162,6 @@ class TestGalleryHEICDisplay:
         # Mock streamlit components
         mock_st.warning = Mock()
         mock_st.image = Mock()
-        mock_st.expander.return_value.__enter__ = Mock()
-        mock_st.expander.return_value.__exit__ = Mock()
         mock_st.info = Mock()
 
         # Test fallback display
@@ -172,14 +170,15 @@ class TestGalleryHEICDisplay:
         # Verify warning was shown
         mock_st.warning.assert_called_once()
 
-        # Verify thumbnail was requested and displayed
-        mock_get_thumbnail.assert_called_once_with(self.sample_heic_photo)
+        # Verify thumbnail was requested with correct arguments
+        mock_get_thumbnail.assert_called_once_with(
+            self.sample_heic_photo["thumbnail_path"], self.sample_heic_photo["id"]
+        )
         mock_st.image.assert_called_once()
 
     @patch("src.imgstream.ui.pages.gallery.get_photo_thumbnail_url")
-    @patch("src.imgstream.ui.pages.gallery.render_photo_error_state")
     @patch("src.imgstream.ui.pages.gallery.st")
-    def test_render_heic_fallback_display_no_thumbnail(self, mock_st, mock_error_state, mock_get_thumbnail):
+    def test_render_heic_fallback_display_no_thumbnail(self, mock_st, mock_get_thumbnail):
         """Test HEIC fallback display when thumbnail is not available."""
         from src.imgstream.ui.pages.gallery import render_heic_fallback_display
 
@@ -188,6 +187,8 @@ class TestGalleryHEICDisplay:
 
         # Mock streamlit components
         mock_st.warning = Mock()
+        mock_st.error = Mock()
+        mock_st.info = Mock()
 
         # Test fallback display
         render_heic_fallback_display(self.sample_heic_photo)
@@ -195,8 +196,14 @@ class TestGalleryHEICDisplay:
         # Verify warning was shown
         mock_st.warning.assert_called_once()
 
-        # Verify error state was rendered
-        mock_error_state.assert_called_once()
+        # Verify thumbnail was requested with correct arguments
+        mock_get_thumbnail.assert_called_once_with(
+            self.sample_heic_photo["thumbnail_path"], self.sample_heic_photo["id"]
+        )
+
+        # Verify error message was shown when no thumbnail available
+        mock_st.error.assert_called_once()
+        mock_st.info.assert_called_once()
 
 
 class TestHEICDisplayErrorHandling:
@@ -217,8 +224,8 @@ class TestHEICDisplayErrorHandling:
             mock_storage.download_file.side_effect = Exception("Storage error")
             mock_get_storage.return_value = mock_storage
 
-            # Test conversion with error
-            result = convert_heic_to_web_display(self.sample_photo)
+            # Test conversion with error using correct arguments
+            result = convert_heic_to_web_display(self.sample_photo["original_path"], self.sample_photo["id"])
 
             # Verify error was logged
             mock_logger.error.assert_called_once()
