@@ -94,22 +94,18 @@ def render_photo_thumbnail(photo: dict[str, Any], size: str = "medium") -> None:
                     jst_created_at = convert_utc_to_jst(created_at)
                     st.caption(f"📅 {jst_created_at.strftime('%Y-%m-%d')}")
 
+            @st.dialog(title="写真詳細", width="large")
+            def show_photo_dialog():
+                # Main content area
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    render_photo_detail_image(photo)
+                with col2:
+                    render_photo_detail_sidebar(photo)
+
             # Enhanced click handler for photo details
             if st.button("🔍 詳細を表示", key=f"view_{photo.get('id', 'unknown')}", use_container_width=True):
-                st.session_state.selected_photo = photo
-                st.session_state.show_photo_details = True
-
-                # Store photo context for navigation (if available)
-                if "gallery_photos" in st.session_state:
-                    photos = st.session_state.gallery_photos
-                    try:
-                        photo_index = next(i for i, p in enumerate(photos) if p.get("id") == photo.get("id"))
-                        st.session_state.photo_index = photo_index
-                        st.session_state.total_photos = len(photos)
-                    except StopIteration:
-                        pass
-
-                st.rerun()
+                show_photo_dialog()
 
         else:
             # Fallback for missing thumbnail
@@ -145,9 +141,6 @@ def render_photo_details(photo: dict[str, Any]) -> None:
     Args:
         photo: Photo metadata dictionary
     """
-    # Photo filename
-    filename = photo.get("filename", "不明")
-    st.markdown(f"**📷 {filename}**")
 
     # Creation date
     created_at = photo.get("created_at")
@@ -161,53 +154,20 @@ def render_photo_details(photo: dict[str, Any]) -> None:
 
     if created_at:
         st.write(
-            f"""📅 **作成日:** {_print_datetime(created_at, should_convert_utc_to_jst=created_at_should_convert_utc_to_jst)} JST"""
+            f"""📅 **作成日**  
+{_print_datetime(created_at, should_convert_utc_to_jst=created_at_should_convert_utc_to_jst)}"""
         )
 
     if uploaded_at:
-        st.write(f"📤 **アップロード日:** {_print_datetime(uploaded_at, should_convert_utc_to_jst=True)} JST")
+        st.write(f"""📤 **アップロード日**  
+{_print_datetime(uploaded_at, should_convert_utc_to_jst=True)}""")
 
     # File size
     file_size = photo.get("file_size")
     if file_size:
         file_size_mb = file_size / (1024 * 1024)
-        st.write(f"💾 **サイズ:** {file_size_mb:.1f} MB")
-
-    # MIME type
-    mime_type = photo.get("mime_type")
-    if mime_type:
-        st.write(f"📄 **タイプ:** {mime_type}")
-
-
-def render_photo_detail_modal() -> None:
-    """Render enhanced photo detail modal if a photo is selected."""
-    if st.session_state.get("show_photo_details") and st.session_state.get("selected_photo"):
-        photo = st.session_state.selected_photo
-
-        # Create a full-width modal-like container
-        st.markdown("---")
-
-        # Header with navigation
-        render_photo_detail_header(photo)
-
-        # Main content area
-        col1, col2 = st.columns([3, 1])
-
-        with col1:
-            render_photo_detail_image(photo)
-
-        with col2:
-            render_photo_detail_sidebar(photo)
-
-
-def render_photo_detail_header(photo: dict[str, Any]) -> None:
-    """
-    Render photo detail header with navigation.
-
-    Args:
-        photo: Photo metadata dictionary
-    """
-    pass
+        st.write(f"""💾 **サイズ**  
+{file_size_mb:.1f} MB""")
 
 
 def render_photo_detail_image(photo: dict[str, Any]) -> None:
@@ -304,11 +264,9 @@ def render_photo_detail_sidebar(photo: dict[str, Any]) -> None:
     Args:
         photo: Photo metadata dictionary
     """
-    # Enhanced photo details
-    st.markdown("#### 📋 写真詳細")
     render_photo_details(photo)
 
-    if st.button("📥 写真をダウンロード", use_container_width=True):
+    if st.button("📥 ダウンロード", use_container_width=True):
         download_original_photo(photo)
 
 

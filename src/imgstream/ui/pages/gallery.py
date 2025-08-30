@@ -9,7 +9,6 @@ from imgstream.ui.components.gallery import (
     render_gallery_header,
     render_pagination_controls,
     render_pagination_summary,
-    render_photo_detail_modal,
     render_photo_grid,
     render_photo_list,
     reset_gallery_pagination,
@@ -89,9 +88,6 @@ def render_gallery_page() -> None:
 
             # Render pagination summary
             render_pagination_summary()
-
-            # Render photo detail modal if needed
-            render_photo_detail_modal()
 
     except Exception as e:
         logger.error("gallery_page_error", error=str(e))
