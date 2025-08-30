@@ -19,13 +19,13 @@ class TestCollisionDetectionUtilities:
 
     def setup_method(self):
         """Clear cache before each test."""
-        from src.imgstream.ui.handlers.collision_detection import clear_collision_cache
+        from imgstream.ui.handlers.collision_detection import clear_collision_cache
 
         clear_collision_cache()
 
     def teardown_method(self):
         """Clear cache after each test."""
-        from src.imgstream.ui.handlers.collision_detection import clear_collision_cache
+        from imgstream.ui.handlers.collision_detection import clear_collision_cache
 
         clear_collision_cache()
 
@@ -80,7 +80,7 @@ class TestCollisionDetectionUtilities:
             },
         ]
 
-    @patch("src.imgstream.ui.handlers.collision_detection.get_metadata_service")
+    @patch("imgstream.ui.handlers.collision_detection.get_metadata_service")
     def test_check_filename_collisions_no_collisions(self, mock_get_service):
         """Test check_filename_collisions when no collisions exist."""
         # Mock metadata service
@@ -89,13 +89,13 @@ class TestCollisionDetectionUtilities:
         mock_get_service.return_value = mock_service
 
         filenames = ["photo1.jpg", "photo2.jpg", "photo3.jpg"]
-        result = check_filename_collisions("test_user_123", filenames)
+        result = check_filename_collisions("test_user_123", filenames, use_cache=False)
 
         assert result == {}
         # Should be called once for each filename
         assert mock_service.check_filename_exists.call_count == 3
 
-    @patch("src.imgstream.ui.handlers.collision_detection.get_metadata_service")
+    @patch("imgstream.ui.handlers.collision_detection.get_metadata_service")
     def test_check_filename_collisions_with_collisions(self, mock_get_service, sample_collision_info):
         """Test check_filename_collisions when collisions exist."""
         # Mock metadata service
@@ -111,7 +111,7 @@ class TestCollisionDetectionUtilities:
         mock_get_service.return_value = mock_service
 
         filenames = ["photo1.jpg", "photo2.jpg", "photo3.jpg"]
-        result = check_filename_collisions("test_user_123", filenames)
+        result = check_filename_collisions("test_user_123", filenames, use_cache=False)
 
         assert len(result) == 1
         assert "photo2.jpg" in result
@@ -125,7 +125,7 @@ class TestCollisionDetectionUtilities:
         assert result == {}
         mock_get_service.assert_not_called()
 
-    @patch("src.imgstream.ui.handlers.collision_detection.get_metadata_service")
+    @patch("imgstream.ui.handlers.collision_detection.get_metadata_service")
     def test_check_filename_collisions_service_error(self, mock_get_service):
         """Test check_filename_collisions when metadata service fails."""
         # Mock metadata service to raise exception
@@ -134,7 +134,7 @@ class TestCollisionDetectionUtilities:
         mock_get_service.return_value = mock_service
 
         with pytest.raises(CollisionDetectionError, match="High failure rate in collision detection"):
-            check_filename_collisions("test_user_123", ["photo1.jpg"])
+            check_filename_collisions("test_user_123", ["photo1.jpg"], use_cache=False)
 
     def test_process_collision_results_no_collisions(self):
         """Test process_collision_results with no collisions."""
@@ -325,7 +325,7 @@ class TestCollisionDetectionIntegration:
             "warning_shown": False,
         }
 
-    @patch("src.imgstream.ui.handlers.collision_detection.get_metadata_service")
+    @patch("imgstream.ui.handlers.collision_detection.get_metadata_service")
     def test_full_collision_detection_workflow(self, mock_get_service, sample_collision_info):
         """Test complete collision detection workflow."""
         # Mock metadata service
@@ -342,7 +342,7 @@ class TestCollisionDetectionIntegration:
 
         # Step 1: Check collisions
         filenames = ["photo1.jpg", "photo2.jpg"]
-        collision_results = check_filename_collisions("test_user_123", filenames)
+        collision_results = check_filename_collisions("test_user_123", filenames, use_cache=False)
 
         # Step 2: Process with user decisions
         user_decisions = {"photo1.jpg": "overwrite"}

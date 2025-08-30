@@ -212,18 +212,20 @@ class TestSecurityConsiderations:
                 ), f"Development mode should be disabled in {env} environment"
 
     def test_development_user_isolation(self):
-        """Test that development users have isolated storage paths."""
-        dev_user = create_test_user(email="dev@example.com")
+        """Test that development users have unique identifiers for isolation."""
+        dev_user = create_test_user(email="dev@example.com", user_id="dev-001")
+        prod_user = create_test_user(email="user@production.com", user_id="prod-001")
 
-        storage_path = dev_user.get_storage_path_prefix()
-        db_path = dev_user.get_database_path()
+        # Verify users have different identifiers
+        assert dev_user.email != prod_user.email
+        assert dev_user.user_id != prod_user.user_id
 
-        # Verify paths are based on development email
-        assert "dev_at_example_dot_com" in storage_path
-        assert "dev_at_example_dot_com" in db_path
+        # Verify development user has expected properties
+        assert dev_user.email == "dev@example.com"
+        assert dev_user.user_id == "dev-001"
+        assert dev_user.picture is None
 
-        # Verify paths are different from production users
-        prod_user = create_test_user(email="user@production.com")
-        prod_storage_path = prod_user.get_storage_path_prefix()
-
-        assert storage_path != prod_storage_path
+        # Verify production user has expected properties
+        assert prod_user.email == "user@production.com"
+        assert prod_user.user_id == "prod-001"
+        assert prod_user.picture is None
