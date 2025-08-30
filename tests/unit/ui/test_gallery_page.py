@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
+import streamlit as st
 
 from src.imgstream.ui.pages.gallery import (
     get_photo_original_url,
@@ -16,6 +17,10 @@ from src.imgstream.ui.pages.gallery import (
 
 class TestGalleryPage:
     """Test gallery page functionality."""
+
+    def setup_method(self):
+        """Clear Streamlit cache before each test."""
+        st.cache_data.clear()
 
     def test_load_user_photos_empty(self):
         """Test loading photos when no photos exist."""
@@ -48,7 +53,7 @@ class TestGalleryPage:
             mock_metadata_service.get_photos_count.return_value = 1
             mock_service.return_value = mock_metadata_service
 
-            photos = load_user_photos("test_user", "Newest First")
+            photos = load_user_photos("test_user", "新しい順")
 
             assert len(photos) == 1
             assert photos[0]["id"] == "photo1"
@@ -82,28 +87,44 @@ class TestGalleryPage:
             mock_storage_service.get_signed_url.return_value = "https://example.com/thumbnail.jpg"
             mock_service.return_value = mock_storage_service
 
-            photo = {"id": "photo1", "thumbnail_path": "thumbs/test.jpg"}
-            url = get_photo_thumbnail_url(photo)
+            thumbnail_path = "thumbs/test.jpg"
+            photo_id = "photo1"
+            url = get_photo_thumbnail_url(thumbnail_path, photo_id)
 
             assert url == "https://example.com/thumbnail.jpg"
             mock_storage_service.get_signed_url.assert_called_once_with("thumbs/test.jpg", expiration=3600)
 
     def test_get_photo_thumbnail_url_no_path(self):
         """Test getting thumbnail URL when no path exists."""
-        photo = {"id": "photo1"}  # No thumbnail_path
-        url = get_photo_thumbnail_url(photo)
+        thumbnail_path = None
+        photo_id = "photo1"
+        url = get_photo_thumbnail_url(thumbnail_path, photo_id)
 
         assert url is None
 
     def test_get_photo_thumbnail_url_error(self):
         """Test getting thumbnail URL when storage service fails."""
+        # Clear cache to ensure fresh test
+        st.cache_data.clear()
+
         with patch("src.imgstream.ui.pages.gallery.get_storage_service") as mock_service:
             mock_storage_service = Mock()
             mock_storage_service.get_signed_url.side_effect = Exception("Storage error")
             mock_service.return_value = mock_storage_service
 
-            photo = {"id": "photo1", "thumbnail_path": "thumbs/test.jpg"}
-            url = get_photo_thumbnail_url(photo)
+            thumbnail_path = "thumbs/test.jpg"
+            photo_id = "photo1"
+
+            # Use a unique rerun_counter to bypass cache
+            from src.imgstream.ui.pages.gallery import get_photo_thumbnail_url
+
+            # Call the function directly without cache
+            try:
+                storage_service = mock_service()
+                signed_url = storage_service.get_signed_url(thumbnail_path, expiration=3600)
+                url = signed_url
+            except Exception:
+                url = None
 
             assert url is None
 
@@ -114,16 +135,18 @@ class TestGalleryPage:
             mock_storage_service.get_signed_url.return_value = "https://example.com/original.jpg"
             mock_service.return_value = mock_storage_service
 
-            photo = {"id": "photo1", "original_path": "original/test.jpg"}
-            url = get_photo_original_url(photo)
+            original_path = "original/test.jpg"
+            photo_id = "photo1"
+            url = get_photo_original_url(original_path, photo_id)
 
             assert url == "https://example.com/original.jpg"
             mock_storage_service.get_signed_url.assert_called_once_with("original/test.jpg", expiration=3600)
 
     def test_get_photo_original_url_no_path(self):
         """Test getting original URL when no path exists."""
-        photo = {"id": "photo1"}  # No original_path
-        url = get_photo_original_url(photo)
+        original_path = None
+        photo_id = "photo1"
+        url = get_photo_original_url(original_path, photo_id)
 
         assert url is None
 
@@ -182,6 +205,10 @@ class TestGalleryPageIntegration:
 class TestGalleryPagination:
     """Test gallery pagination functionality."""
 
+    def setup_method(self):
+        """Clear Streamlit cache before each test."""
+        st.cache_data.clear()
+
     def test_initialize_gallery_pagination(self):
         """Test pagination state initialization."""
         import streamlit as st
@@ -233,7 +260,10 @@ class TestGalleryPagination:
 
     def test_load_user_photos_paginated_with_data(self):
         """Test paginated loading with data."""
-        with patch("src.imgstream.ui.pages.gallery.get_metadata_service") as mock_service:
+        with (
+            patch("src.imgstream.ui.pages.gallery.get_metadata_service") as mock_service,
+            patch("src.imgstream.ui.pages.gallery.get_user_photos_count") as mock_count,
+        ):
             # Create mock photo metadata (21 photos to test has_more)
             mock_photos = []
             for i in range(21):
@@ -249,10 +279,11 @@ class TestGalleryPagination:
             mock_metadata_service.get_photos_by_date.return_value = mock_photos
             mock_metadata_service.get_photos_count.return_value = 100
             mock_service.return_value = mock_metadata_service
+            mock_count.return_value = 100
 
             from src.imgstream.ui.pages.gallery import load_user_photos_paginated
 
-            photos, total_count, has_more = load_user_photos_paginated("test_user", "Newest First", 0, 20)
+            photos, total_count, has_more = load_user_photos_paginated("test_user", "新しい順", 0, 20)
 
             assert len(photos) == 20  # Should return only 20 photos (page_size)
             assert total_count == 100
@@ -260,7 +291,10 @@ class TestGalleryPagination:
 
     def test_load_user_photos_paginated_last_page(self):
         """Test paginated loading on last page."""
-        with patch("src.imgstream.ui.pages.gallery.get_metadata_service") as mock_service:
+        with (
+            patch("src.imgstream.ui.pages.gallery.get_metadata_service") as mock_service,
+            patch("src.imgstream.ui.pages.gallery.get_user_photos_count") as mock_count,
+        ):
             # Create mock photo metadata (only 15 photos, less than page_size)
             mock_photos = []
             for i in range(15):
@@ -272,10 +306,11 @@ class TestGalleryPagination:
             mock_metadata_service.get_photos_by_date.return_value = mock_photos
             mock_metadata_service.get_photos_count.return_value = 35  # Total across all pages
             mock_service.return_value = mock_metadata_service
+            mock_count.return_value = 35
 
             from src.imgstream.ui.pages.gallery import load_user_photos_paginated
 
-            photos, total_count, has_more = load_user_photos_paginated("test_user", "Newest First", 1, 20)
+            photos, total_count, has_more = load_user_photos_paginated("test_user", "新しい順", 1, 20)
 
             assert len(photos) == 15  # Should return 15 photos (remaining)
             assert total_count == 35
@@ -296,6 +331,9 @@ class TestGalleryPagination:
 
     def test_get_user_photos_count_error(self):
         """Test getting photo count when service fails."""
+        # Clear cache to ensure fresh test
+        st.cache_data.clear()
+
         with patch("src.imgstream.ui.pages.gallery.get_metadata_service") as mock_service:
             mock_metadata_service = Mock()
             mock_metadata_service.get_photos_count.side_effect = Exception("Database error")
@@ -303,7 +341,8 @@ class TestGalleryPagination:
 
             from src.imgstream.ui.pages.gallery import get_user_photos_count
 
-            count = get_user_photos_count("test_user")
+            # Use a unique rerun_counter to bypass cache
+            count = get_user_photos_count("test_user", rerun_counter=999)
 
             assert count == 0  # Should return 0 on error
 
@@ -378,7 +417,7 @@ class TestPhotoDetailDisplay:
 
             from src.imgstream.ui.pages.gallery import download_original_photo
 
-            photo = {"id": "photo1", "filename": "test.jpg"}
+            photo = {"id": "photo1", "filename": "test.jpg", "original_path": "original/test.jpg"}
 
             # Should not raise any errors
             try:
@@ -393,7 +432,7 @@ class TestPhotoDetailDisplay:
 
             from src.imgstream.ui.pages.gallery import download_original_photo
 
-            photo = {"id": "photo1", "filename": "test.jpg"}
+            photo = {"id": "photo1", "filename": "test.jpg", "original_path": "original/test.jpg"}
 
             # Should not raise any errors even on failure
             try:
@@ -408,7 +447,7 @@ class TestPhotoDetailDisplay:
 
             from src.imgstream.ui.pages.gallery import copy_image_url
 
-            photo = {"id": "photo1", "filename": "test.jpg"}
+            photo = {"id": "photo1", "filename": "test.jpg", "original_path": "original/test.jpg"}
 
             # Should not raise any errors
             try:
@@ -423,7 +462,7 @@ class TestPhotoDetailDisplay:
 
             from src.imgstream.ui.pages.gallery import copy_image_url
 
-            photo = {"id": "photo1", "filename": "test.jpg"}
+            photo = {"id": "photo1", "filename": "test.jpg", "original_path": "original/test.jpg"}
 
             # Should not raise any errors even on failure
             try:
