@@ -75,6 +75,7 @@ src/imgstream
     │   ├── collision_detection.py
     │   ├── common.py
     │   ├── error.py
+    │   ├── gallery.py
     │   └── upload.py
     ├── handlers
     │   ├── __init__.py
@@ -82,6 +83,7 @@ src/imgstream
     │   ├── collision_detection.py
     │   ├── dev_auth.py
     │   ├── error.py
+    │   ├── gallery.py
     │   └── upload.py
     └── pages
         ├── __init__.py
@@ -90,7 +92,9 @@ src/imgstream
         └── upload.py
 ```
 
-# mcp
+# MCP
+
 ## Serena
+
 Serena を使って imgstream プロジェクトを分析してください
 src/imgstream 配下は必ず分析してください
