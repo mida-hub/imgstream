@@ -37,6 +37,7 @@ class TestUserInfo:
         assert user_info.email == "user@example.com"
         assert user_info.picture is None
 
+
 class TestCloudIAPAuthService:
     """Test cases for CloudIAPAuthService class."""
 

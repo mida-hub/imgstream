@@ -17,18 +17,18 @@ class TestGalleryHEICDisplay:
             "id": "test_heic_123",
             "filename": "IMG_1234.heic",
             "original_path": "photos/IMG_1234.heic",
-            "thumbnail_path": "thumbnails/IMG_1234_thumb.jpg"
+            "thumbnail_path": "thumbnails/IMG_1234_thumb.jpg",
         }
 
         self.sample_jpeg_photo = {
             "id": "test_jpeg_456",
             "filename": "IMG_5678.jpg",
             "original_path": "photos/IMG_5678.jpg",
-            "thumbnail_path": "thumbnails/IMG_5678_thumb.jpg"
+            "thumbnail_path": "thumbnails/IMG_5678_thumb.jpg",
         }
 
-    @patch('src.imgstream.ui.pages.gallery.convert_heic_to_web_display')
-    @patch('src.imgstream.ui.pages.gallery.st')
+    @patch("src.imgstream.ui.pages.gallery.convert_heic_to_web_display")
+    @patch("src.imgstream.ui.pages.gallery.st")
     def test_render_photo_detail_image_heic_success(self, mock_st, mock_convert):
         """Test successful HEIC photo rendering."""
         from src.imgstream.ui.pages.gallery import render_photo_detail_image
@@ -57,9 +57,9 @@ class TestGalleryHEICDisplay:
         # Verify info message was shown
         mock_st.info.assert_called_once()
 
-    @patch('src.imgstream.ui.pages.gallery.convert_heic_to_web_display')
-    @patch('src.imgstream.ui.pages.gallery.render_heic_fallback_display')
-    @patch('src.imgstream.ui.pages.gallery.st')
+    @patch("src.imgstream.ui.pages.gallery.convert_heic_to_web_display")
+    @patch("src.imgstream.ui.pages.gallery.render_heic_fallback_display")
+    @patch("src.imgstream.ui.pages.gallery.st")
     def test_render_photo_detail_image_heic_conversion_failure(self, mock_st, mock_fallback, mock_convert):
         """Test HEIC photo rendering when conversion fails."""
         from src.imgstream.ui.pages.gallery import render_photo_detail_image
@@ -84,9 +84,9 @@ class TestGalleryHEICDisplay:
         # Verify fallback display was called
         mock_fallback.assert_called_once_with(self.sample_heic_photo)
 
-    @patch('src.imgstream.ui.pages.gallery.convert_heic_to_web_display')
-    @patch('src.imgstream.ui.pages.gallery.render_heic_fallback_display')
-    @patch('src.imgstream.ui.pages.gallery.st')
+    @patch("src.imgstream.ui.pages.gallery.convert_heic_to_web_display")
+    @patch("src.imgstream.ui.pages.gallery.render_heic_fallback_display")
+    @patch("src.imgstream.ui.pages.gallery.st")
     def test_render_photo_detail_image_heic_exception(self, mock_st, mock_fallback, mock_convert):
         """Test HEIC photo rendering when conversion raises exception."""
         from src.imgstream.ui.pages.gallery import render_photo_detail_image
@@ -110,8 +110,8 @@ class TestGalleryHEICDisplay:
         # Verify fallback display was called
         mock_fallback.assert_called_once_with(self.sample_heic_photo)
 
-    @patch('src.imgstream.ui.pages.gallery.get_storage_service')
-    @patch('src.imgstream.ui.pages.gallery.st')
+    @patch("src.imgstream.ui.pages.gallery.get_storage_service")
+    @patch("src.imgstream.ui.pages.gallery.st")
     def test_render_photo_detail_image_regular_photo(self, mock_st, mock_get_storage):
         """Test rendering regular (non-HEIC) photo."""
         from src.imgstream.ui.pages.gallery import render_photo_detail_image
@@ -144,19 +144,14 @@ class TestGalleryHEICDisplay:
         assert is_heic_file(self.sample_jpeg_photo["filename"]) is False
 
         # Test with various HEIC extensions
-        heic_filenames = [
-            "IMG_1234.heic",
-            "photo.HEIC",
-            "vacation.Heif",
-            "portrait.HEIF"
-        ]
+        heic_filenames = ["IMG_1234.heic", "photo.HEIC", "vacation.Heif", "portrait.HEIF"]
 
         for filename in heic_filenames:
             photo = {"filename": filename}
             assert is_heic_file(photo["filename"]) is True
 
-    @patch('src.imgstream.ui.pages.gallery.get_photo_thumbnail_url')
-    @patch('src.imgstream.ui.pages.gallery.st')
+    @patch("src.imgstream.ui.pages.gallery.get_photo_thumbnail_url")
+    @patch("src.imgstream.ui.pages.gallery.st")
     def test_render_heic_fallback_display_with_thumbnail(self, mock_st, mock_get_thumbnail):
         """Test HEIC fallback display with available thumbnail."""
         from src.imgstream.ui.pages.gallery import render_heic_fallback_display
@@ -181,9 +176,9 @@ class TestGalleryHEICDisplay:
         mock_get_thumbnail.assert_called_once_with(self.sample_heic_photo)
         mock_st.image.assert_called_once()
 
-    @patch('src.imgstream.ui.pages.gallery.get_photo_thumbnail_url')
-    @patch('src.imgstream.ui.pages.gallery.render_photo_error_state')
-    @patch('src.imgstream.ui.pages.gallery.st')
+    @patch("src.imgstream.ui.pages.gallery.get_photo_thumbnail_url")
+    @patch("src.imgstream.ui.pages.gallery.render_photo_error_state")
+    @patch("src.imgstream.ui.pages.gallery.st")
     def test_render_heic_fallback_display_no_thumbnail(self, mock_st, mock_error_state, mock_get_thumbnail):
         """Test HEIC fallback display when thumbnail is not available."""
         from src.imgstream.ui.pages.gallery import render_heic_fallback_display
@@ -209,18 +204,14 @@ class TestHEICDisplayErrorHandling:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.sample_photo = {
-            "id": "test_photo_123",
-            "filename": "test.heic",
-            "original_path": "photos/test.heic"
-        }
+        self.sample_photo = {"id": "test_photo_123", "filename": "test.heic", "original_path": "photos/test.heic"}
 
-    @patch('src.imgstream.ui.pages.gallery.logger')
+    @patch("src.imgstream.ui.pages.gallery.logger")
     def test_error_logging_on_conversion_failure(self, mock_logger):
         """Test that conversion failures are properly logged."""
         from src.imgstream.ui.pages.gallery import convert_heic_to_web_display
 
-        with patch('src.imgstream.ui.pages.gallery.get_storage_service') as mock_get_storage:
+        with patch("src.imgstream.ui.pages.gallery.get_storage_service") as mock_get_storage:
             # Mock storage service to raise exception
             mock_storage = Mock()
             mock_storage.download_file.side_effect = Exception("Storage error")
@@ -244,9 +235,11 @@ class TestHEICDisplayErrorHandling:
         # 2. Falls back to thumbnail display
         # 3. If thumbnail fails, shows error state
 
-        with patch('src.imgstream.ui.pages.gallery.convert_heic_to_web_display') as mock_convert, \
-             patch('src.imgstream.ui.pages.gallery.render_heic_fallback_display') as mock_fallback, \
-             patch('src.imgstream.ui.pages.gallery.st') as mock_st:
+        with (
+            patch("src.imgstream.ui.pages.gallery.convert_heic_to_web_display") as mock_convert,
+            patch("src.imgstream.ui.pages.gallery.render_heic_fallback_display") as mock_fallback,
+            patch("src.imgstream.ui.pages.gallery.st") as mock_st,
+        ):
 
             from src.imgstream.ui.pages.gallery import render_photo_detail_image
 

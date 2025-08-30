@@ -514,7 +514,7 @@ class StorageService:
             credentials, _ = google.auth.default()
             try:
                 credentials.refresh(google.auth.transport.requests.Request())
-            except:
+            except Exception:
                 # occurred by local env only for Invalid OAuth scope or ID token audience provided
                 pass
 
@@ -526,12 +526,13 @@ class StorageService:
 
             # Generate signed URL
             expiration_time = datetime.now() + timedelta(seconds=expiration)
-            signed_url: str = blob.generate_signed_url(expiration=expiration_time,
-                                                       method="GET",
-                                                       version="v4",
-                                                       service_account_email=credentials.service_account_email,
-                                                       access_token=credentials.token
-                                                       )
+            signed_url: str = blob.generate_signed_url(
+                expiration=expiration_time,
+                method="GET",
+                version="v4",
+                service_account_email=credentials.service_account_email,
+                access_token=credentials.token,
+            )
 
             logger.debug(f"Generated signed URL for: {gcs_path} (expires in {expiration}s)")
             return signed_url

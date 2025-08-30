@@ -563,7 +563,9 @@ class TestUploadHandlersOverwriteSupport:
 
     @patch("imgstream.ui.handlers.upload.get_auth_service")
     @patch("imgstream.ui.handlers.upload.process_single_upload_with_progress")
-    def test_process_batch_upload_with_overwrite(self, mock_process_single, mock_get_auth_service, sample_file_info, collision_results):
+    def test_process_batch_upload_with_overwrite(
+        self, mock_process_single, mock_get_auth_service, sample_file_info, collision_results
+    ):
         """Test batch upload processing with overwrite decisions."""
         from imgstream.ui.handlers.upload import process_batch_upload
 
@@ -635,7 +637,9 @@ class TestUploadHandlersOverwriteSupport:
 
     @patch("imgstream.ui.handlers.upload.get_auth_service")
     @patch("imgstream.ui.handlers.upload.process_single_upload_with_progress")
-    def test_process_batch_upload_with_pending_decision(self, mock_process_single, mock_get_auth_service, sample_file_info):
+    def test_process_batch_upload_with_pending_decision(
+        self, mock_process_single, mock_get_auth_service, sample_file_info
+    ):
         """Test batch upload processing with pending collision decisions."""
         from imgstream.ui.handlers.upload import process_batch_upload
 

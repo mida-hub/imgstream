@@ -90,7 +90,12 @@ def render_collision_warnings(collision_results: dict[str, dict[str, Any]]) -> d
                     key=f"overwrite_{decision_key}",
                     help="既存ファイルを新しいファイルで置き換えます",
                     use_container_width=True,
-                    type="primary" if f"decision_{filename}" in st.session_state and st.session_state[f"decision_{filename}"] == "overwrite" else "secondary",
+                    type=(
+                        "primary"
+                        if f"decision_{filename}" in st.session_state
+                        and st.session_state[f"decision_{filename}"] == "overwrite"
+                        else "secondary"
+                    ),
                 ):
                     user_decisions[filename] = "overwrite"
                     # Update session state to persist decision
@@ -103,7 +108,12 @@ def render_collision_warnings(collision_results: dict[str, dict[str, Any]]) -> d
                     key=f"skip_{decision_key}",
                     help="このファイルをアップロードせず、既存ファイルを保持します",
                     use_container_width=True,
-                    type="primary" if f"decision_{filename}" in st.session_state and st.session_state[f"decision_{filename}"] == "skip" else "secondary",
+                    type=(
+                        "primary"
+                        if f"decision_{filename}" in st.session_state
+                        and st.session_state[f"decision_{filename}"] == "skip"
+                        else "secondary"
+                    ),
                 ):
                     user_decisions[filename] = "skip"
                     # Update session state to persist decision

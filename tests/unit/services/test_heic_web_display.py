@@ -66,7 +66,7 @@ class TestHEICWebDisplayConversion:
             (1920, 1080),  # 16:9
             (1080, 1920),  # 9:16 (portrait)
             (1000, 1000),  # 1:1 (square)
-            (1600, 900),   # 16:9 different size
+            (1600, 900),  # 16:9 different size
         ]
 
         for width, height in test_cases:
@@ -91,8 +91,6 @@ class TestHEICWebDisplayConversion:
             assert converted_image.format == "JPEG"
             assert converted_image.mode == "RGB"  # Should be converted to RGB
             assert converted_image.size == (400, 300)
-
-
 
     def test_convert_to_web_display_jpeg_quality_bounds(self):
         """Test conversion with quality at boundary values."""
@@ -142,7 +140,7 @@ class TestHEICWebDisplayConversion:
         """Test conversion with corrupted image data."""
         # Create valid image data then corrupt it
         valid_data = self.create_test_image("JPEG", (400, 300))
-        corrupted_data = valid_data[:len(valid_data)//2] + b"corrupted"
+        corrupted_data = valid_data[: len(valid_data) // 2] + b"corrupted"
 
         with pytest.raises(ImageProcessingError):
             self.processor.convert_to_web_display_jpeg(corrupted_data)
@@ -221,8 +219,14 @@ class TestHEICFileDetection:
     def test_is_heic_file_case_insensitive(self):
         """Test that HEIC detection is case insensitive."""
         test_cases = [
-            "photo.heic", "photo.HEIC", "photo.Heic", "photo.HeiC",
-            "photo.heif", "photo.HEIF", "photo.Heif", "photo.HeiF"
+            "photo.heic",
+            "photo.HEIC",
+            "photo.Heic",
+            "photo.HeiC",
+            "photo.heif",
+            "photo.HEIF",
+            "photo.Heif",
+            "photo.HeiF",
         ]
 
         for filename in test_cases:
@@ -236,18 +240,14 @@ class TestHEICWebDisplayIntegration:
         """Set up test fixtures."""
         self.processor = ImageProcessor()
 
-    @patch('src.imgstream.ui.pages.gallery.get_storage_service')
-    @patch('src.imgstream.ui.pages.gallery.get_image_processor')
+    @patch("src.imgstream.ui.pages.gallery.get_storage_service")
+    @patch("src.imgstream.ui.pages.gallery.get_image_processor")
     def test_convert_heic_to_web_display_success(self, mock_get_processor, mock_get_storage):
         """Test successful HEIC to web display conversion."""
         from src.imgstream.ui.pages.gallery import convert_heic_to_web_display
 
         # Mock photo data
-        photo = {
-            "id": "test_photo_123",
-            "original_path": "photos/test.heic",
-            "filename": "test.heic"
-        }
+        photo = {"id": "test_photo_123", "original_path": "photos/test.heic", "filename": "test.heic"}
 
         # Mock services
         mock_storage = Mock()
@@ -273,16 +273,12 @@ class TestHEICWebDisplayIntegration:
         # Verify result
         assert result == converted_data
 
-    @patch('src.imgstream.ui.pages.gallery.get_storage_service')
+    @patch("src.imgstream.ui.pages.gallery.get_storage_service")
     def test_convert_heic_to_web_display_storage_failure(self, mock_get_storage):
         """Test HEIC conversion when storage download fails."""
         from src.imgstream.ui.pages.gallery import convert_heic_to_web_display
 
-        photo = {
-            "id": "test_photo_123",
-            "original_path": "photos/test.heic",
-            "filename": "test.heic"
-        }
+        photo = {"id": "test_photo_123", "original_path": "photos/test.heic", "filename": "test.heic"}
 
         # Mock storage service to return None (download failure)
         mock_storage = Mock()
@@ -295,17 +291,13 @@ class TestHEICWebDisplayIntegration:
         # Should return None on storage failure
         assert result is None
 
-    @patch('src.imgstream.ui.pages.gallery.get_storage_service')
-    @patch('src.imgstream.ui.pages.gallery.get_image_processor')
+    @patch("src.imgstream.ui.pages.gallery.get_storage_service")
+    @patch("src.imgstream.ui.pages.gallery.get_image_processor")
     def test_convert_heic_to_web_display_conversion_failure(self, mock_get_processor, mock_get_storage):
         """Test HEIC conversion when image processing fails."""
         from src.imgstream.ui.pages.gallery import convert_heic_to_web_display
 
-        photo = {
-            "id": "test_photo_123",
-            "original_path": "photos/test.heic",
-            "filename": "test.heic"
-        }
+        photo = {"id": "test_photo_123", "original_path": "photos/test.heic", "filename": "test.heic"}
 
         # Mock services
         mock_storage = Mock()
@@ -329,7 +321,7 @@ class TestHEICWebDisplayIntegration:
 
         photo = {
             "id": "test_photo_123",
-            "filename": "test.heic"
+            "filename": "test.heic",
             # Missing original_path
         }
 

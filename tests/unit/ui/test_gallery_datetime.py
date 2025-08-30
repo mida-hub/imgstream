@@ -93,7 +93,7 @@ class TestDateTimeConversion:
         assert jst_time == expected_jst
 
         # Verify formatting
-        formatted = jst_time.strftime('%Y-%m-%d %H:%M:%S')
+        formatted = jst_time.strftime("%Y-%m-%d %H:%M:%S")
         assert formatted == "2024-01-01 21:00:00"
 
     def test_edge_case_date_boundary(self):

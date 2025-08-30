@@ -440,8 +440,8 @@ def _print_datetime(target_at, should_convert_utc_to_jst: bool):
         target_at_datetime = target_at
     if target_at_datetime:
         if should_convert_utc_to_jst:
-            return convert_utc_to_jst(target_at_datetime).strftime('%Y-%m-%d %H:%M:%S')
-        return target_at_datetime.strftime('%Y-%m-%d %H:%M:%S')
+            return convert_utc_to_jst(target_at_datetime).strftime("%Y-%m-%d %H:%M:%S")
+        return target_at_datetime.strftime("%Y-%m-%d %H:%M:%S")
 
     return target_at
 
@@ -468,7 +468,9 @@ def render_photo_details(photo: dict[str, Any]) -> None:
         created_at_should_convert_utc_to_jst = created_at[0:16] == uploaded_at[0:16]
 
     if created_at:
-        st.write(f"""📅 **作成日:** {_print_datetime(created_at, should_convert_utc_to_jst=created_at_should_convert_utc_to_jst)} JST""")
+        st.write(
+            f"""📅 **作成日:** {_print_datetime(created_at, should_convert_utc_to_jst=created_at_should_convert_utc_to_jst)} JST"""
+        )
 
     if uploaded_at:
         st.write(f"📤 **アップロード日:** {_print_datetime(uploaded_at, should_convert_utc_to_jst=True)} JST")
@@ -562,10 +564,15 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
 
     # Check if this is a HEIC file that needs conversion
     if is_heic_file(filename):
+        # Ensure we have valid string values for conversion
+        if not original_path or not photo_id:
+            st.error("❌ 画像の情報が不完全です")
+            return
+
         try:
             # Show loading message for HEIC conversion
             with st.spinner("HEIC画像を変換中..."):
-                jpeg_data = convert_heic_to_web_display(original_path, photo_id)
+                jpeg_data = convert_heic_to_web_display(str(original_path), str(photo_id))
 
             if jpeg_data:
                 # Display converted JPEG
@@ -714,9 +721,7 @@ def get_photo_original_url(original_path: str | None, photo_id: str | None) -> s
         return signed_url
 
     except Exception as e:
-        logger.error(
-            "get_original_url_error", photo_id=photo_id, original_path=original_path, error=str(e)
-        )
+        logger.error("get_original_url_error", photo_id=photo_id, original_path=original_path, error=str(e))
         return None
 
 

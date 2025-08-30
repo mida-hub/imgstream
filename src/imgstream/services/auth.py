@@ -23,6 +23,7 @@ class UserInfo:
     email: str
     picture: str | None = None
 
+
 class CloudIAPAuthService:
     """Service for handling Cloud IAP authentication."""
 
