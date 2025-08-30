@@ -169,8 +169,13 @@ def render_gallery_page() -> None:
             st.session_state.gallery_sort_order = sort_order
 
         # Load photos with pagination
+        rerun_counter = st.session_state.get("gallery_rerun_counter", 0)
         photos, total_count, has_more = load_user_photos_paginated(
-            user_info.user_id, sort_order, st.session_state.gallery_page, st.session_state.gallery_page_size
+            user_info.user_id,
+            sort_order,
+            st.session_state.gallery_page,
+            st.session_state.gallery_page_size,
+            rerun_counter=rerun_counter,
         )
 
         if total_count == 0:
@@ -229,7 +234,7 @@ def reset_gallery_pagination() -> None:
 
 @st.cache_data(ttl=300)
 def load_user_photos_paginated(
-    user_id: str, sort_order: str = "新しい順", page: int = 0, page_size: int = 20
+    user_id: str, sort_order: str = "新しい順", page: int = 0, page_size: int = 20, rerun_counter: int = 0
 ) -> tuple[list[dict[str, Any]], int, bool]:
     """
     Load user photos with pagination support.
@@ -239,6 +244,7 @@ def load_user_photos_paginated(
         sort_order: Sort order for photos
         page: Page number (0-based)
         page_size: Number of photos per page
+        rerun_counter: A counter to manually trigger a cache refresh
 
     Returns:
         tuple: (photos, total_count, has_more)
@@ -265,7 +271,7 @@ def load_user_photos_paginated(
             photo_dicts.reverse()
 
         # Get total count (for display purposes)
-        total_count = get_user_photos_count(user_id)
+        total_count = get_user_photos_count(user_id, rerun_counter=rerun_counter)
 
         logger.info(
             "photos_loaded_paginated",
@@ -286,12 +292,13 @@ def load_user_photos_paginated(
 
 
 @st.cache_data(ttl=300)
-def get_user_photos_count(user_id: str) -> int:
+def get_user_photos_count(user_id: str, rerun_counter: int = 0) -> int:
     """
     Get total count of user photos.
 
     Args:
         user_id: User identifier
+        rerun_counter: A counter to manually trigger a cache refresh
 
     Returns:
         int: Total number of photos
@@ -304,18 +311,19 @@ def get_user_photos_count(user_id: str) -> int:
         return 0
 
 
-def load_user_photos(user_id: str, sort_order: str = "新しい順") -> list[dict[str, Any]]:
+def load_user_photos(user_id: str, sort_order: str = "新しい順", rerun_counter: int = 0) -> list[dict[str, Any]]:
     """
     Load user photos from metadata service (legacy function for compatibility).
 
     Args:
         user_id: User identifier
         sort_order: Sort order for photos
+        rerun_counter: A counter to manually trigger a cache refresh
 
     Returns:
         list: List of photo metadata dictionaries
     """
-    photos, _, _ = load_user_photos_paginated(user_id, sort_order, 0, 50)
+    photos, _, _ = load_user_photos_paginated(user_id, sort_order, 0, 50, rerun_counter=rerun_counter)
     return photos
 
 

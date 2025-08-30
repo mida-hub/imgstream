@@ -48,6 +48,9 @@ def initialize_session_state() -> None:
     if "upload_in_progress" not in st.session_state:
         st.session_state.upload_in_progress = False
 
+    if "gallery_rerun_counter" not in st.session_state:
+        st.session_state.gallery_rerun_counter = 0
+
 
 def render_main_content() -> None:
     """Render the main content area based on current page with error handling."""
@@ -115,9 +118,9 @@ def main() -> None:
             if current_page_before_navigation == "upload":
                 from imgstream.ui.handlers.upload import clear_upload_session_state
 
-                logger.info("clearing upload session state and all data cache after upload.")
+                logger.info("clearing upload session state and incrementing gallery rerun counter.")
                 clear_upload_session_state()
-                st.cache_data.clear()
+                st.session_state.gallery_rerun_counter += 1
 
         # Attempt authentication with error handling
         with error_context("認証処理中にエラーが発生しました"):
