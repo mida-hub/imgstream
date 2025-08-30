@@ -10,7 +10,7 @@ resource "google_cloud_run_v2_service" "imgstream" {
   iap_enabled    = var.enable_iap ? true : null
   launch_stage   = var.enable_iap ? "BETA" : null
   client         = "gcloud"
-  client_version = "534.0.0"
+  client_version = var.client_version
 
   template {
     # Service account for the container

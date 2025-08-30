@@ -34,10 +34,11 @@ module "imgstream" {
   source = "../modules/imgstream"
 
   # Basic configuration
-  project_id  = var.project_id
-  region      = var.region
-  environment = "prod"
-  app_name    = var.app_name
+  project_id     = var.project_id
+  region         = var.region
+  environment    = "prod"
+  app_name       = var.app_name
+  client_version = "535.0.0"
 
   # Storage configuration
   bucket_location         = var.bucket_location

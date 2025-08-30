@@ -123,3 +123,8 @@ variable "storage_alert_threshold_bytes" {
   type        = number
   default     = 85899345920 # 80GB
 }
+
+variable "client_version" {
+  type    = string
+  default = "535.0.0"
+}
