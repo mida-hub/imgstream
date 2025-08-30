@@ -51,6 +51,20 @@ def render_file_validation_results_with_collisions(
     # First render standard validation results
     render_file_validation_results(valid_files, validation_errors)
 
+    # Render collision information
+    if collision_results:
+        collision_count = len(collision_results)
+        st.warning(f"⚠️ {collision_count} file(s) have filename conflicts")
+
+        with st.expander("🔍 衝突詳細", expanded=True):
+            for filename, _collision_info in collision_results.items():
+                st.markdown(f"### 📷 {filename}")
+                st.write("既存のファイルと名前が衝突しています。")
+    else:
+        # Show info message when no collisions detected
+        if valid_files:
+            st.info("✅ ファイル名の衝突は検出されませんでした。すべてのファイルを安全にアップロードできます。")
+
 
 def render_collision_error_messages(collision_errors: list) -> None:
     """

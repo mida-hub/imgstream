@@ -89,3 +89,8 @@ src/imgstream
         ├── home.py
         └── upload.py
 ```
+
+# mcp
+## Serena
+Serena を使って imgstream プロジェクトを分析してください
+src/imgstream 配下は必ず分析してください

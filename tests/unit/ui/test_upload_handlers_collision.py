@@ -23,7 +23,8 @@ class TestUploadHandlersCollisionIntegration:
         """Create a mock uploaded file for testing."""
         mock_file = Mock()
         mock_file.name = "test_photo.jpg"
-        mock_file.read.return_value = b"fake_image_data"
+        # Create a larger fake image data to pass minimum size validation (100+ bytes)
+        mock_file.read.return_value = b"fake_image_data" * 10  # 150 bytes
         mock_file.seek = Mock()
         return mock_file
 
@@ -54,9 +55,9 @@ class TestUploadHandlersCollisionIntegration:
             "warning_shown": False,
         }
 
-    @patch("imgstream.ui.handlers.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("imgstream.ui.handlers.upload_handlers.get_auth_service")
-    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
+    @patch("imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_no_collisions(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, mock_uploaded_file
     ):
@@ -88,9 +89,9 @@ class TestUploadHandlersCollisionIntegration:
         # Verify collision check was called
         mock_check_collisions.assert_called_once_with("test_user_123", ["test_photo.jpg"], enable_fallback=True)
 
-    @patch("imgstream.ui.handlers.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("imgstream.ui.handlers.upload_handlers.get_auth_service")
-    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
+    @patch("imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_with_collisions(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, mock_uploaded_file, sample_collision_info
     ):
@@ -120,9 +121,9 @@ class TestUploadHandlersCollisionIntegration:
         assert "test_photo.jpg" in collision_results
         assert collision_results["test_photo.jpg"] == sample_collision_info
 
-    @patch("imgstream.ui.handlers.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("imgstream.ui.handlers.upload_handlers.get_auth_service")
-    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
+    @patch("imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_empty_list(
         self, mock_image_processor, mock_get_auth, mock_check_collisions
     ):
@@ -136,9 +137,9 @@ class TestUploadHandlersCollisionIntegration:
         # Collision check should not be called for empty list
         mock_check_collisions.assert_not_called()
 
-    @patch("imgstream.ui.handlers.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("imgstream.ui.handlers.upload_handlers.get_auth_service")
-    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
+    @patch("imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_invalid_files(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, mock_uploaded_file
     ):
@@ -158,9 +159,9 @@ class TestUploadHandlersCollisionIntegration:
         # Collision check should not be called when no valid files
         mock_check_collisions.assert_not_called()
 
-    @patch("imgstream.ui.handlers.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("imgstream.ui.handlers.upload_handlers.get_auth_service")
-    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
+    @patch("imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_collision_error(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, mock_uploaded_file
     ):
@@ -196,9 +197,9 @@ class TestUploadHandlersCollisionIntegration:
         assert error["filename"] == "システム"
         assert "フォールバック" in error["error"]
 
-    @patch("imgstream.ui.handlers.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("imgstream.ui.handlers.upload_handlers.get_auth_service")
-    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
+    @patch("imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_unexpected_error(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, mock_uploaded_file
     ):
@@ -233,9 +234,9 @@ class TestUploadHandlersCollisionIntegration:
         assert error["filename"] == "システム"
         assert "フォールバック" in error["error"]
 
-    @patch("imgstream.ui.handlers.upload_handlers.check_filename_collisions_with_fallback")
-    @patch("imgstream.ui.handlers.upload_handlers.get_auth_service")
-    @patch("imgstream.ui.handlers.upload_handlers.ImageProcessor")
+    @patch("imgstream.ui.handlers.upload.check_filename_collisions_with_fallback")
+    @patch("imgstream.ui.handlers.upload.get_auth_service")
+    @patch("imgstream.ui.handlers.upload.ImageProcessor")
     def test_validate_uploaded_files_with_collision_check_mixed_files(
         self, mock_image_processor, mock_get_auth, mock_check_collisions, sample_collision_info
     ):
@@ -243,17 +244,17 @@ class TestUploadHandlersCollisionIntegration:
         # Create multiple mock files
         valid_file = Mock()
         valid_file.name = "valid_photo.jpg"
-        valid_file.read.return_value = b"fake_image_data"
+        valid_file.read.return_value = b"fake_image_data" * 10  # 150 bytes
         valid_file.seek = Mock()
 
         invalid_file = Mock()
         invalid_file.name = "invalid_photo.txt"
-        invalid_file.read.return_value = b"not_image_data"
+        invalid_file.read.return_value = b"not_image_data" * 10  # 150 bytes
         invalid_file.seek = Mock()
 
         collision_file = Mock()
         collision_file.name = "collision_photo.jpg"
-        collision_file.read.return_value = b"fake_image_data"
+        collision_file.read.return_value = b"fake_image_data" * 10  # 150 bytes
         collision_file.seek = Mock()
 
         # Mock image processor
