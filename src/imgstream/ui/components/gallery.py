@@ -94,7 +94,7 @@ def render_photo_thumbnail(photo: dict[str, Any], size: str = "medium") -> None:
                     jst_created_at = convert_utc_to_jst(created_at)
                     st.caption(f"📅 {jst_created_at.strftime('%Y-%m-%d')}")
 
-            @st.dialog(title="写真詳細", width="large")
+            @st.dialog(title=f"{photo.get('filename', '不明')}", width="large")
             def show_photo_dialog():
                 # Main content area
                 col1, col2 = st.columns([3, 1])
@@ -216,7 +216,7 @@ def render_photo_detail_image(photo: dict[str, Any]) -> None:
     if original_url:
         try:
             # Display original image
-            st.image(original_url, caption=filename, use_container_width=True)
+            st.image(original_url, use_container_width=True)
 
         except Exception as e:
             st.error(f"オリジナル画像の読み込みに失敗しました: {str(e)}")
