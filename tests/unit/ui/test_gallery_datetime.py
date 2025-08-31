@@ -1,9 +1,9 @@
 """Tests for gallery page datetime conversion functionality."""
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, UTC
 import pytest
 
-from src.imgstream.ui.pages.gallery import convert_utc_to_jst, parse_datetime_string, JST
+from src.imgstream.ui.handlers.gallery import convert_utc_to_jst, parse_datetime_string, JST
 
 
 class TestDateTimeConversion:
@@ -11,7 +11,7 @@ class TestDateTimeConversion:
 
     def test_convert_utc_to_jst_with_utc_timezone(self):
         """Test UTC to JST conversion with UTC timezone."""
-        utc_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        utc_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
         jst_time = convert_utc_to_jst(utc_time)
 
         expected_jst = datetime(2024, 1, 1, 21, 0, 0, tzinfo=JST)
@@ -43,7 +43,7 @@ class TestDateTimeConversion:
         datetime_str = "2024-01-01T12:00:00Z"
         parsed = parse_datetime_string(datetime_str)
 
-        expected = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        expected = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
         assert parsed == expected
 
     def test_parse_datetime_string_with_timezone_offset(self):
@@ -51,7 +51,7 @@ class TestDateTimeConversion:
         datetime_str = "2024-01-01T12:00:00+00:00"
         parsed = parse_datetime_string(datetime_str)
 
-        expected = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        expected = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
         assert parsed == expected
 
     def test_parse_datetime_string_with_jst_offset(self):

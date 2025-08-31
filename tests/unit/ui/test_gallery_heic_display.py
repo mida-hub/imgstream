@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 import streamlit as st
 
-from src.imgstream.ui.pages.gallery import is_heic_file
+from src.imgstream.ui.handlers.gallery import is_heic_file
 
 
 class TestGalleryHEICDisplay:
@@ -27,11 +27,15 @@ class TestGalleryHEICDisplay:
             "thumbnail_path": "thumbnails/IMG_5678_thumb.jpg",
         }
 
-    @patch("src.imgstream.ui.pages.gallery.convert_heic_to_web_display")
-    @patch("src.imgstream.ui.pages.gallery.st")
-    def test_render_photo_detail_image_heic_success(self, mock_st, mock_convert):
+    @patch("src.imgstream.ui.components.gallery.convert_heic_to_web_display")
+    @patch("src.imgstream.ui.components.gallery.is_heic_file")
+    @patch("src.imgstream.ui.components.gallery.st")
+    def test_render_photo_detail_image_heic_success(self, mock_st, mock_is_heic, mock_convert):
         """Test successful HEIC photo rendering."""
-        from src.imgstream.ui.pages.gallery import render_photo_detail_image
+        from src.imgstream.ui.components.gallery import render_photo_detail_image
+
+        # Mock HEIC file detection
+        mock_is_heic.return_value = True
 
         # Mock successful conversion
         mock_convert.return_value = b"fake_jpeg_data"
@@ -45,6 +49,9 @@ class TestGalleryHEICDisplay:
         # Test rendering HEIC photo
         render_photo_detail_image(self.sample_heic_photo)
 
+        # Verify HEIC detection was called
+        mock_is_heic.assert_called_once_with(self.sample_heic_photo["filename"])
+
         # Verify conversion was called with correct arguments
         mock_convert.assert_called_once_with(self.sample_heic_photo["original_path"], self.sample_heic_photo["id"])
 
@@ -57,12 +64,18 @@ class TestGalleryHEICDisplay:
         # Verify info message was shown
         mock_st.info.assert_called_once()
 
-    @patch("src.imgstream.ui.pages.gallery.convert_heic_to_web_display")
-    @patch("src.imgstream.ui.pages.gallery.render_heic_fallback_display")
-    @patch("src.imgstream.ui.pages.gallery.st")
-    def test_render_photo_detail_image_heic_conversion_failure(self, mock_st, mock_fallback, mock_convert):
+    @patch("src.imgstream.ui.components.gallery.convert_heic_to_web_display")
+    @patch("src.imgstream.ui.components.gallery.is_heic_file")
+    @patch("src.imgstream.ui.components.gallery.render_heic_fallback_display")
+    @patch("src.imgstream.ui.components.gallery.st")
+    def test_render_photo_detail_image_heic_conversion_failure(
+        self, mock_st, mock_fallback, mock_is_heic, mock_convert
+    ):
         """Test HEIC photo rendering when conversion fails."""
-        from src.imgstream.ui.pages.gallery import render_photo_detail_image
+        from src.imgstream.ui.components.gallery import render_photo_detail_image
+
+        # Mock HEIC file detection
+        mock_is_heic.return_value = True
 
         # Mock failed conversion
         mock_convert.return_value = None
@@ -75,6 +88,9 @@ class TestGalleryHEICDisplay:
         # Test rendering HEIC photo with conversion failure
         render_photo_detail_image(self.sample_heic_photo)
 
+        # Verify HEIC detection was called
+        mock_is_heic.assert_called_once_with(self.sample_heic_photo["filename"])
+
         # Verify conversion was attempted with correct arguments
         mock_convert.assert_called_once_with(self.sample_heic_photo["original_path"], self.sample_heic_photo["id"])
 
@@ -84,12 +100,16 @@ class TestGalleryHEICDisplay:
         # Verify fallback display was called
         mock_fallback.assert_called_once_with(self.sample_heic_photo)
 
-    @patch("src.imgstream.ui.pages.gallery.convert_heic_to_web_display")
-    @patch("src.imgstream.ui.pages.gallery.render_heic_fallback_display")
-    @patch("src.imgstream.ui.pages.gallery.st")
-    def test_render_photo_detail_image_heic_exception(self, mock_st, mock_fallback, mock_convert):
+    @patch("src.imgstream.ui.components.gallery.convert_heic_to_web_display")
+    @patch("src.imgstream.ui.components.gallery.is_heic_file")
+    @patch("src.imgstream.ui.components.gallery.render_heic_fallback_display")
+    @patch("src.imgstream.ui.components.gallery.st")
+    def test_render_photo_detail_image_heic_exception(self, mock_st, mock_fallback, mock_is_heic, mock_convert):
         """Test HEIC photo rendering when conversion raises exception."""
-        from src.imgstream.ui.pages.gallery import render_photo_detail_image
+        from src.imgstream.ui.components.gallery import render_photo_detail_image
+
+        # Mock HEIC file detection
+        mock_is_heic.return_value = True
 
         # Mock conversion to raise exception
         mock_convert.side_effect = Exception("Conversion error")
@@ -102,6 +122,9 @@ class TestGalleryHEICDisplay:
         # Test rendering HEIC photo with exception
         render_photo_detail_image(self.sample_heic_photo)
 
+        # Verify HEIC detection was called
+        mock_is_heic.assert_called_once_with(self.sample_heic_photo["filename"])
+
         # Verify error message was shown
         mock_st.error.assert_called_once()
         error_message = mock_st.error.call_args[0][0]
@@ -110,11 +133,15 @@ class TestGalleryHEICDisplay:
         # Verify fallback display was called
         mock_fallback.assert_called_once_with(self.sample_heic_photo)
 
-    @patch("src.imgstream.ui.pages.gallery.get_photo_original_url")
-    @patch("src.imgstream.ui.pages.gallery.st")
-    def test_render_photo_detail_image_regular_photo(self, mock_st, mock_get_original_url):
+    @patch("src.imgstream.ui.components.gallery.get_photo_original_url")
+    @patch("src.imgstream.ui.components.gallery.is_heic_file")
+    @patch("src.imgstream.ui.components.gallery.st")
+    def test_render_photo_detail_image_regular_photo(self, mock_st, mock_is_heic, mock_get_original_url):
         """Test rendering regular (non-HEIC) photo."""
-        from src.imgstream.ui.pages.gallery import render_photo_detail_image
+        from src.imgstream.ui.components.gallery import render_photo_detail_image
+
+        # Mock non-HEIC file detection
+        mock_is_heic.return_value = False
 
         # Mock original URL
         mock_get_original_url.return_value = "https://example.com/photo.jpg"
@@ -124,6 +151,9 @@ class TestGalleryHEICDisplay:
 
         # Test rendering regular photo
         render_photo_detail_image(self.sample_jpeg_photo)
+
+        # Verify HEIC detection was called
+        mock_is_heic.assert_called_once_with(self.sample_jpeg_photo["filename"])
 
         # Verify original URL was requested with correct arguments
         mock_get_original_url.assert_called_once_with(
@@ -150,11 +180,11 @@ class TestGalleryHEICDisplay:
             photo = {"filename": filename}
             assert is_heic_file(photo["filename"]) is True
 
-    @patch("src.imgstream.ui.pages.gallery.get_photo_thumbnail_url")
-    @patch("src.imgstream.ui.pages.gallery.st")
+    @patch("src.imgstream.ui.components.gallery.get_photo_thumbnail_url")
+    @patch("src.imgstream.ui.components.gallery.st")
     def test_render_heic_fallback_display_with_thumbnail(self, mock_st, mock_get_thumbnail):
         """Test HEIC fallback display with available thumbnail."""
-        from src.imgstream.ui.pages.gallery import render_heic_fallback_display
+        from src.imgstream.ui.components.gallery import render_heic_fallback_display
 
         # Mock thumbnail URL
         mock_get_thumbnail.return_value = "https://example.com/thumbnail.jpg"
@@ -176,11 +206,11 @@ class TestGalleryHEICDisplay:
         )
         mock_st.image.assert_called_once()
 
-    @patch("src.imgstream.ui.pages.gallery.get_photo_thumbnail_url")
-    @patch("src.imgstream.ui.pages.gallery.st")
+    @patch("src.imgstream.ui.components.gallery.get_photo_thumbnail_url")
+    @patch("src.imgstream.ui.components.gallery.st")
     def test_render_heic_fallback_display_no_thumbnail(self, mock_st, mock_get_thumbnail):
         """Test HEIC fallback display when thumbnail is not available."""
-        from src.imgstream.ui.pages.gallery import render_heic_fallback_display
+        from src.imgstream.ui.components.gallery import render_heic_fallback_display
 
         # Mock no thumbnail available
         mock_get_thumbnail.return_value = None
@@ -213,12 +243,12 @@ class TestHEICDisplayErrorHandling:
         """Set up test fixtures."""
         self.sample_photo = {"id": "test_photo_123", "filename": "test.heic", "original_path": "photos/test.heic"}
 
-    @patch("src.imgstream.ui.pages.gallery.logger")
+    @patch("src.imgstream.ui.handlers.gallery.logger")
     def test_error_logging_on_conversion_failure(self, mock_logger):
         """Test that conversion failures are properly logged."""
-        from src.imgstream.ui.pages.gallery import convert_heic_to_web_display
+        from src.imgstream.ui.handlers.gallery import convert_heic_to_web_display
 
-        with patch("src.imgstream.ui.pages.gallery.get_storage_service") as mock_get_storage:
+        with patch("src.imgstream.ui.handlers.gallery.get_storage_service") as mock_get_storage:
             # Mock storage service to raise exception
             mock_storage = Mock()
             mock_storage.download_file.side_effect = Exception("Storage error")
@@ -243,12 +273,16 @@ class TestHEICDisplayErrorHandling:
         # 3. If thumbnail fails, shows error state
 
         with (
-            patch("src.imgstream.ui.pages.gallery.convert_heic_to_web_display") as mock_convert,
-            patch("src.imgstream.ui.pages.gallery.render_heic_fallback_display") as mock_fallback,
-            patch("src.imgstream.ui.pages.gallery.st") as mock_st,
+            patch("src.imgstream.ui.components.gallery.convert_heic_to_web_display") as mock_convert,
+            patch("src.imgstream.ui.components.gallery.is_heic_file") as mock_is_heic,
+            patch("src.imgstream.ui.components.gallery.render_heic_fallback_display") as mock_fallback,
+            patch("src.imgstream.ui.components.gallery.st") as mock_st,
         ):
 
-            from src.imgstream.ui.pages.gallery import render_photo_detail_image
+            from src.imgstream.ui.components.gallery import render_photo_detail_image
+
+            # Mock HEIC file detection
+            mock_is_heic.return_value = True
 
             # Mock conversion failure
             mock_convert.return_value = None
@@ -262,6 +296,7 @@ class TestHEICDisplayErrorHandling:
             render_photo_detail_image(self.sample_photo)
 
             # Verify each step was called
+            mock_is_heic.assert_called_once()
             mock_convert.assert_called_once()
             mock_st.error.assert_called_once()
             mock_fallback.assert_called_once()

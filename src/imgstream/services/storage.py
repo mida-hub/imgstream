@@ -526,13 +526,23 @@ class StorageService:
 
             # Generate signed URL
             expiration_time = datetime.now() + timedelta(seconds=expiration)
-            signed_url: str = blob.generate_signed_url(
-                expiration=expiration_time,
-                method="GET",
-                version="v4",
-                service_account_email=credentials.service_account_email,
-                access_token=credentials.token,
-            )
+
+            # Check if credentials have service account email (for service account auth)
+            if hasattr(credentials, 'service_account_email') and credentials.service_account_email:
+                signed_url: str = blob.generate_signed_url(
+                    expiration=expiration_time,
+                    method="GET",
+                    version="v4",
+                    service_account_email=credentials.service_account_email,
+                    access_token=credentials.token,
+                )
+            else:
+                # Fallback for other credential types (e.g., user credentials, ADC)
+                signed_url: str = blob.generate_signed_url(
+                    expiration=expiration_time,
+                    method="GET",
+                    version="v4",
+                )
 
             logger.debug(f"Generated signed URL for: {gcs_path} (expires in {expiration}s)")
             return signed_url

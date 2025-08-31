@@ -8,7 +8,7 @@ from PIL import Image
 
 from src.imgstream.services.image_processor import ImageProcessor
 from src.imgstream.ui.handlers.error import ImageProcessingError
-from src.imgstream.ui.pages.gallery import is_heic_file
+from src.imgstream.ui.handlers.gallery import is_heic_file
 
 
 class TestHEICWebDisplayConversion:
@@ -244,7 +244,7 @@ class TestHEICWebDisplayIntegration:
     @patch("src.imgstream.ui.pages.gallery.get_image_processor")
     def test_convert_heic_to_web_display_success(self, mock_get_processor, mock_get_storage):
         """Test successful HEIC to web display conversion."""
-        from src.imgstream.ui.pages.gallery import convert_heic_to_web_display
+        from src.imgstream.ui.handlers.gallery import convert_heic_to_web_display
 
         # Mock photo data
         photo = {"id": "test_photo_123", "original_path": "photos/test.heic", "filename": "test.heic"}
@@ -276,7 +276,7 @@ class TestHEICWebDisplayIntegration:
     @patch("src.imgstream.ui.pages.gallery.get_storage_service")
     def test_convert_heic_to_web_display_storage_failure(self, mock_get_storage):
         """Test HEIC conversion when storage download fails."""
-        from src.imgstream.ui.pages.gallery import convert_heic_to_web_display
+        from src.imgstream.ui.handlers.gallery import convert_heic_to_web_display
 
         photo = {"id": "test_photo_123", "original_path": "photos/test.heic", "filename": "test.heic"}
 
@@ -295,7 +295,7 @@ class TestHEICWebDisplayIntegration:
     @patch("src.imgstream.ui.pages.gallery.get_image_processor")
     def test_convert_heic_to_web_display_conversion_failure(self, mock_get_processor, mock_get_storage):
         """Test HEIC conversion when image processing fails."""
-        from src.imgstream.ui.pages.gallery import convert_heic_to_web_display
+        from src.imgstream.ui.handlers.gallery import convert_heic_to_web_display
 
         photo = {"id": "test_photo_123", "original_path": "photos/test.heic", "filename": "test.heic"}
 
@@ -317,7 +317,7 @@ class TestHEICWebDisplayIntegration:
 
     def test_convert_heic_to_web_display_missing_path(self):
         """Test HEIC conversion with missing original path."""
-        from src.imgstream.ui.pages.gallery import convert_heic_to_web_display
+        from src.imgstream.ui.handlers.gallery import convert_heic_to_web_display
 
         photo = {
             "id": "test_photo_123",
