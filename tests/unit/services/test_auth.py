@@ -43,7 +43,8 @@ class TestCloudIAPAuthService:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.auth_service = CloudIAPAuthService()
+        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            self.auth_service = CloudIAPAuthService()
 
     def test_init_development_mode(self):
         """Test initialization in development mode."""
@@ -258,7 +259,8 @@ class TestAccessControl:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.auth_service = CloudIAPAuthService()
+        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            self.auth_service = CloudIAPAuthService()
 
     def test_ensure_authenticated_success(self):
         """Test ensure_authenticated with authenticated user."""
@@ -299,7 +301,8 @@ class TestErrorHandling:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.auth_service = CloudIAPAuthService()
+        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            self.auth_service = CloudIAPAuthService()
 
     def test_jwt_malformed_parts(self):
         """Test JWT with wrong number of parts."""
@@ -423,7 +426,8 @@ class TestEdgeCases:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.auth_service = CloudIAPAuthService()
+        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            self.auth_service = CloudIAPAuthService()
 
     def test_very_long_email(self):
         """Test with very long email address."""
@@ -518,7 +522,8 @@ class TestInputSanitization:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.auth_service = CloudIAPAuthService()
+        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            self.auth_service = CloudIAPAuthService()
 
     def test_sanitize_user_input_sql_injection(self):
         """Test that SQL injection patterns are removed."""

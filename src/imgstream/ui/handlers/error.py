@@ -415,7 +415,7 @@ class ErrorHandler:
 
         # Classify and wrap the error
         classified_error = self._classify_error(error, context)
-        error_info = classified.get_error_info()
+        error_info = classified_error.get_error_info()
         self._track_error(error_info.code)
 
         return error_info
