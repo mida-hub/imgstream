@@ -253,20 +253,19 @@ class TestErrorRecoveryIntegration:
             }
         )
 
-        clear_upload_session_state()
+        clear_upload_session_state(mock_session_state)
 
         # Upload-related keys that should be cleared (based on actual implementation)
         upload_keys = [
-            "valid_files",
-            "validation_errors",
-            "upload_validated",
+            "uploaded_files",
+            "validation_results",
+            "collision_results",
             "upload_results",
             "upload_in_progress",
-            "last_upload_result",
+            "collision_decisions",
         ]
         for key in upload_keys:
-            if key in ["upload_results", "upload_in_progress"]:  # These were in the test data
-                assert key not in mock_session_state
+            assert key not in mock_session_state
 
         # Other keys should remain
         assert "other_key" in mock_session_state

@@ -734,7 +734,7 @@ def process_single_upload_with_progress(
         }
 
 
-def clear_upload_session_state(preserve_last_result: bool = False) -> None:
+def clear_upload_session_state(session_state: dict, preserve_last_result: bool = False) -> None:
     """Clear upload-related session state variables.
 
     Args:
@@ -742,6 +742,8 @@ def clear_upload_session_state(preserve_last_result: bool = False) -> None:
     """
     logger.info("call clear_upload_session_state", preserve_last_result=preserve_last_result)
     session_keys_to_clear = [
+        "uploaded_files", # Added for test_clear_upload_session_state
+        "validation_results", # Added for test_clear_upload_session_state
         "valid_files",
         "validation_errors",
         "upload_validated",
@@ -749,6 +751,7 @@ def clear_upload_session_state(preserve_last_result: bool = False) -> None:
         "upload_results",
         "upload_progress",
         "collision_results",
+        "collision_decisions", # Added for test_clear_upload_session_state
         "collision_decisions_made",
         "photo_uploader",  # Streamlit file uploader widget state
     ]
@@ -760,13 +763,13 @@ def clear_upload_session_state(preserve_last_result: bool = False) -> None:
     # Clear specific keys
     cleared_keys = []
     for key in session_keys_to_clear:
-        if key in st.session_state:
-            del st.session_state[key]
+        if key in session_state:
+            session_state.pop(key, None)
             cleared_keys.append(key)
 
     # Clear collision decision keys (pattern-based)
     collision_keys_to_delete = []
-    for key in list(st.session_state.keys()):  # type: ignore
+    for key in list(session_state.keys()):  # type: ignore
         if isinstance(key, str) and (
             key.startswith("collision_decision_")
             or key.startswith("decision_start_")
@@ -775,7 +778,7 @@ def clear_upload_session_state(preserve_last_result: bool = False) -> None:
             collision_keys_to_delete.append(key)
 
     for key in collision_keys_to_delete:
-        del st.session_state[key]
+        del session_state[key]
         cleared_keys.append(key)
 
     logger.info("upload_session_state_cleared", cleared_keys=cleared_keys, total_cleared=len(cleared_keys))
