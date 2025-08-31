@@ -21,8 +21,8 @@ streamlit_mock = MagicMock()
 streamlit_mock.secrets = {"gcp_service_account": {"type": "service_account"}}
 sys.modules["streamlit"] = streamlit_mock
 
-from src.imgstream.services.storage import StorageService, get_storage_service
-from src.imgstream.ui.handlers.error import StorageError
+from imgstream.services.storage import StorageService, get_storage_service
+from imgstream.ui.handlers.error import StorageError
 
 
 class TestStorageService:
@@ -64,9 +64,8 @@ class TestStorageService:
     def test_init_missing_bucket_name(self):
         """Test initialization with missing bucket name."""
         with patch.dict("os.environ", {}, clear=True):
-            # This test verifies that StorageError is raised
-            # We expect this to fail with StorageError
-            pass  # Skip this test for now
+            with pytest.raises(StorageError, match="GCS_PHOTOS_BUCKET environment variable is required"):
+                StorageService()
 
     def test_init_missing_project_id(self):
         """Test initialization with missing project ID."""
@@ -1084,7 +1083,6 @@ class TestSignedUrlGeneration:
         },
     )
     @patch("src.imgstream.services.storage.storage.Client")
-    @pytest.mark.skip(reason="Exception handling test - needs investigation")
     def test_get_photo_display_url_not_found(self, mock_client_class):
         """Test generating display URL for non-existent photo."""
         mock_client = MagicMock()
@@ -1099,7 +1097,7 @@ class TestSignedUrlGeneration:
         service = StorageService()
 
         # This should raise a StorageError
-        with pytest.raises(StorageError):
+        with pytest.raises(StorageError, match="Photo not found"):
             service.get_photo_display_url("user123", "nonexistent.jpg", "original")
 
     @patch.dict(
@@ -1111,7 +1109,6 @@ class TestSignedUrlGeneration:
         },
     )
     @patch("src.imgstream.services.storage.storage.Client")
-    @pytest.mark.skip(reason="Exception handling test - needs investigation")
     def test_get_photo_display_url_invalid_type(self, mock_client_class):
         """Test generating display URL with invalid photo type."""
         mock_client = MagicMock()
@@ -1120,7 +1117,7 @@ class TestSignedUrlGeneration:
         service = StorageService()
 
         # This should raise a StorageError
-        with pytest.raises(StorageError):
+        with pytest.raises(StorageError, match="Invalid parameters: Invalid photo_type: invalid_type. Must be 'original' or 'thumbnail'"):
             service.get_photo_display_url("user123", "photo.jpg", "invalid_type")
 
     @patch.dict(
