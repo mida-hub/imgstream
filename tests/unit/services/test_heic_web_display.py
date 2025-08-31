@@ -20,9 +20,9 @@ streamlit_mock.secrets = {"gcp_service_account": {"type": "service_account"}}
 streamlit_mock.cache_data = lambda **kwargs: lambda func: func  # Disable caching
 sys.modules["streamlit"] = streamlit_mock
 
-from src.imgstream.services.image_processor import ImageProcessor
-from src.imgstream.ui.handlers.error import ImageProcessingError
-from src.imgstream.ui.handlers.gallery import is_heic_file
+from imgstream.services.image_processor import ImageProcessor
+from imgstream.ui.handlers.error import ImageProcessingError
+from imgstream.ui.handlers.gallery import is_heic_file
 
 
 class TestHEICWebDisplayConversion:
