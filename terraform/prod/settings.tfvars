@@ -14,7 +14,7 @@ lifecycle_delete_days   = 0   # Never auto-delete in production
 min_instances = 0 # Keep at least 1 instance running
 max_instances = 1 # Allow scaling up to 10 instances
 cpu_limit     = "1000m"
-memory_limit  = "2Gi"
+memory_limit  = "512Mi"
 
 # Container image configuration
 # Note: container_image is deprecated - using shared Artifact Registry with tag management
