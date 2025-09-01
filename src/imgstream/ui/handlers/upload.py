@@ -810,7 +810,7 @@ def _get_collision_detection_error_message(error: Exception) -> str:
         return f"衝突検出中にエラーが発生しました: {error_str[:100]}{'...' if len(error_str) > 100 else ''}"
 
 
-def collect_user_collision_decisions(collision_results: dict, user_id: str) -> dict:
+def collect_user_collision_decisions(session_state: dict, collision_results: dict, user_id: str) -> dict:
     """
     Collect and monitor user decisions for collision handling.
 
@@ -829,12 +829,12 @@ def collect_user_collision_decisions(collision_results: dict, user_id: str) -> d
         decision_key = f"collision_decision_{filename}"
 
         # Get current decision from session state
-        current_decision = st.session_state.get(decision_key, "pending")
+        current_decision = session_state.get(decision_key, "pending")
 
         # Record decision start time if not already recorded
         decision_start_key = f"decision_start_{filename}"
-        if decision_start_key not in st.session_state:
-            st.session_state[decision_start_key] = time.perf_counter()
+        if decision_start_key not in session_state:
+            session_state[decision_start_key] = time.perf_counter()
 
         # Update collision info with current decision
         updated_collision_info = collision_info.copy()

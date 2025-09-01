@@ -244,6 +244,7 @@ class TestHEICDisplayErrorHandling:
         self.sample_photo = {"id": "test_photo_123", "filename": "test.heic", "original_path": "photos/test.heic"}
 
     @patch("src.imgstream.ui.handlers.gallery.logger")
+    @patch("streamlit.cache_data", new=lambda *args, **kwargs: lambda f: f)
     def test_error_logging_on_conversion_failure(self, mock_logger):
         """Test that conversion failures are properly logged."""
         from src.imgstream.ui.handlers.gallery import convert_heic_to_web_display
@@ -259,8 +260,8 @@ class TestHEICDisplayErrorHandling:
 
             # Verify error was logged
             mock_logger.error.assert_called_once()
-            log_call = mock_logger.error.call_args
-            assert "heic_conversion_failed" in log_call[0]
+            log_call = mock_logger.error.call_args[0][0]
+            assert "heic_conversion_failed" in log_call
 
             # Verify None was returned
             assert result is None

@@ -29,7 +29,7 @@ class TestCollisionDecisionMonitoring:
         )
 
         # Collect decisions
-        collect_user_collision_decisions(collision_results, "test_user")
+        collect_user_collision_decisions(mock_session_state, collision_results, "test_user")
 
         # Verify start time was created
         assert "decision_start_test1.jpg" in mock_session_state
@@ -57,7 +57,7 @@ class TestSessionStateManagement:
         )
 
         # Clear upload session state
-        clear_upload_session_state()
+        clear_upload_session_state(mock_session_state)
 
         # Verify upload-related keys were cleared
         assert "collision_decision_test.jpg" not in mock_session_state
@@ -94,6 +94,7 @@ class TestIntegration:
         }
 
         # Simulate user making decisions
+        mock_session_state.clear()
         mock_session_state.update(
             {
                 "collision_decision_test1.jpg": "overwrite",
@@ -104,7 +105,7 @@ class TestIntegration:
         )
 
         # Collect decisions
-        updated_results = collect_user_collision_decisions(collision_results, "test_user")
+        updated_results = collect_user_collision_decisions(mock_session_state, collision_results, "test_user")
 
         # Verify results were updated
         assert updated_results["test1.jpg"]["user_decision"] == "overwrite"
@@ -127,6 +128,7 @@ class TestIntegration:
         }
 
         # Set up session state without start time
+        mock_session_state.clear()
         mock_session_state.update(
             {
                 "collision_decision_test.jpg": "pending",
@@ -135,7 +137,7 @@ class TestIntegration:
 
         # First call should create start time
         start_time = time.perf_counter()
-        collect_user_collision_decisions(collision_results, "test_user")
+        collect_user_collision_decisions(mock_session_state, collision_results, "test_user")
 
         # Verify start time was created and is reasonable
         assert "decision_start_test.jpg" in mock_session_state
@@ -143,4 +145,4 @@ class TestIntegration:
 
         # Should be close to when we called the function
         time_diff = abs(created_start_time - start_time)
-        assert time_diff < 0.1  # Should be within 100ms
+        assert time_diff < 0.1  # Should be within 100ms  # Should be within 100ms

@@ -93,11 +93,13 @@ src/imgstream
 ```
 
 # MCP
-
 ## Serena
+Serena を使って imgstream プロジェクトの下記ディレクトリを解析してください
 
-Serena を使って imgstream プロジェクトを分析してください
-src/imgstream 配下は必ず分析してください
+- src
+- tests
 
 # code editor
-なるべく、MCP Server Serena を活用してコードを編集してください
+- コード編集時は MCP Server Serena で解析をしてから編集を始めてください
+- コード変更の失敗が続く時は MCP Server Serena で対象のファイルを解析してください
+- MCP Server Serena で解析できない場合、Syntax error になっているので、コードを元に戻してから Serena で再度編集してください

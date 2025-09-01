@@ -327,12 +327,22 @@ class TestRenderFileValidationResultsWithCollisions:
     @patch("streamlit.success")
     @patch("streamlit.info")
     @patch("streamlit.expander")
-    def test_render_validation_results_no_collisions(self, mock_expander, mock_info, mock_success, sample_valid_files):
+    @patch("streamlit.columns") # 追加
+    def test_render_validation_results_no_collisions(self, mock_columns, mock_expander, mock_info, mock_success, sample_valid_files): # 引数も追加
         """Test rendering validation results with no collisions."""
         # Mock expander context manager
         mock_expander_context = MagicMock()
         mock_expander.return_value.__enter__ = Mock(return_value=mock_expander_context)
         mock_expander.return_value.__exit__ = Mock(return_value=None)
+
+        # Mock st.columns to return two mock columns that support context manager protocol
+        mock_col1 = MagicMock()
+        mock_col1.__enter__.return_value = mock_col1
+        mock_col1.__exit__.return_value = None
+        mock_col2 = MagicMock()
+        mock_col2.__enter__.return_value = mock_col2
+        mock_col2.__exit__.return_value = None
+        mock_columns.return_value = [mock_col1, mock_col2] # 追加
 
         render_file_validation_results_with_collisions(sample_valid_files, [], {})
 
@@ -345,14 +355,24 @@ class TestRenderFileValidationResultsWithCollisions:
     @patch("streamlit.warning")
     @patch("streamlit.expander")
     @patch("streamlit.success")
+    @patch("streamlit.columns") # 追加
     def test_render_validation_results_with_collisions(
-        self, mock_success, mock_expander, mock_warning, sample_valid_files, sample_collision_info
-    ):
+        self, mock_columns, mock_success, mock_expander, mock_warning, sample_valid_files, sample_collision_info
+    ): # 引数も追加
         """Test rendering validation results with collisions."""
         # Mock expander context manager
         mock_expander_context = MagicMock()
         mock_expander.return_value.__enter__ = Mock(return_value=mock_expander_context)
         mock_expander.return_value.__exit__ = Mock(return_value=None)
+
+        # Mock st.columns to return two mock columns that support context manager protocol
+        mock_col1 = MagicMock()
+        mock_col1.__enter__.return_value = mock_col1
+        mock_col1.__exit__.return_value = None
+        mock_col2 = MagicMock()
+        mock_col2.__enter__.return_value = mock_col2
+        mock_col2.__exit__.return_value = None
+        mock_columns.return_value = [mock_col1, mock_col2] # 追加
 
         collision_results = {"photo1.jpg": sample_collision_info}
 
