@@ -10,16 +10,33 @@ from datetime import datetime
 from google.cloud import storage
 from google.cloud.exceptions import NotFound, GoogleCloudError
 
-# Set environment variables to avoid Streamlit dependency
-os.environ["ENVIRONMENT"] = "test"
-os.environ["GCP_PROJECT_ID"] = "test-project"
-os.environ["PHOTOS_BUCKET"] = "test-photos-bucket"
-os.environ["DATABASE_BUCKET"] = "test-database-bucket"
+@pytest.fixture(autouse=True)
+def setup_storage_test_environment():
+    # Save original environment variables and streamlit module
+    original_environ = os.environ.copy()
+    original_streamlit = sys.modules.get("streamlit")
 
-# Mock streamlit module completely to avoid protobuf issues
-streamlit_mock = MagicMock()
-streamlit_mock.secrets = {"gcp_service_account": {"type": "service_account"}}
-sys.modules["streamlit"] = streamlit_mock
+    # Set environment variables
+    os.environ["ENVIRONMENT"] = "test"
+    os.environ["GCP_PROJECT_ID"] = "test-project"
+    os.environ["PHOTOS_BUCKET"] = "test-photos-bucket"
+    os.environ["DATABASE_BUCKET"] = "test-database-bucket"
+
+    # Mock streamlit module completely to avoid protobuf issues
+    streamlit_mock = MagicMock()
+    streamlit_mock.secrets = {"gcp_service_account": {"type": "service_account"}}
+    sys.modules["streamlit"] = streamlit_mock
+
+    yield
+
+    # Restore original environment variables and streamlit module
+    os.environ.clear()
+    os.environ.update(original_environ)
+    if original_streamlit is not None:
+        sys.modules["streamlit"] = original_streamlit
+    else:
+        if "streamlit" in sys.modules:
+            del sys.modules["streamlit"]
 
 from imgstream.services.storage import StorageService, get_storage_service
 from imgstream.ui.handlers.error import StorageError

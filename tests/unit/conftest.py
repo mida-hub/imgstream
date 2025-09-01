@@ -1,4 +1,4 @@
-"""Configuration for UI unit tests."""
+"""Configuration for unit tests."""
 
 import pytest
 import streamlit as st
