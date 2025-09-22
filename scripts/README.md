@@ -6,7 +6,6 @@
 
 - **`build-image.sh`**: アプリケーション用 Docker イメージのビルド
 - **`cloud-run-image-update.sh`**: Cloud Run サービスのイメージ更新
-- **`run-e2e-tests.sh`**: エンドツーエンドテストの実行
 
 ## cloud-run-image-update.sh
 
