@@ -1,0 +1,17 @@
+# Local configuration file (not committed to git)
+# Copy this file to terraform.tfvars.local and update with your actual values
+
+# IAP configuration
+allowed_users = [
+  "user1@example.com",
+  "user2@example.com",
+  # Add more users as needed
+]
+
+iap_support_email = "support@example.com"
+
+# Monitoring configuration
+alert_email = "alerts@example.com"
+
+# Optional: Slack webhook for notifications
+# slack_webhook_url = "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"

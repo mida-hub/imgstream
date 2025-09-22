@@ -1,0 +1,58 @@
+services:
+  imgstream:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app/src
+      - GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/key.json
+    volumes:
+      # Mount source code for development
+      - ./src:/app/src:ro
+      # Mount temporary directory for DuckDB files
+      - ./imgstream_tmp:/tmp
+      - ./terraform/local/output/secrets/sa-key-imgstream-cloud-run-local.json:/etc/secrets/key.json:ro
+      # - ~/.config/gcloud:/root/.config/gcloud:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Local development with hot reload
+  imgstream-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app/src
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_RUN_ON_SAVE=true
+      # Development authentication settings
+      - ENVIRONMENT=development
+      - DEV_USER_EMAIL=developer@example.com
+      - DEV_USER_NAME=Local Developer
+      - DEV_USER_ID=dev-local-001
+      # Disable Cloud IAP requirements for local development
+      - SKIP_IAP_AUTH=true
+      - GOOGLE_APPLICATION_CREDENTIALS=/etc/secrets/key.json
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./.streamlit:/app/.streamlit
+      - ./imgstream_tmp:/tmp
+      - ./terraform/local/output/secrets/sa-key-imgstream-cloud-run-local.json:/etc/secrets/key.json:ro
+      # - ~/.config/gcloud:/root/.config/gcloud:ro
+    profiles:
+      - dev

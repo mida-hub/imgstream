@@ -1,0 +1,46 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@executeautomation/playwright-mcp-server"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "playwright_navigate",
+        "playwright_screenshot",
+        "playwright_get_visible_text",
+        "playwright_click",
+        "playwright_close",
+        "playwright_console_logs",
+        "playwright_evaluate",
+        "playwright_evaluate"
+      ]
+    },
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide-assistant"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "list_dir",
+        "activate_project",
+        "check_onboarding_performed",
+        "onboarding",
+        "get_symbols_overview",
+        "find_symbol",
+        "think_about_collected_information",
+        "find_file",
+        "search_for_pattern",
+        "search_for_pattern"
+      ]
+    }
+  }
+}
